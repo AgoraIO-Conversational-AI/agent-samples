@@ -87,6 +87,97 @@ configuration.
 - Voice only → [react-voice-client](./react-voice-client/)
 - Video/avatar → [react-video-client-avatar](./react-video-client-avatar/)
 
+## Building React Client Samples
+
+The React samples install dependencies directly from GitHub and require `--legacy-peer-deps` due to agora-rtm peer dependencies.
+
+**React Voice Client (Port 8083):**
+
+```bash
+cd react-voice-client
+npm install --legacy-peer-deps
+npm run dev
+```
+
+**React Video Avatar Client (Port 8084):**
+
+```bash
+cd react-video-client-avatar
+npm install --legacy-peer-deps
+npm run dev
+```
+
+**Avatar Requirements:**
+
+The video avatar client requires additional backend configuration:
+
+1. Set `AVATAR_ENABLED=true` in `.env`
+2. Add either HeyGen OR Anam credentials:
+   - HeyGen: `HEYGEN_API_KEY` + `HEYGEN_AVATAR_ID`
+   - Anam: `ANAM_API_KEY` + `ANAM_AVATAR_ID`
+3. Without avatar keys, the client works in voice-only mode
+
+See [simple-backend/.env.example](./simple-backend/.env.example) for avatar configuration.
+
+## Configuring TTS (Rime vs ElevenLabs)
+
+Both React clients use the backend's TTS configuration. Configure in `simple-backend/.env`:
+
+**Using Rime TTS (Default):**
+
+```bash
+TTS_VENDOR=rime
+RIME_API_KEY=your_rime_key
+RIME_SPEAKER=astra
+RIME_MODEL_ID=mistv2
+RIME_SAMPLING_RATE=16000
+```
+
+**Using ElevenLabs TTS:**
+
+```bash
+TTS_VENDOR=elevenlabs
+TTS_KEY=sk_your_elevenlabs_key
+TTS_VOICE_ID=your_voice_id
+ELEVENLABS_MODEL=eleven_flash_v2_5
+ELEVENLABS_STABILITY=0.5
+```
+
+**Using OpenAI TTS:**
+
+```bash
+TTS_VENDOR=openai
+TTS_KEY=sk_your_openai_key
+OPENAI_TTS_MODEL=tts-1
+OPENAI_TTS_VOICE=alloy
+```
+
+**Using Cartesia TTS:**
+
+```bash
+TTS_VENDOR=cartesia
+TTS_KEY=your_cartesia_key
+CARTESIA_MODEL=sonic-3
+CARTESIA_VOICE_ID=71a7ad14-091c-4e8e-a314-022ece01c121
+```
+
+**Profile-Specific TTS:**
+
+Use profiles to configure different TTS per endpoint:
+
+```bash
+# Default uses Rime
+TTS_VENDOR=rime
+RIME_API_KEY=your_rime_key
+
+# Avatar profile uses ElevenLabs
+AVATAR_TTS_VENDOR=elevenlabs
+AVATAR_TTS_KEY=sk_your_elevenlabs_key
+AVATAR_TTS_VOICE_ID=cgSgspJ2msm6clMCkdW9
+```
+
+Access via `?profile=avatar` query parameter.
+
 ## Using the Samples as Reference
 
 **The samples demonstrate production patterns you can replicate:**

@@ -9,9 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@agora/conversational-ai": "file:../../agent-toolkit/packages/conversational-ai/agora-conversational-ai-1.0.0.tgz",
-    "@agora/conversational-ai-react": "file:../../agent-toolkit/packages/react/agora-conversational-ai-react-1.0.0.tgz",
-    "@agora/agent-ui-kit": "file:../../agent-ui-kit/agora-agent-ui-kit-1.0.0.tgz",
+    "@agora/conversational-ai": "github:AgoraIO-Conversational-AI/agent-toolkit#main",
+    "@agora/conversational-ai-react": "github:AgoraIO-Conversational-AI/agent-toolkit#main",
+    "@agora/agent-ui-kit": "github:AgoraIO-Conversational-AI/agent-ui-kit#main",
     "@lottiefiles/dotlottie-react": "^0.17.10",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-popover": "^1.1.15",
