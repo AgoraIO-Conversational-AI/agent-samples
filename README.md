@@ -67,12 +67,45 @@ AWS Lambda deployment.
 
 ## Client Side
 
+### Setup Instructions
+
+The React samples require the agent-toolkit and agent-ui-kit packages. These are available in separate GitHub repositories:
+
+```bash
+# Clone the repositories (in parent directory)
+cd ..
+git clone https://github.com/AgoraIO-Conversational-AI/agent-toolkit.git
+git clone https://github.com/AgoraIO-Conversational-AI/agent-ui-kit.git
+cd agent-samples
+
+# Build and pack the toolkit packages
+cd ../agent-toolkit
+npm install
+npm run build
+cd packages/conversational-ai && npm pack && cd ../..
+cd packages/react && npm pack && cd ../..
+
+# Build and pack the UI kit
+cd ../agent-ui-kit
+npm install
+npm run build
+npm pack
+
+# Copy packages to samples
+cd ../agent-samples/react-voice-client
+cp ../../agent-toolkit/packages/conversational-ai/agora-conversational-ai-*.tgz ./agora-conversational-ai-1.0.0.tgz
+cp ../../agent-toolkit/packages/react/agora-conversational-ai-react-*.tgz ./agora-conversational-ai-react-1.0.0.tgz
+cp ../../agent-ui-kit/agora-agent-ui-kit-*.tgz ./agora-agent-ui-kit-1.0.0.tgz
+
+# Install and run
+npm install --legacy-peer-deps
+npm run dev
+```
+
 ### Core Packages
 
-- **[agent-toolkit](./agent-toolkit/)** - Core SDK toolkit with RTC/RTM helpers
-  and React hooks
-- **[agent-ui-kit](./agent-ui-kit/)** - React UI components for voice, chat, and
-  video
+- **[agent-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-toolkit)** - Core SDK toolkit with RTC/RTM helpers and React hooks
+- **[agent-ui-kit](https://github.com/AgoraIO-Conversational-AI/agent-ui-kit)** - React UI components for voice, chat, and video
 
 ### Samples
 
