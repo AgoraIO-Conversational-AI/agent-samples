@@ -67,7 +67,15 @@ def initialize_constants(profile=None):
         # TTS settings (vendor required, no default)
         "TTS_VENDOR": get_env_var('TTS_VENDOR', profile),
         "TTS_KEY": get_env_var('TTS_KEY', profile),
-        "TTS_VOICE_ID": get_env_var('TTS_VOICE_ID', profile),
+        # TTS_VOICE_ID - universal voice identifier for all vendors
+        # Falls back to vendor-specific env vars for backward compatibility
+        "TTS_VOICE_ID": (
+            get_env_var('TTS_VOICE_ID', profile) or
+            get_env_var('RIME_SPEAKER', profile) or
+            get_env_var('OPENAI_TTS_VOICE', profile) or
+            get_env_var('CARTESIA_VOICE_ID', profile) or
+            "astra"  # Default for Rime
+        ),
         "TTS_SAMPLE_RATE": get_env_var('TTS_SAMPLE_RATE', profile, "24000"),
         "TTS_SPEED": get_env_var('TTS_SPEED', profile, "1.0"),
 
@@ -77,16 +85,11 @@ def initialize_constants(profile=None):
 
         # OpenAI TTS specific defaults
         "OPENAI_TTS_MODEL": get_env_var('OPENAI_TTS_MODEL', profile, "tts-1"),
-        "OPENAI_TTS_VOICE": get_env_var('OPENAI_TTS_VOICE', profile, "alloy"),
 
         # Cartesia specific defaults
         "CARTESIA_MODEL": get_env_var('CARTESIA_MODEL', profile, "sonic-3"),
-        "CARTESIA_VOICE_ID": get_env_var('CARTESIA_VOICE_ID', profile, "71a7ad14-091c-4e8e-a314-022ece01c121"),
 
         # Rime TTS specific settings
-        # Support both TTS_KEY and RIME_API_KEY for backward compatibility
-        "RIME_API_KEY": get_env_var('RIME_API_KEY', profile) or get_env_var('TTS_KEY', profile),
-        "RIME_SPEAKER": get_env_var('RIME_SPEAKER', profile, "astra"),
         "RIME_MODEL_ID": get_env_var('RIME_MODEL_ID', profile, "mistv2"),
         "RIME_LANG": get_env_var('RIME_LANG', profile, "eng"),
         "RIME_SAMPLING_RATE": get_env_var('RIME_SAMPLING_RATE', profile, "16000"),

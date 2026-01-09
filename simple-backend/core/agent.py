@@ -43,7 +43,7 @@ def build_tts_config(tts_vendor, constants, query_params=None):
         tts_config["params"] = {
             "api_key": constants["TTS_KEY"],
             "model": query_params.get('tts_model', constants["OPENAI_TTS_MODEL"]),
-            "voice": query_params.get('voice_id', constants["OPENAI_TTS_VOICE"]),
+            "voice": query_params.get('voice_id', constants["TTS_VOICE_ID"]),
             "response_format": "pcm",
             "speed": float(query_params.get('voice_speed', constants["TTS_SPEED"]))
         }
@@ -55,14 +55,14 @@ def build_tts_config(tts_vendor, constants, query_params=None):
             "sample_rate": int(query_params.get('sample_rate', constants["TTS_SAMPLE_RATE"])),
             "voice": {
                 "mode": "id",
-                "id": query_params.get('voice_id', constants["CARTESIA_VOICE_ID"])
+                "id": query_params.get('voice_id', constants["TTS_VOICE_ID"])
             }
         }
 
     elif tts_vendor == "rime":
         tts_config["params"] = {
             "api_key": constants["TTS_KEY"],
-            "speaker": query_params.get('rime_speaker', constants["RIME_SPEAKER"]),
+            "speaker": query_params.get('voice_id', constants["TTS_VOICE_ID"]),
             "modelId": query_params.get('rime_model_id', constants["RIME_MODEL_ID"]),
             "lang": query_params.get('rime_lang', constants["RIME_LANG"]),
             "samplingRate": int(query_params.get('rime_sampling_rate', constants["RIME_SAMPLING_RATE"])),

@@ -52,8 +52,8 @@ To run the server sample that your client will connect to, you will need:
   [OpenAI API Keys](https://platform.openai.com/settings/organization/api-keys)
 - **TTS_VENDOR** - Choose TTS provider: `rime`, `elevenlabs`, `openai`, or
   `cartesia`
-- **TTS_API_KEY** - API key for your chosen TTS provider
-- **TTS_VOICE_ID** - Voice ID for your chosen TTS provider
+- **TTS_KEY** - API key for your chosen TTS provider
+- **TTS_VOICE_ID** - Voice/speaker ID for your chosen TTS provider
 
 ### Sample
 

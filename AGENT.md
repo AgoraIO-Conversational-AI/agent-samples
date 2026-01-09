@@ -128,12 +128,14 @@ See [simple-backend/.env.example](./simple-backend/.env.example) for avatar conf
 
 Both React clients use the backend's TTS configuration. Configure in `simple-backend/.env`:
 
+All vendors use the same `TTS_VOICE_ID` variable:
+
 **Using Rime TTS (Default):**
 
 ```bash
 TTS_VENDOR=rime
 TTS_KEY=your_rime_key
-RIME_SPEAKER=astra
+TTS_VOICE_ID=astra  # Options: astra, deedee, marsh
 RIME_MODEL_ID=mistv2
 RIME_SAMPLING_RATE=16000
 ```
@@ -143,7 +145,7 @@ RIME_SAMPLING_RATE=16000
 ```bash
 TTS_VENDOR=elevenlabs
 TTS_KEY=sk_your_elevenlabs_key
-TTS_VOICE_ID=your_voice_id
+TTS_VOICE_ID=TX3LPaxmHKxFdv7VOQHJ  # Get from ElevenLabs
 ELEVENLABS_MODEL=eleven_flash_v2_5
 ELEVENLABS_STABILITY=0.5
 ```
@@ -153,8 +155,8 @@ ELEVENLABS_STABILITY=0.5
 ```bash
 TTS_VENDOR=openai
 TTS_KEY=sk_your_openai_key
+TTS_VOICE_ID=alloy  # Options: alloy, echo, fable, onyx, nova, shimmer
 OPENAI_TTS_MODEL=tts-1
-OPENAI_TTS_VOICE=alloy
 ```
 
 **Using Cartesia TTS:**
@@ -162,8 +164,8 @@ OPENAI_TTS_VOICE=alloy
 ```bash
 TTS_VENDOR=cartesia
 TTS_KEY=your_cartesia_key
+TTS_VOICE_ID=71a7ad14-091c-4e8e-a314  # Get from Cartesia
 CARTESIA_MODEL=sonic-3
-CARTESIA_VOICE_ID=71a7ad14-091c-4e8e-a314-022ece01c121
 ```
 
 **Profile-Specific TTS:**

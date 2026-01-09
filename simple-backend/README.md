@@ -42,10 +42,9 @@ LLM_URL=https://api.openai.com/v1/chat/completions
 # TTS settings
 TTS_VENDOR=  # Options: rime, elevenlabs, openai, cartesia
 TTS_KEY=YOUR_TTS_API_KEY  # API key for chosen vendor
-TTS_VOICE_ID=YOUR_VOICE_ID  # Required for: elevenlabs, openai, cartesia (not needed for rime)
+TTS_VOICE_ID=YOUR_VOICE_ID  # Voice/speaker ID for chosen vendor
 
 # Rime-specific settings (if TTS_VENDOR=rime)
-RIME_SPEAKER=astra  # Options: astra, deedee, marsh, or custom
 RIME_MODEL_ID=mistv2  # Usually mistv2
 
 # ASR settings - Ares (default, no key needed)
@@ -168,48 +167,34 @@ list.
 
 The backend supports multiple TTS vendors. Choose based on your needs:
 
+All vendors use the same `TTS_VOICE_ID` variable for voice/speaker selection:
+
 **Rime:**
-
-- Get API key from [Rime AI](https://www.rime.ai/)
-- Uses `RIME_SPEAKER` instead of `TTS_VOICE_ID` (e.g., `astra`, `deedee`, `marsh`)
-
 ```bash
 TTS_VENDOR=rime
-TTS_KEY=your_rime_key
-RIME_SPEAKER=astra
+TTS_KEY=your_rime_key  # Get from https://www.rime.ai/
+TTS_VOICE_ID=astra     # Options: astra, deedee, marsh, or custom
 ```
 
 **ElevenLabs:**
-
-- Get API key from [ElevenLabs](https://elevenlabs.io/)
-- Find voice ID in voice library (e.g., `TX3LPaxmHKxFdv7VOQHJ`)
-
 ```bash
 TTS_VENDOR=elevenlabs
-TTS_KEY=your_elevenlabs_key
-TTS_VOICE_ID=TX3LPaxmHKxFdv7VOQHJ
+TTS_KEY=your_elevenlabs_key           # Get from https://elevenlabs.io/
+TTS_VOICE_ID=TX3LPaxmHKxFdv7VOQHJ    # Get from ElevenLabs voice library
 ```
 
 **OpenAI:**
-
-- Same API key as LLM_API_KEY
-- Choose from `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`
-
 ```bash
 TTS_VENDOR=openai
-TTS_KEY=your_openai_key
-TTS_VOICE_ID=alloy
+TTS_KEY=your_openai_key  # Same as LLM_API_KEY
+TTS_VOICE_ID=alloy       # Options: alloy, echo, fable, onyx, nova, shimmer
 ```
 
 **Cartesia:**
-
-- Get API key from [Cartesia](https://cartesia.ai/)
-- Get voice ID from Cartesia voice library
-
 ```bash
 TTS_VENDOR=cartesia
-TTS_KEY=your_cartesia_key
-TTS_VOICE_ID=your_voice_id
+TTS_KEY=your_cartesia_key              # Get from https://cartesia.ai/
+TTS_VOICE_ID=71a7ad14-091c-4e8e-a314  # Get from Cartesia voice library
 ```
 
 See `.env.example` for all vendor-specific configuration options.

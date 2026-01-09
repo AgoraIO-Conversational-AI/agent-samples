@@ -37,8 +37,10 @@ class TestBuildTTSConfig:
 
     def test_elevenlabs_missing_voice_id(self, test_constants):
         """Test that ElevenLabs raises error without voice_id"""
+        constants = test_constants.copy()
+        constants["TTS_VOICE_ID"] = ""  # Empty voice ID
         with pytest.raises(ValueError, match="TTS_VOICE_ID is required"):
-            build_tts_config("elevenlabs", test_constants)
+            build_tts_config("elevenlabs", constants)
 
     def test_query_param_overrides(self, test_constants):
         """Test that query params override defaults"""
