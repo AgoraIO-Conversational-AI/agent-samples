@@ -91,16 +91,19 @@ http://localhost:8084
 
 **Backend Configuration:**
 
-This client runs in **Avatar Mode** which requires backend configuration with avatar provider credentials. The client automatically uses `?profile=avatar` when connecting to the backend.
+This client sends `?profile=avatar` to use avatar profile configuration. The backend must be configured with avatar-specific settings.
 
 **Required Backend Setup:**
 
-You must configure the backend with **all voice client credentials PLUS avatar provider credentials**. The backend will be running in avatar mode most likely, so you need:
+Configure the backend with avatar profile settings (AVATAR\_\* prefixed variables):
 
-1. **Voice credentials** (APP_ID, AGENT_AUTH_HEADER, LLM_API_KEY, TTS_VENDOR, TTS_KEY, TTS_VOICE_ID)
-2. **Avatar credentials** (AVATAR_ENABLED=true, AVATAR_VENDOR, plus HeyGen or Anam API keys)
+- `AVATAR_APP_ID`, `AVATAR_APP_CERTIFICATE`, `AVATAR_AGENT_AUTH_HEADER` (Agora credentials for avatar)
+- `AVATAR_LLM_API_KEY` (LLM for avatar)
+- `AVATAR_TTS_VENDOR`, `AVATAR_TTS_KEY`, `AVATAR_TTS_VOICE_ID` (TTS for avatar)
+- `AVATAR_AVATAR_VENDOR` (heygen or anam)
+- `AVATAR_AVATAR_API_KEY`, `AVATAR_AVATAR_ID` (avatar provider credentials)
 
-See [../simple-backend/README.md - Avatar Video Client Mode](../simple-backend/README.md#avatar-video-client-mode) for complete credential list and setup instructions.
+See [../simple-backend/README.md#avatar-mode-profile-example](../simple-backend/README.md#avatar-mode-profile-example) for complete configuration example.
 
 **Start Services:**
 

@@ -45,15 +45,21 @@ audio, processes it through STT → LLM → TTS, and streams the response back.
 
 To run the server sample that your client will connect to, you will need:
 
-- **APP_ID** - [Agora Console](https://console.agora.io/)
-- **APP_CERTIFICATE** - [Agora Console](https://console.agora.io/)
-- **AGENT_AUTH_HEADER** - [Agora Console](https://console.agora.io/)
-- **LLM_API_KEY** -
-  [OpenAI API Keys](https://platform.openai.com/settings/organization/api-keys)
-- **TTS_VENDOR** - Choose TTS provider: `rime`, `elevenlabs`, `openai`, or
-  `cartesia`
-- **TTS_KEY** - API key for your chosen TTS provider
-- **TTS_VOICE_ID** - Voice/speaker ID for your chosen TTS provider
+```bash
+APP_ID=                  # Required: Agora Console
+APP_CERTIFICATE=         # Optional for testing: Agora Console
+AGENT_AUTH_HEADER=       # Required: Agora Console
+LLM_API_KEY=            # Required: OpenAI API Keys
+TTS_VENDOR=             # Required: rime, elevenlabs, openai, or cartesia
+TTS_KEY=                # Required: API key for your TTS vendor
+TTS_VOICE_ID=           # Required: Voice/speaker ID for your chosen vendor
+```
+
+**Where to get credentials:**
+
+- [Agora Console](https://console.agora.io/) - APP_ID, APP_CERTIFICATE, AGENT_AUTH_HEADER
+- [OpenAI API Keys](https://platform.openai.com/settings/organization/api-keys) - LLM_API_KEY
+- TTS vendors: [Rime](https://rime.ai/), [ElevenLabs](https://elevenlabs.io/), [OpenAI](https://platform.openai.com/), [Cartesia](https://cartesia.ai/)
 
 ### Sample
 
