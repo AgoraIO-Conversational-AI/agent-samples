@@ -168,3 +168,125 @@ class TestCreateAgentPayload:
                 query_params={},
                 agent_video_token=""
             )
+
+    def test_heygen_missing_api_key(self, test_constants):
+        """Test that HeyGen without API key raises error"""
+        constants = test_constants.copy()
+        constants.update({
+            "LLM_URL": "https://api.openai.com/v1/chat/completions",
+            "DEFAULT_PROMPT": "You are a helpful assistant",
+            "DEFAULT_GREETING": "Hello",
+            "DEFAULT_FAILURE_MESSAGE": "Error",
+            "MAX_HISTORY": 10,
+            "IDLE_TIMEOUT": 300,
+            "VAD_SILENCE_DURATION_MS": 500,
+            "ENABLE_AIVAD": "false",
+            "ASR_VENDOR": "ares",
+            "ASR_LANGUAGE": "en-US",
+            "AVATAR_ENABLED": "true",
+            "AVATAR_VENDOR": "heygen",
+            "HEYGEN_API_KEY": "",  # Missing
+            "HEYGEN_AVATAR_ID": "test_avatar",
+            "HEYGEN_QUALITY": "high",
+            "HEYGEN_ACTIVITY_IDLE_TIMEOUT": 60
+        })
+
+        with pytest.raises(ValueError, match="HEYGEN_API_KEY is required"):
+            create_agent_payload(
+                channel="test_channel",
+                constants=constants,
+                query_params={"avatar_enabled": "true"},
+                agent_video_token="video_token"
+            )
+
+    def test_heygen_missing_avatar_id(self, test_constants):
+        """Test that HeyGen without avatar ID raises error"""
+        constants = test_constants.copy()
+        constants.update({
+            "LLM_URL": "https://api.openai.com/v1/chat/completions",
+            "DEFAULT_PROMPT": "You are a helpful assistant",
+            "DEFAULT_GREETING": "Hello",
+            "DEFAULT_FAILURE_MESSAGE": "Error",
+            "MAX_HISTORY": 10,
+            "IDLE_TIMEOUT": 300,
+            "VAD_SILENCE_DURATION_MS": 500,
+            "ENABLE_AIVAD": "false",
+            "ASR_VENDOR": "ares",
+            "ASR_LANGUAGE": "en-US",
+            "AVATAR_ENABLED": "true",
+            "AVATAR_VENDOR": "heygen",
+            "HEYGEN_API_KEY": "test_key",
+            "HEYGEN_AVATAR_ID": "",  # Missing
+            "HEYGEN_QUALITY": "high",
+            "HEYGEN_ACTIVITY_IDLE_TIMEOUT": 60
+        })
+
+        with pytest.raises(ValueError, match="HEYGEN_AVATAR_ID is required"):
+            create_agent_payload(
+                channel="test_channel",
+                constants=constants,
+                query_params={"avatar_enabled": "true"},
+                agent_video_token="video_token"
+            )
+
+    def test_anam_missing_api_key(self, test_constants):
+        """Test that Anam without API key raises error"""
+        constants = test_constants.copy()
+        constants.update({
+            "LLM_URL": "https://api.openai.com/v1/chat/completions",
+            "DEFAULT_PROMPT": "You are a helpful assistant",
+            "DEFAULT_GREETING": "Hello",
+            "DEFAULT_FAILURE_MESSAGE": "Error",
+            "MAX_HISTORY": 10,
+            "IDLE_TIMEOUT": 300,
+            "VAD_SILENCE_DURATION_MS": 500,
+            "ENABLE_AIVAD": "false",
+            "ASR_VENDOR": "ares",
+            "ASR_LANGUAGE": "en-US",
+            "AVATAR_ENABLED": "true",
+            "AVATAR_VENDOR": "anam",
+            "ANAM_API_KEY": "",  # Missing
+            "ANAM_AVATAR_ID": "test_avatar",
+            "ANAM_BETA_APP_ID": "test_app_id",
+            "ANAM_BETA_ENDPOINT": "https://test.endpoint.com",
+            "ANAM_BETA_CREDENTIALS": "test_creds"
+        })
+
+        with pytest.raises(ValueError, match="ANAM_API_KEY is required"):
+            create_agent_payload(
+                channel="test_channel",
+                constants=constants,
+                query_params={"avatar_enabled": "true"},
+                agent_video_token="video_token"
+            )
+
+    def test_anam_missing_beta_credentials(self, test_constants):
+        """Test that Anam without BETA credentials raises error"""
+        constants = test_constants.copy()
+        constants.update({
+            "LLM_URL": "https://api.openai.com/v1/chat/completions",
+            "DEFAULT_PROMPT": "You are a helpful assistant",
+            "DEFAULT_GREETING": "Hello",
+            "DEFAULT_FAILURE_MESSAGE": "Error",
+            "MAX_HISTORY": 10,
+            "IDLE_TIMEOUT": 300,
+            "VAD_SILENCE_DURATION_MS": 500,
+            "ENABLE_AIVAD": "false",
+            "ASR_VENDOR": "ares",
+            "ASR_LANGUAGE": "en-US",
+            "AVATAR_ENABLED": "true",
+            "AVATAR_VENDOR": "anam",
+            "ANAM_API_KEY": "test_key",
+            "ANAM_AVATAR_ID": "test_avatar",
+            "ANAM_BETA_APP_ID": "test_app_id",
+            "ANAM_BETA_ENDPOINT": "https://test.endpoint.com",
+            "ANAM_BETA_CREDENTIALS": ""  # Missing
+        })
+
+        with pytest.raises(ValueError, match="ANAM_BETA_CREDENTIALS is required"):
+            create_agent_payload(
+                channel="test_channel",
+                constants=constants,
+                query_params={"avatar_enabled": "true"},
+                agent_video_token="video_token"
+            )

@@ -130,6 +130,18 @@ def build_avatar_config(avatar_enabled, avatar_vendor, constants, channel, agent
     query_params = query_params or {}
 
     if avatar_vendor == "heygen":
+        # Validate required HeyGen credentials
+        if not constants.get("HEYGEN_API_KEY"):
+            raise ValueError(
+                "HEYGEN_API_KEY is required when AVATAR_VENDOR=heygen. "
+                "Set HEYGEN_API_KEY in your .env file."
+            )
+        if not constants.get("HEYGEN_AVATAR_ID"):
+            raise ValueError(
+                "HEYGEN_AVATAR_ID is required when AVATAR_VENDOR=heygen. "
+                "Set HEYGEN_AVATAR_ID in your .env file (e.g., Wayne_20240711)."
+            )
+
         return {
             "enable": True,
             "vendor": "heygen",
@@ -145,6 +157,33 @@ def build_avatar_config(avatar_enabled, avatar_vendor, constants, channel, agent
             }
         }
     elif avatar_vendor == "anam":
+        # Validate required Anam credentials
+        if not constants.get("ANAM_API_KEY"):
+            raise ValueError(
+                "ANAM_API_KEY is required when AVATAR_VENDOR=anam. "
+                "Set ANAM_API_KEY in your .env file."
+            )
+        if not constants.get("ANAM_AVATAR_ID"):
+            raise ValueError(
+                "ANAM_AVATAR_ID is required when AVATAR_VENDOR=anam. "
+                "Set ANAM_AVATAR_ID in your .env file."
+            )
+        if not constants.get("ANAM_BETA_APP_ID"):
+            raise ValueError(
+                "ANAM_BETA_APP_ID is required when AVATAR_VENDOR=anam. "
+                "Set ANAM_BETA_APP_ID in your .env file."
+            )
+        if not constants.get("ANAM_BETA_ENDPOINT"):
+            raise ValueError(
+                "ANAM_BETA_ENDPOINT is required when AVATAR_VENDOR=anam. "
+                "Set ANAM_BETA_ENDPOINT in your .env file (e.g., https://api-test.agora.io/api/conversational-ai-agent/v2/projects)."
+            )
+        if not constants.get("ANAM_BETA_CREDENTIALS"):
+            raise ValueError(
+                "ANAM_BETA_CREDENTIALS is required when AVATAR_VENDOR=anam. "
+                "Set ANAM_BETA_CREDENTIALS in your .env file."
+            )
+
         # For Anam BETA with no APP_CERTIFICATE, agora_token is the BETA APP_ID
         # If there's a real token (agent_video_token), use that instead
         agora_token_value = agent_video_token if agent_video_token else constants["ANAM_BETA_APP_ID"]
@@ -155,9 +194,9 @@ def build_avatar_config(avatar_enabled, avatar_vendor, constants, channel, agent
             "params": {
                 "agora_token": agora_token_value,
                 "agora_uid": query_params.get('anam_uid', constants.get("AGENT_VIDEO_UID", "49345")),
-                "anam_api_key": query_params.get('anam_api_key', constants.get("ANAM_API_KEY", "")),
+                "anam_api_key": constants["ANAM_API_KEY"],
                 "anam_base_url": query_params.get('anam_base_url', constants.get("ANAM_BASE_URL", "https://api.anam.ai/v1")),
-                "anam_avatar_id": query_params.get('anam_avatar_id', constants.get("ANAM_AVATAR_ID", ""))
+                "anam_avatar_id": constants["ANAM_AVATAR_ID"]
             }
         }
     else:
@@ -330,26 +369,10 @@ def send_agent_to_channel(channel, agent_payload, constants):
 
     if is_anam_beta:
         # Use BETA endpoint for Anam avatar
-        app_id = constants.get("ANAM_BETA_APP_ID")
-        beta_endpoint = constants.get("ANAM_BETA_ENDPOINT")
-        beta_creds = constants.get("ANAM_BETA_CREDENTIALS")
-
-        # Validate required Anam BETA credentials
-        if not app_id:
-            raise ValueError(
-                "ANAM_BETA_APP_ID is required when using Anam avatar. "
-                "Set ANAM_BETA_APP_ID in your .env file."
-            )
-        if not beta_endpoint:
-            raise ValueError(
-                "ANAM_BETA_ENDPOINT is required when using Anam avatar. "
-                "Set ANAM_BETA_ENDPOINT in your .env file (e.g., https://api-test.agora.io/api/conversational-ai-agent/v2/projects)."
-            )
-        if not beta_creds:
-            raise ValueError(
-                "ANAM_BETA_CREDENTIALS is required when using Anam avatar. "
-                "Set ANAM_BETA_CREDENTIALS in your .env file."
-            )
+        # Credentials already validated in build_avatar_config()
+        app_id = constants["ANAM_BETA_APP_ID"]
+        beta_endpoint = constants["ANAM_BETA_ENDPOINT"]
+        beta_creds = constants["ANAM_BETA_CREDENTIALS"]
 
         agent_api_url = f"{beta_endpoint}/{app_id}/join"
         import base64
