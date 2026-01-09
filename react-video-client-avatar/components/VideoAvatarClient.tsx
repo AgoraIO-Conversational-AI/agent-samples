@@ -105,12 +105,9 @@ export function VideoAvatarClient() {
       // Build query params for backend
       const params = new URLSearchParams();
 
-      // Use avatar profile for separate avatar config
-      params.append("profile", "avatar");
-
+      // Use avatar profile - backend will determine vendor and validate credentials
       if (enableAvatar) {
-        params.append("avatar_enabled", "true");
-        params.append("avatar_vendor", "anam");
+        params.append("profile", "avatar");
       }
 
       const url = params.toString()
