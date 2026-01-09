@@ -67,26 +67,6 @@ AWS Lambda deployment.
 
 ## Client Side
 
-### Setup Instructions
-
-The React samples automatically install dependencies from GitHub. Simply run:
-
-```bash
-cd react-voice-client
-npm install --legacy-peer-deps
-npm run dev
-```
-
-Or for the video avatar client:
-
-```bash
-cd react-video-client-avatar
-npm install --legacy-peer-deps
-npm run dev
-```
-
-The `--legacy-peer-deps` flag is needed due to agora-rtm peer dependency requirements.
-
 ### Core Packages
 
 - **[agent-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-toolkit)** - Core SDK toolkit with RTC/RTM helpers and React hooks
