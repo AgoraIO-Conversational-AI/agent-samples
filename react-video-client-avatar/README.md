@@ -30,7 +30,6 @@ Agora Conversational AI SDK and UI Kit.
 - **Video Avatar Display** - Real-time avatar video streaming
 - **Local Camera Preview** - User's camera with mirror effect
 - **Responsive Layouts** - Adaptive desktop grid and mobile tab layouts
-- **Workspace Architecture** - Uses pnpm workspace packages for SDK and UI Kit
 - **Voice Interaction** - Full voice AI conversation with transcription
 - **MediaStream Rendering** - Multi-instance video display for responsive
   layouts
@@ -39,14 +38,13 @@ Agora Conversational AI SDK and UI Kit.
 
 ## Architecture
 
-This sample application uses pnpm workspace packages for the SDK and UI Kit:
+This sample application uses the Agora Conversational AI SDK and UI Kit packages installed from GitHub:
 
-**Workspace Dependencies:**
+**Dependencies:**
 
-- `@agora/conversational-ai` - Core SDK from
-  `../agent-toolkit/conversational-ai-api`
-- `@agora/conversational-ai-react` - React hooks from `../agent-toolkit/react`
-- `@agora/agent-ui-kit` - UI components from `../agent-ui-kit`
+- `@agora/conversational-ai` - Core SDK from [agent-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-toolkit)
+- `@agora/conversational-ai-react` - React hooks from [agent-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-toolkit)
+- `@agora/agent-ui-kit` - UI components from [agent-ui-kit](https://github.com/AgoraIO-Conversational-AI/agent-ui-kit)
 
 **Key Components:**
 
@@ -66,18 +64,20 @@ This sample application uses pnpm workspace packages for the SDK and UI Kit:
 
 This client runs on port **8084** and connects to the backend on port **8082**.
 
-## Quick Start
+## Setup and Run
 
-**Install dependencies (from repository root):**
+**Install dependencies:**
 
 ```bash
-pnpm install
+npm install --legacy-peer-deps
 ```
+
+The `--legacy-peer-deps` flag is required due to agora-rtm peer dependency requirements.
 
 **Run development server:**
 
 ```bash
-pnpm dev:video
+npm run dev
 ```
 
 **Open browser:**
@@ -105,7 +105,7 @@ See `../simple-backend/README.md` for avatar agent configuration details.
 2. **Start the React Video Client**:
 
    ```bash
-   pnpm dev:video
+   npm run dev
    ```
 
 3. **Connect to Agent**:
@@ -243,14 +243,13 @@ const {
   toggleMute,
   sendMessage,
   rtcHelperRef,
-} = useAgoraVoiceClient()
+} = useAgoraVoiceClient();
 ```
 
 ## Building for Production
 
 ```bash
-pnpm build
-cd react-video-client-avatar
+npm run build
 npm start
 ```
 
@@ -299,7 +298,7 @@ When adding new features:
 1. Use existing UI Kit components when possible
 2. Update TypeScript types appropriately
 3. Test both desktop and mobile layouts
-4. Test build with `pnpm build` before committing
+4. Test build with `npm run build` before committing
 5. Update this README if adding new major features
 
 ## License

@@ -26,7 +26,6 @@ UI Kit integration.
 
 ## Features
 
-- **Workspace Architecture** - Uses pnpm workspace packages for SDK and UI Kit
 - **Real-time Transcription** - Live transcription rendering with word-level and
   text-level modes
 - **UI Components** - Pre-built components for chat, audio visualization, and
@@ -39,14 +38,13 @@ UI Kit integration.
 
 ## Architecture
 
-This sample application uses pnpm workspace packages for the SDK and UI Kit:
+This sample application uses the Agora Conversational AI SDK and UI Kit packages installed from GitHub:
 
-**Workspace Dependencies:**
+**Dependencies:**
 
-- `@agora/conversational-ai` - Core SDK from
-  `../agent-toolkit/conversational-ai-api`
-- `@agora/conversational-ai-react` - React hooks from `../agent-toolkit/react`
-- `@agora/agent-ui-kit` - UI components from `../agent-ui-kit`
+- `@agora/conversational-ai` - Core SDK from [agent-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-toolkit)
+- `@agora/conversational-ai-react` - React hooks from [agent-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-toolkit)
+- `@agora/agent-ui-kit` - UI components from [agent-ui-kit](https://github.com/AgoraIO-Conversational-AI/agent-ui-kit)
 
 **Key Components:**
 
@@ -65,18 +63,20 @@ This sample application uses pnpm workspace packages for the SDK and UI Kit:
 
 This client runs on port **8083** and connects to the backend on port **8082**.
 
-## Quick Start
+## Setup and Run
 
-**Install dependencies (from repository root):**
+**Install dependencies:**
 
 ```bash
-pnpm install
+npm install --legacy-peer-deps
 ```
+
+The `--legacy-peer-deps` flag is required due to agora-rtm peer dependency requirements.
 
 **Run development server:**
 
 ```bash
-pnpm dev
+npm run dev
 ```
 
 **Open browser:**
@@ -104,7 +104,7 @@ The backend must be configured with AI agent credentials and settings. See
 2. **Start the React Client**:
 
    ```bash
-   pnpm dev
+   npm run dev
    ```
 
 3. **Connect to Agent**:
@@ -154,20 +154,20 @@ import {
   MessageEngine,
   EMessageEngineMode,
   IMessageListItem,
-} from "@/lib/message-engine"
+} from "@/lib/message-engine";
 
 const engine = new MessageEngine({
   rtcEngine: client, // Agora RTC client
   renderMode: EMessageEngineMode.AUTO, // AUTO, TEXT, or WORD
   callback: (messages) => {
     // Filter completed messages vs in-progress
-    const completedMessages = messages.filter((msg) => msg.status !== 0)
-    const inProgress = messages.find((msg) => msg.status === 0)
+    const completedMessages = messages.filter((msg) => msg.status !== 0);
+    const inProgress = messages.find((msg) => msg.status === 0);
 
-    setMessageList(completedMessages)
-    setCurrentInProgressMessage(inProgress || null)
+    setMessageList(completedMessages);
+    setCurrentInProgressMessage(inProgress || null);
   },
-})
+});
 ```
 
 **Rendering Modes:**
@@ -252,7 +252,7 @@ const {
   joinChannel,
   leaveChannel,
   toggleMute,
-} = useAgoraVoiceClient()
+} = useAgoraVoiceClient();
 ```
 
 **Responsibilities:**
