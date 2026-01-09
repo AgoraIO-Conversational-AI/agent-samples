@@ -42,8 +42,7 @@ This sample application uses the Agora Conversational AI SDK and UI Kit packages
 
 **Dependencies:**
 
-- `@agora/conversational-ai` - Core SDK from [agent-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-toolkit)
-- `@agora/conversational-ai-react` - React hooks from [agent-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-toolkit)
+- `@agora/conversational-ai` - Core SDK and React hooks from [agent-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-toolkit)
 - `@agora/agent-ui-kit` - UI components from [agent-ui-kit](https://github.com/AgoraIO-Conversational-AI/agent-ui-kit)
 
 **Key Components:**
@@ -185,8 +184,8 @@ react-video-client-avatar/
 Uses MediaStream mode for responsive layouts:
 
 ```typescript
-import { LocalVideoPreview, AvatarVideoDisplay } from '@agora/ui-kit'
-import { useLocalVideo, useRemoteVideo } from '@agora/conversational-ai-react'
+import { LocalVideoPreview, AvatarVideoDisplay } from '@agora/agent-ui-kit'
+import { useLocalVideo, useRemoteVideo } from '@agora/conversational-ai'
 
 // Local camera
 const { videoTrack } = useLocalVideo()

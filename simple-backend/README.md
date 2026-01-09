@@ -139,7 +139,7 @@ zip -r lambda.zip lambda_handler.py core/
 - `AGENT_AUTH_HEADER`
 - `LLM_API_KEY`
 - `TTS_VENDOR`
-- `RIME_API_KEY` (if using Rime)
+- `TTS_KEY` (API key for chosen TTS vendor)
 - See `.env.example` for all options
 
 **4. Configure API Gateway trigger**
@@ -155,7 +155,7 @@ list.
 - `AGENT_AUTH_HEADER` - Agora API authorization
 - `LLM_API_KEY` - OpenAI or LLM API key
 - `TTS_VENDOR` - TTS provider (rime, elevenlabs, openai, cartesia)
-- Vendor-specific keys (e.g., `RIME_API_KEY`)
+- `TTS_KEY` - API key for chosen TTS vendor
 
 **Optional:**
 
@@ -175,7 +175,7 @@ The backend supports multiple TTS vendors. Choose based on your needs:
 
 ```bash
 TTS_VENDOR=rime
-RIME_API_KEY=your_rime_key
+TTS_KEY=your_rime_key
 RIME_SPEAKER=astra
 ```
 
@@ -222,7 +222,7 @@ voice):
 ```bash
 # Base TTS (for voice client)
 TTS_VENDOR=rime
-RIME_API_KEY=your_rime_key
+TTS_KEY=your_rime_key
 
 # Avatar TTS (for video client with profile=avatar)
 AVATAR_TTS_VENDOR=elevenlabs

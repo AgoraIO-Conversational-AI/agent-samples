@@ -61,7 +61,7 @@ def build_tts_config(tts_vendor, constants, query_params=None):
 
     elif tts_vendor == "rime":
         tts_config["params"] = {
-            "api_key": constants["RIME_API_KEY"],
+            "api_key": constants["TTS_KEY"],
             "speaker": query_params.get('rime_speaker', constants["RIME_SPEAKER"]),
             "modelId": query_params.get('rime_model_id', constants["RIME_MODEL_ID"]),
             "lang": query_params.get('rime_lang', constants["RIME_LANG"]),

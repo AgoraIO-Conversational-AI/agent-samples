@@ -54,24 +54,29 @@ server technology.
 
 ## Required API Keys & Credentials
 
-Users need these credentials to run the backend:
+**Base Requirements (All Clients):**
 
 - **APP_ID** - [Agora Console](https://console.agora.io/)
 - **APP_CERTIFICATE** - [Agora Console](https://console.agora.io/)
 - **AGENT_AUTH_HEADER** - [Agora Console](https://console.agora.io/)
-- **RIME_API_KEY** - [Rime AI](https://www.rime.ai/)
-- **LLM_API_KEY** -
-  [OpenAI](https://platform.openai.com/settings/organization/api-keys)
+- **LLM_API_KEY** - [OpenAI](https://platform.openai.com/settings/organization/api-keys)
+- **TTS_VENDOR** - Choose TTS provider: `rime`, `elevenlabs`, `openai`, or `cartesia`
+- **TTS_KEY** - API key for your chosen TTS provider (e.g., RIME_API_KEY for Rime, or ElevenLabs key)
+- **TTS_VOICE_ID** - Voice ID for your chosen TTS provider (not needed for Rime)
+
+**Additional Requirements for Video Avatar Client:**
+
+- **AVATAR_ENABLED=true** - Enable avatar mode
+- **AVATAR_VENDOR** - Choose avatar provider: `heygen` or `anam`
+- **HEYGEN_API_KEY** + **HEYGEN_AVATAR_ID** (if using HeyGen)
+- **ANAM_API_KEY** + **ANAM_AVATAR_ID** (if using Anam)
 
 **Guide users to:**
 
-1. [Enable Conversational AI](https://docs.agora.io/en/conversational-ai/get-started/manage-agora-account)
-   for APP_ID/APP_CERTIFICATE
-2. [RESTful authentication](https://docs.agora.io/en/conversational-ai/rest-api/restful-authentication)
-   for AGENT_AUTH_HEADER
+1. [Enable Conversational AI](https://docs.agora.io/en/conversational-ai/get-started/manage-agora-account) for APP_ID/APP_CERTIFICATE
+2. [RESTful authentication](https://docs.agora.io/en/conversational-ai/rest-api/restful-authentication) for AGENT_AUTH_HEADER
 
-See [simple-backend/README.md](./simple-backend/README.md) for detailed
-configuration.
+See [simple-backend/README.md](./simple-backend/README.md) for detailed configuration and TTS vendor options.
 
 ## Quick Start - Running Samples
 
