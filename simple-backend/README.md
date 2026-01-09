@@ -170,31 +170,46 @@ The backend supports multiple TTS vendors. Choose based on your needs:
 
 **Rime:**
 
+- Get API key from [Rime AI](https://www.rime.ai/)
+- Uses `RIME_SPEAKER` instead of `TTS_VOICE_ID` (e.g., `astra`, `deedee`, `marsh`)
+
 ```bash
 TTS_VENDOR=rime
 RIME_API_KEY=your_rime_key
+RIME_SPEAKER=astra
 ```
 
 **ElevenLabs:**
 
+- Get API key from [ElevenLabs](https://elevenlabs.io/)
+- Find voice ID in voice library (e.g., `TX3LPaxmHKxFdv7VOQHJ`)
+
 ```bash
 TTS_VENDOR=elevenlabs
 TTS_KEY=your_elevenlabs_key
-TTS_VOICE_ID=your_voice_id
+TTS_VOICE_ID=TX3LPaxmHKxFdv7VOQHJ
 ```
 
 **OpenAI:**
 
+- Same API key as LLM_API_KEY
+- Choose from `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`
+
 ```bash
 TTS_VENDOR=openai
 TTS_KEY=your_openai_key
+TTS_VOICE_ID=alloy
 ```
 
 **Cartesia:**
 
+- Get API key from [Cartesia](https://cartesia.ai/)
+- Get voice ID from Cartesia voice library
+
 ```bash
 TTS_VENDOR=cartesia
 TTS_KEY=your_cartesia_key
+TTS_VOICE_ID=your_voice_id
 ```
 
 See `.env.example` for all vendor-specific configuration options.
