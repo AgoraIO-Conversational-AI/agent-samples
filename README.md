@@ -50,8 +50,8 @@ To run the server sample that your client will connect to, you will need:
 - **AGENT_AUTH_HEADER** - [Agora Console](https://console.agora.io/)
 - **LLM_API_KEY** -
   [OpenAI API Keys](https://platform.openai.com/settings/organization/api-keys)
-- **TTS_VENDOR** - Choose TTS provider: `rime` (default), `elevenlabs`,
-  `openai`, or `cartesia`
+- **TTS_VENDOR** - Choose TTS provider: `rime`, `elevenlabs`, `openai`, or
+  `cartesia`
 - **TTS_API_KEY** - API key for your chosen TTS provider:
   - Rime: Get from [Rime AI](https://www.rime.ai/)
   - ElevenLabs: Get from [ElevenLabs](https://elevenlabs.io/)

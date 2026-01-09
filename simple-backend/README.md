@@ -40,7 +40,7 @@ LLM_MODEL=gpt-4o
 LLM_URL=https://api.openai.com/v1/chat/completions
 
 # TTS settings
-TTS_VENDOR=rime  # Options: rime, elevenlabs, openai, cartesia
+TTS_VENDOR=  # Options: rime, elevenlabs, openai, cartesia
 TTS_KEY=YOUR_TTS_API_KEY  # API key for chosen vendor
 TTS_VOICE_ID=YOUR_VOICE_ID  # Required for: elevenlabs, openai, cartesia (not needed for rime)
 
@@ -168,7 +168,7 @@ list.
 
 The backend supports multiple TTS vendors. Choose based on your needs:
 
-**Rime (Default):**
+**Rime:**
 
 ```bash
 TTS_VENDOR=rime
