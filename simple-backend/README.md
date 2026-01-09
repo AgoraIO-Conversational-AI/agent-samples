@@ -93,39 +93,11 @@ pip3 install -r requirements-local.txt
 
 **2. Configure environment:**
 
-Create `.env` file with your credentials:
+Create `.env` file with your credentials based on which client you're running:
+- For voice clients, see [Voice Client Mode](#voice-client-mode) configuration above
+- For avatar video client, see [Avatar Video Client Mode](#avatar-video-client-mode) configuration above
 
-```bash
-# Agora settings
-APP_ID=YOUR_AGORA_APP_ID
-APP_CERTIFICATE=
-AGENT_AUTH_HEADER=YOUR_AGORA_AUTH_HEADER
-
-# LLM settings
-LLM_API_KEY=YOUR_OPENAI_API_KEY
-LLM_MODEL=gpt-4o
-LLM_URL=https://api.openai.com/v1/chat/completions
-
-# TTS settings
-TTS_VENDOR=  # Options: rime, elevenlabs, openai, cartesia
-TTS_KEY=YOUR_TTS_API_KEY  # API key for chosen vendor
-TTS_VOICE_ID=YOUR_VOICE_ID  # Voice/speaker ID for chosen vendor
-
-# Rime-specific settings (if TTS_VENDOR=rime)
-RIME_MODEL_ID=mistv2  # Usually mistv2
-
-# ASR settings - Ares (default, no key needed)
-ASR_VENDOR=ares
-
-# AIVAD settings
-ENABLE_AIVAD=false
-
-# Prompts and messages
-DEFAULT_GREETING=Hey there, I am Quiz Master Bella, would you like me to quiz you on capital cities?
-DEFAULT_PROMPT=You are Bella, a quiz master who asks capital city questions. Keep responses under 30 words and immediately ask the next question after announcing the result.
-```
-
-See `.env.example` for all available configuration options.
+See `.env.example` in this directory for all available configuration options and examples.
 
 **3. Run server:**
 
@@ -209,78 +181,6 @@ zip -r lambda.zip lambda_handler.py core/
 - See `.env.example` for all options
 
 **4. Configure API Gateway trigger**
-
-## Configuration
-
-All configuration via environment variables. See `.env.example` for complete
-list.
-
-**Required:**
-
-- `APP_ID` - Agora App ID
-- `AGENT_AUTH_HEADER` - Agora API authorization
-- `LLM_API_KEY` - OpenAI or LLM API key
-- `TTS_VENDOR` - TTS provider (rime, elevenlabs, openai, cartesia)
-- `TTS_KEY` - API key for chosen TTS vendor
-
-**Optional:**
-
-- `APP_CERTIFICATE` - For token security (leave blank for testing)
-- `ASR_VENDOR` - Speech recognition (default: ares, no key needed)
-- `ENABLE_AIVAD` - AI voice activity detection (default: true)
-- Profile overrides: Suffix any var with `_profilename`
-
-### TTS Vendor Options
-
-The backend supports multiple TTS vendors. Choose based on your needs:
-
-All vendors use the same `TTS_VOICE_ID` variable for voice/speaker selection:
-
-**Rime:**
-```bash
-TTS_VENDOR=rime
-TTS_KEY=your_rime_key  # Get from https://www.rime.ai/
-TTS_VOICE_ID=astra     # Options: astra, deedee, marsh, or custom
-```
-
-**ElevenLabs:**
-```bash
-TTS_VENDOR=elevenlabs
-TTS_KEY=your_elevenlabs_key           # Get from https://elevenlabs.io/
-TTS_VOICE_ID=TX3LPaxmHKxFdv7VOQHJ    # Get from ElevenLabs voice library
-```
-
-**OpenAI:**
-```bash
-TTS_VENDOR=openai
-TTS_KEY=your_openai_key  # Same as LLM_API_KEY
-TTS_VOICE_ID=alloy       # Options: alloy, echo, fable, onyx, nova, shimmer
-```
-
-**Cartesia:**
-```bash
-TTS_VENDOR=cartesia
-TTS_KEY=your_cartesia_key              # Get from https://cartesia.ai/
-TTS_VOICE_ID=71a7ad14-091c-4e8e-a314  # Get from Cartesia voice library
-```
-
-See `.env.example` for all vendor-specific configuration options.
-
-**Profile-specific TTS:**
-
-You can use different TTS vendors for different profiles (e.g., avatar vs
-voice):
-
-```bash
-# Base TTS (for voice client)
-TTS_VENDOR=rime
-TTS_KEY=your_rime_key
-
-# Avatar TTS (for video client with profile=avatar)
-AVATAR_TTS_VENDOR=elevenlabs
-AVATAR_TTS_KEY=your_elevenlabs_key
-AVATAR_TTS_VOICE_ID=your_voice_id
-```
 
 ## Architecture
 

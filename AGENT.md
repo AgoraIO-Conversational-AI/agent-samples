@@ -61,8 +61,8 @@ server technology.
 - **AGENT_AUTH_HEADER** - [Agora Console](https://console.agora.io/)
 - **LLM_API_KEY** - [OpenAI](https://platform.openai.com/settings/organization/api-keys)
 - **TTS_VENDOR** - Choose TTS provider: `rime`, `elevenlabs`, `openai`, or `cartesia`
-- **TTS_KEY** - API key for your chosen TTS provider (e.g., RIME_API_KEY for Rime, or ElevenLabs key)
-- **TTS_VOICE_ID** - Voice ID for your chosen TTS provider (not needed for Rime)
+- **TTS_KEY** - API key for your chosen TTS provider
+- **TTS_VOICE_ID** - Voice/speaker ID for your chosen TTS provider (all vendors use this)
 
 **Additional Requirements for Video Avatar Client:**
 
@@ -124,66 +124,23 @@ The video avatar client requires additional backend configuration:
 
 See [simple-backend/.env.example](./simple-backend/.env.example) for avatar configuration.
 
-## Configuring TTS (Rime vs ElevenLabs)
+## Configuring TTS
 
-Both React clients use the backend's TTS configuration. Configure in `simple-backend/.env`:
-
-All vendors use the same `TTS_VOICE_ID` variable:
-
-**Using Rime TTS (Default):**
+Both React clients use the backend's TTS configuration. All TTS vendors use the same three variables:
 
 ```bash
-TTS_VENDOR=rime
-TTS_KEY=your_rime_key
-TTS_VOICE_ID=astra  # Options: astra, deedee, marsh
-RIME_MODEL_ID=mistv2
-RIME_SAMPLING_RATE=16000
+TTS_VENDOR=rime  # Options: rime, elevenlabs, openai, cartesia
+TTS_KEY=your_api_key
+TTS_VOICE_ID=astra  # Voice/speaker ID for chosen vendor
 ```
 
-**Using ElevenLabs TTS:**
+**Voice ID examples by vendor:**
+- **Rime**: `astra`, `deedee`, `marsh`
+- **ElevenLabs**: Get from [voice library](https://elevenlabs.io/)
+- **OpenAI**: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`
+- **Cartesia**: Get from [voice library](https://cartesia.ai/)
 
-```bash
-TTS_VENDOR=elevenlabs
-TTS_KEY=sk_your_elevenlabs_key
-TTS_VOICE_ID=TX3LPaxmHKxFdv7VOQHJ  # Get from ElevenLabs
-ELEVENLABS_MODEL=eleven_flash_v2_5
-ELEVENLABS_STABILITY=0.5
-```
-
-**Using OpenAI TTS:**
-
-```bash
-TTS_VENDOR=openai
-TTS_KEY=sk_your_openai_key
-TTS_VOICE_ID=alloy  # Options: alloy, echo, fable, onyx, nova, shimmer
-OPENAI_TTS_MODEL=tts-1
-```
-
-**Using Cartesia TTS:**
-
-```bash
-TTS_VENDOR=cartesia
-TTS_KEY=your_cartesia_key
-TTS_VOICE_ID=71a7ad14-091c-4e8e-a314  # Get from Cartesia
-CARTESIA_MODEL=sonic-3
-```
-
-**Profile-Specific TTS:**
-
-Use profiles to configure different TTS per endpoint:
-
-```bash
-# Default uses Rime
-TTS_VENDOR=rime
-TTS_KEY=your_rime_key
-
-# Avatar profile uses ElevenLabs
-AVATAR_TTS_VENDOR=elevenlabs
-AVATAR_TTS_KEY=sk_your_elevenlabs_key
-AVATAR_TTS_VOICE_ID=cgSgspJ2msm6clMCkdW9
-```
-
-Access via `?profile=avatar` query parameter.
+See [simple-backend/README.md - Configuration for Client Types](./simple-backend/README.md#configuration-for-client-types) for complete vendor-specific configuration details and profile-specific TTS setup.
 
 ## Using the Samples as Reference
 
