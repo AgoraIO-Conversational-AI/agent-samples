@@ -3,8 +3,13 @@
 Python backend for managing AI agents and generating RTC credentials. Supports
 local development, cloud instances, and AWS Lambda deployment.
 
+> **📘 For AI Coding Assistants:** See [../AGENT.md](../AGENT.md) for comprehensive implementation guidance and API reference.
+
 ## Table of Contents
 
+- [Configuration for Client Types](#configuration-for-client-types)
+  - [Voice Client Mode](#voice-client-mode)
+  - [Avatar Video Client Mode](#avatar-video-client-mode)
 - [Usage](#usage)
   - [Local Development](#local-development)
   - [AWS Lambda Deployment](#aws-lambda-deployment)
@@ -13,6 +18,68 @@ local development, cloud instances, and AWS Lambda deployment.
 - [Running Tests](#running-tests)
 - [Profile Support](#profile-support)
 - [Curl Request Dumps](#curl-request-dumps)
+
+## Configuration for Client Types
+
+Choose your configuration based on which client you're running.
+
+### Voice Client Mode
+
+**For:** `react-voice-client`, `simple-voice-client`, `complete-voice-client`
+
+**Required credentials:**
+
+```bash
+# Agora settings
+APP_ID=YOUR_AGORA_APP_ID
+APP_CERTIFICATE=YOUR_AGORA_APP_CERTIFICATE  # Optional for testing
+AGENT_AUTH_HEADER=YOUR_AGORA_AUTH_HEADER
+
+# LLM settings
+LLM_API_KEY=YOUR_OPENAI_API_KEY
+
+# TTS settings - Choose ONE vendor
+TTS_VENDOR=rime  # Options: rime, elevenlabs, openai, cartesia
+TTS_KEY=YOUR_TTS_API_KEY
+TTS_VOICE_ID=astra  # Voice/speaker ID for chosen vendor
+```
+
+**TTS Voice Options by Vendor:**
+- **Rime**: `astra`, `deedee`, `marsh` (no additional key needed beyond TTS_KEY)
+- **ElevenLabs**: Get voice ID from [ElevenLabs voice library](https://elevenlabs.io/)
+- **OpenAI**: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`
+- **Cartesia**: Get voice ID from [Cartesia voice library](https://cartesia.ai/)
+
+### Avatar Video Client Mode
+
+**For:** `react-video-client-avatar`
+
+**Required: All Voice Client credentials above, PLUS avatar provider credentials**
+
+**Choose HeyGen OR Anam:**
+
+**Option 1: HeyGen Avatar**
+```bash
+# Add to your .env file (in addition to voice client settings)
+AVATAR_ENABLED=true
+AVATAR_VENDOR=heygen
+HEYGEN_API_KEY=YOUR_HEYGEN_KEY
+HEYGEN_AVATAR_ID=Wayne_20240711  # Get from HeyGen avatar library
+```
+
+**Option 2: Anam Avatar (Beta)**
+```bash
+# Add to your .env file (in addition to voice client settings)
+AVATAR_ENABLED=true
+AVATAR_VENDOR=anam
+ANAM_API_KEY=YOUR_ANAM_KEY
+ANAM_AVATAR_ID=YOUR_ANAM_AVATAR_ID
+ANAM_BETA_APP_ID=YOUR_BETA_APP_ID
+ANAM_BETA_CREDENTIALS=YOUR_BETA_CREDENTIALS
+ANAM_BETA_ENDPOINT=https://api-test.agora.io/api/conversational-ai-agent/v2/projects
+```
+
+**Note:** Without avatar credentials, the video client works in voice-only mode with local camera preview but no avatar video stream.
 
 ## Usage
 

@@ -4,6 +4,8 @@ Simple HTML/Javascript client for connecting to an Agora RTC Channel with 2-way
 audio. Agora AI voice agents can come and go. Useful for testing agents without
 needing to refresh or reconnect client.
 
+> **📘 For AI Coding Assistants:** See [../AGENT.md](../AGENT.md) for comprehensive implementation guidance.
+
 ## Usage
 
 Open `index.html` in a browser. Configure via form or URL parameters:

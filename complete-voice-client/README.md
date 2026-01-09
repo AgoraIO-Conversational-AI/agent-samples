@@ -3,6 +3,8 @@
 Complete HTML/Javascript client that calls a backend to start an Agora AI voice
 agent and get RTC credentials, then joins the channel to talk with the agent.
 
+> **📘 For AI Coding Assistants:** See [../AGENT.md](../AGENT.md) for comprehensive implementation guidance.
+
 ## How It Works
 
 1. User enters channel name and backend URL (optional)

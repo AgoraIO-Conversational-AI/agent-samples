@@ -3,6 +3,8 @@
 React/Next.js implementation demonstrating video avatar integration with the
 Agora Conversational AI SDK and UI Kit.
 
+> **📘 For AI Coding Assistants:** See [../AGENT.md](../AGENT.md) for comprehensive implementation guidance and API reference.
+
 ## Table of Contents
 
 - [Features](#features)
@@ -89,8 +91,16 @@ http://localhost:8084
 
 **Backend Configuration:**
 
-The backend must be configured with avatar provider credentials and settings.
-See `../simple-backend/README.md` for avatar agent configuration details.
+This client runs in **Avatar Mode** which requires backend configuration with avatar provider credentials. The client automatically uses `?profile=avatar` when connecting to the backend.
+
+**Required Backend Setup:**
+
+You must configure the backend with **all voice client credentials PLUS avatar provider credentials**. The backend will be running in avatar mode most likely, so you need:
+
+1. **Voice credentials** (APP_ID, AGENT_AUTH_HEADER, LLM_API_KEY, TTS_VENDOR, TTS_KEY, TTS_VOICE_ID)
+2. **Avatar credentials** (AVATAR_ENABLED=true, AVATAR_VENDOR, plus HeyGen or Anam API keys)
+
+See [../simple-backend/README.md - Avatar Video Client Mode](../simple-backend/README.md#avatar-video-client-mode) for complete credential list and setup instructions.
 
 **Start Services:**
 

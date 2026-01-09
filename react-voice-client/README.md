@@ -3,6 +3,8 @@
 React/Next.js implementation demonstrating the Agora Conversational AI SDK and
 UI Kit integration.
 
+> **📘 For AI Coding Assistants:** See [../AGENT.md](../AGENT.md) for comprehensive implementation guidance and API reference.
+
 ## Table of Contents
 
 - [Features](#features)
