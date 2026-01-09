@@ -60,13 +60,11 @@ def start_agent():
     # Check if token-only mode
     token_only_mode = query_params.get('connect', 'true').lower() == 'false'
 
-    # Check if avatar mode is enabled (determines which APP_ID to use)
-    avatar_enabled = query_params.get('avatar_enabled', constants["AVATAR_ENABLED"]).lower() == "true"
-    avatar_vendor = query_params.get('avatar_vendor', constants["AVATAR_VENDOR"])
-    is_anam_avatar = avatar_enabled and avatar_vendor == "anam"
+    # Check if avatar mode is enabled (avatar vendor determines mode)
+    avatar_vendor = constants.get("AVATAR_VENDOR")
 
-    # Use BETA APP_ID for Anam avatar, regular APP_ID otherwise
-    app_id_to_use = constants["ANAM_BETA_APP_ID"] if is_anam_avatar else constants["APP_ID"]
+    # Use regular APP_ID (profile-aware, so AVATAR_APP_ID if profile=avatar)
+    app_id_to_use = constants["APP_ID"]
 
     # Check if we have APP_CERTIFICATE for token generation
     has_certificate = bool(constants["APP_CERTIFICATE"] and constants["APP_CERTIFICATE"].strip())

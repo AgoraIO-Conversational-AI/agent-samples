@@ -48,7 +48,8 @@ def initialize_constants(profile=None):
         "APP_ID": get_env_var('APP_ID', profile),
         "APP_CERTIFICATE": get_env_var('APP_CERTIFICATE', profile, ''),
         "AGENT_AUTH_HEADER": get_env_var('AGENT_AUTH_HEADER', profile),
-        "AGENT_API_BASE_URL": "https://api.agora.io/api/conversational-ai-agent/v2/projects",
+        "AGENT_ENDPOINT": get_env_var('AGENT_ENDPOINT', profile,
+            "https://api.agora.io/api/conversational-ai-agent/v2/projects"),
 
         # Fixed UIDs
         "AGENT_UID": "100",
@@ -73,8 +74,7 @@ def initialize_constants(profile=None):
             get_env_var('TTS_VOICE_ID', profile) or
             get_env_var('RIME_SPEAKER', profile) or
             get_env_var('OPENAI_TTS_VOICE', profile) or
-            get_env_var('CARTESIA_VOICE_ID', profile) or
-            "astra"  # Default for Rime
+            get_env_var('CARTESIA_VOICE_ID', profile)
         ),
         "TTS_SAMPLE_RATE": get_env_var('TTS_SAMPLE_RATE', profile, "24000"),
         "TTS_SPEED": get_env_var('TTS_SPEED', profile, "1.0"),
@@ -115,23 +115,19 @@ def initialize_constants(profile=None):
         # Debug settings
         "ENABLE_CURL_DUMP": get_env_var('ENABLE_CURL_DUMP', profile, "false"),
 
-        # Avatar settings (off by default)
-        "AVATAR_ENABLED": get_env_var('AVATAR_ENABLED', profile, "false"),
-        "AVATAR_VENDOR": get_env_var('AVATAR_VENDOR', profile, "heygen"),
+        # Avatar settings (vendor-neutral)
+        "AVATAR_VENDOR": get_env_var('AVATAR_VENDOR', profile),
+        "AVATAR_API_KEY": get_env_var('AVATAR_API_KEY', profile),
+        "AVATAR_ID": get_env_var('AVATAR_ID', profile),
 
-        # HeyGen specific settings
-        "HEYGEN_API_KEY": get_env_var('HEYGEN_API_KEY', profile),
-        "HEYGEN_AVATAR_ID": get_env_var('HEYGEN_AVATAR_ID', profile, "Wayne_20240711"),
+        # HeyGen specific settings (non-credential options)
         "HEYGEN_QUALITY": get_env_var('HEYGEN_QUALITY', profile, "high"),
         "HEYGEN_ACTIVITY_IDLE_TIMEOUT": get_env_var('HEYGEN_ACTIVITY_IDLE_TIMEOUT', profile, "120"),
 
-        # Anam Avatar BETA settings
-        "ANAM_API_KEY": get_env_var('ANAM_API_KEY', profile),
-        "ANAM_AVATAR_ID": get_env_var('ANAM_AVATAR_ID', profile),
+        # Anam specific settings (endpoints used automatically when vendor=anam)
+        "ANAM_AGENT_ENDPOINT": get_env_var('ANAM_AGENT_ENDPOINT', profile,
+            "https://api-test.agora.io/api/conversational-ai-agent/v2/projects"),
         "ANAM_BASE_URL": get_env_var('ANAM_BASE_URL', profile, "https://api.anam.ai/v1"),
-        "ANAM_BETA_APP_ID": get_env_var('ANAM_BETA_APP_ID', profile),
-        "ANAM_BETA_CREDENTIALS": get_env_var('ANAM_BETA_CREDENTIALS', profile),
-        "ANAM_BETA_ENDPOINT": get_env_var('ANAM_BETA_ENDPOINT', profile, "https://api-test.agora.io/api/conversational-ai-agent/v2/projects"),
 
         # Default prompt and messages
         "DEFAULT_PROMPT": get_env_var('DEFAULT_PROMPT', profile,

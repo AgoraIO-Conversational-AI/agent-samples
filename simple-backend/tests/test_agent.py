@@ -111,7 +111,7 @@ class TestCreateAgentPayload:
         assert "asr" in payload["properties"]
 
     def test_payload_with_avatar(self, test_constants):
-        """Test payload includes avatar when enabled"""
+        """Test payload includes avatar when vendor is set"""
         constants = test_constants.copy()
         constants.update({
             "LLM_URL": "https://api.openai.com/v1/chat/completions",
@@ -124,10 +124,9 @@ class TestCreateAgentPayload:
             "ENABLE_AIVAD": "false",
             "ASR_VENDOR": "ares",
             "ASR_LANGUAGE": "en-US",
-            "AVATAR_ENABLED": "true",
             "AVATAR_VENDOR": "heygen",
-            "HEYGEN_API_KEY": "test_key",
-            "HEYGEN_AVATAR_ID": "test_avatar",
+            "AVATAR_API_KEY": "test_key",
+            "AVATAR_ID": "test_avatar",
             "HEYGEN_QUALITY": "high",
             "HEYGEN_ACTIVITY_IDLE_TIMEOUT": 60
         })
@@ -135,7 +134,7 @@ class TestCreateAgentPayload:
         payload = create_agent_payload(
             channel="test_channel",
             constants=constants,
-            query_params={"avatar_enabled": "true"},
+            query_params={},
             agent_video_token="video_token_here"
         )
 
@@ -157,7 +156,6 @@ class TestCreateAgentPayload:
             "ENABLE_AIVAD": "false",
             "ASR_VENDOR": "ares",
             "ASR_LANGUAGE": "en-US",
-            "AVATAR_ENABLED": "false",
             "AVATAR_VENDOR": ""
         })
 
@@ -183,19 +181,18 @@ class TestCreateAgentPayload:
             "ENABLE_AIVAD": "false",
             "ASR_VENDOR": "ares",
             "ASR_LANGUAGE": "en-US",
-            "AVATAR_ENABLED": "true",
             "AVATAR_VENDOR": "heygen",
-            "HEYGEN_API_KEY": "",  # Missing
-            "HEYGEN_AVATAR_ID": "test_avatar",
+            "AVATAR_API_KEY": "",  # Missing
+            "AVATAR_ID": "test_avatar",
             "HEYGEN_QUALITY": "high",
             "HEYGEN_ACTIVITY_IDLE_TIMEOUT": 60
         })
 
-        with pytest.raises(ValueError, match="HEYGEN_API_KEY is required"):
+        with pytest.raises(ValueError, match="AVATAR_API_KEY is required"):
             create_agent_payload(
                 channel="test_channel",
                 constants=constants,
-                query_params={"avatar_enabled": "true"},
+                query_params={},
                 agent_video_token="video_token"
             )
 
@@ -213,19 +210,18 @@ class TestCreateAgentPayload:
             "ENABLE_AIVAD": "false",
             "ASR_VENDOR": "ares",
             "ASR_LANGUAGE": "en-US",
-            "AVATAR_ENABLED": "true",
             "AVATAR_VENDOR": "heygen",
-            "HEYGEN_API_KEY": "test_key",
-            "HEYGEN_AVATAR_ID": "",  # Missing
+            "AVATAR_API_KEY": "test_key",
+            "AVATAR_ID": "",  # Missing
             "HEYGEN_QUALITY": "high",
             "HEYGEN_ACTIVITY_IDLE_TIMEOUT": 60
         })
 
-        with pytest.raises(ValueError, match="HEYGEN_AVATAR_ID is required"):
+        with pytest.raises(ValueError, match="AVATAR_ID is required"):
             create_agent_payload(
                 channel="test_channel",
                 constants=constants,
-                query_params={"avatar_enabled": "true"},
+                query_params={},
                 agent_video_token="video_token"
             )
 
@@ -243,25 +239,23 @@ class TestCreateAgentPayload:
             "ENABLE_AIVAD": "false",
             "ASR_VENDOR": "ares",
             "ASR_LANGUAGE": "en-US",
-            "AVATAR_ENABLED": "true",
             "AVATAR_VENDOR": "anam",
-            "ANAM_API_KEY": "",  # Missing
-            "ANAM_AVATAR_ID": "test_avatar",
-            "ANAM_BETA_APP_ID": "test_app_id",
-            "ANAM_BETA_ENDPOINT": "https://test.endpoint.com",
-            "ANAM_BETA_CREDENTIALS": "test_creds"
+            "AVATAR_API_KEY": "",  # Missing
+            "AVATAR_ID": "test_avatar",
+            "ANAM_AGENT_ENDPOINT": "https://test.endpoint.com",
+            "ANAM_BASE_URL": "https://api.anam.ai/v1"
         })
 
-        with pytest.raises(ValueError, match="ANAM_API_KEY is required"):
+        with pytest.raises(ValueError, match="AVATAR_API_KEY is required"):
             create_agent_payload(
                 channel="test_channel",
                 constants=constants,
-                query_params={"avatar_enabled": "true"},
+                query_params={},
                 agent_video_token="video_token"
             )
 
-    def test_anam_missing_beta_credentials(self, test_constants):
-        """Test that Anam without BETA credentials raises error"""
+    def test_anam_missing_avatar_id(self, test_constants):
+        """Test that Anam without avatar ID raises error"""
         constants = test_constants.copy()
         constants.update({
             "LLM_URL": "https://api.openai.com/v1/chat/completions",
@@ -274,19 +268,17 @@ class TestCreateAgentPayload:
             "ENABLE_AIVAD": "false",
             "ASR_VENDOR": "ares",
             "ASR_LANGUAGE": "en-US",
-            "AVATAR_ENABLED": "true",
             "AVATAR_VENDOR": "anam",
-            "ANAM_API_KEY": "test_key",
-            "ANAM_AVATAR_ID": "test_avatar",
-            "ANAM_BETA_APP_ID": "test_app_id",
-            "ANAM_BETA_ENDPOINT": "https://test.endpoint.com",
-            "ANAM_BETA_CREDENTIALS": ""  # Missing
+            "AVATAR_API_KEY": "test_key",
+            "AVATAR_ID": "",  # Missing
+            "ANAM_AGENT_ENDPOINT": "https://test.endpoint.com",
+            "ANAM_BASE_URL": "https://api.anam.ai/v1"
         })
 
-        with pytest.raises(ValueError, match="ANAM_BETA_CREDENTIALS is required"):
+        with pytest.raises(ValueError, match="AVATAR_ID is required"):
             create_agent_payload(
                 channel="test_channel",
                 constants=constants,
-                query_params={"avatar_enabled": "true"},
+                query_params={},
                 agent_video_token="video_token"
             )

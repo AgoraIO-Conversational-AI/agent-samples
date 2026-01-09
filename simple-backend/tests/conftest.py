@@ -40,7 +40,7 @@ def test_constants():
         "USER_UID": 123,
         "AGENT_UID": 456,
         "AGENT_VIDEO_UID": 789,
-        "AGENT_API_BASE_URL": "https://api.agora.io/v1/projects",
+        "AGENT_ENDPOINT": "https://api.agora.io/api/conversational-ai-agent/v2/projects",
         "AGENT_API_KEY": "test_api_key",
         "AGENT_API_SECRET": "test_api_secret",
         "AGENT_AUTH_HEADER": f"Basic {credentials}",
@@ -72,10 +72,11 @@ def test_constants():
         "IDLE_TIMEOUT": 300,
         "VAD_SILENCE_DURATION_MS": 500,
         "ENABLE_AIVAD": "false",
-        "AVATAR_ENABLED": "false",
         "AVATAR_VENDOR": "",
-        "HEYGEN_API_KEY": "",
-        "HEYGEN_AVATAR_ID": "",
+        "AVATAR_API_KEY": "",
+        "AVATAR_ID": "",
         "HEYGEN_QUALITY": "high",
-        "HEYGEN_ACTIVITY_IDLE_TIMEOUT": 60
+        "HEYGEN_ACTIVITY_IDLE_TIMEOUT": 60,
+        "ANAM_AGENT_ENDPOINT": "https://api-test.agora.io/api/conversational-ai-agent/v2/projects",
+        "ANAM_BASE_URL": "https://api.anam.ai/v1"
     }

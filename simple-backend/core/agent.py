@@ -109,45 +109,44 @@ def build_asr_config(asr_vendor, constants, query_params=None):
     return asr_config
 
 
-def build_avatar_config(avatar_enabled, avatar_vendor, constants, channel, agent_video_token, query_params=None):
+def build_avatar_config(avatar_vendor, constants, channel, agent_video_token, query_params=None):
     """
     Builds avatar configuration based on vendor.
 
     Args:
-        avatar_enabled: Whether avatar is enabled
-        avatar_vendor: The avatar vendor name
+        avatar_vendor: The avatar vendor name (heygen, anam, or None)
         constants: Dictionary of constants
         channel: The channel name
         agent_video_token: Token for the avatar video stream
         query_params: Optional query parameters for overrides
 
     Returns:
-        Dictionary containing avatar configuration, or None if disabled
+        Dictionary containing avatar configuration, or None if no vendor
     """
-    if not avatar_enabled:
+    if not avatar_vendor:
         return None
 
     query_params = query_params or {}
 
-    if avatar_vendor == "heygen":
-        # Validate required HeyGen credentials
-        if not constants.get("HEYGEN_API_KEY"):
-            raise ValueError(
-                "HEYGEN_API_KEY is required when AVATAR_VENDOR=heygen. "
-                "Set HEYGEN_API_KEY in your .env file."
-            )
-        if not constants.get("HEYGEN_AVATAR_ID"):
-            raise ValueError(
-                "HEYGEN_AVATAR_ID is required when AVATAR_VENDOR=heygen. "
-                "Set HEYGEN_AVATAR_ID in your .env file (e.g., Wayne_20240711)."
-            )
+    # Validate generic avatar credentials
+    if not constants.get("AVATAR_API_KEY"):
+        raise ValueError(
+            f"AVATAR_API_KEY is required when AVATAR_VENDOR={avatar_vendor}. "
+            f"Set AVATAR_API_KEY in your .env file."
+        )
+    if not constants.get("AVATAR_ID"):
+        raise ValueError(
+            f"AVATAR_ID is required when AVATAR_VENDOR={avatar_vendor}. "
+            f"Set AVATAR_ID in your .env file."
+        )
 
+    if avatar_vendor == "heygen":
         return {
             "enable": True,
             "vendor": "heygen",
             "params": {
-                "api_key": constants["HEYGEN_API_KEY"],
-                "avatar_id": query_params.get('heygen_avatar_id', constants["HEYGEN_AVATAR_ID"]),
+                "api_key": constants["AVATAR_API_KEY"],
+                "avatar_id": constants["AVATAR_ID"],
                 "quality": query_params.get('heygen_quality', constants["HEYGEN_QUALITY"]),
                 "agora_appid": constants["APP_ID"],
                 "agora_token": agent_video_token,
@@ -157,36 +156,8 @@ def build_avatar_config(avatar_enabled, avatar_vendor, constants, channel, agent
             }
         }
     elif avatar_vendor == "anam":
-        # Validate required Anam credentials
-        if not constants.get("ANAM_API_KEY"):
-            raise ValueError(
-                "ANAM_API_KEY is required when AVATAR_VENDOR=anam. "
-                "Set ANAM_API_KEY in your .env file."
-            )
-        if not constants.get("ANAM_AVATAR_ID"):
-            raise ValueError(
-                "ANAM_AVATAR_ID is required when AVATAR_VENDOR=anam. "
-                "Set ANAM_AVATAR_ID in your .env file."
-            )
-        if not constants.get("ANAM_BETA_APP_ID"):
-            raise ValueError(
-                "ANAM_BETA_APP_ID is required when AVATAR_VENDOR=anam. "
-                "Set ANAM_BETA_APP_ID in your .env file."
-            )
-        if not constants.get("ANAM_BETA_ENDPOINT"):
-            raise ValueError(
-                "ANAM_BETA_ENDPOINT is required when AVATAR_VENDOR=anam. "
-                "Set ANAM_BETA_ENDPOINT in your .env file (e.g., https://api-test.agora.io/api/conversational-ai-agent/v2/projects)."
-            )
-        if not constants.get("ANAM_BETA_CREDENTIALS"):
-            raise ValueError(
-                "ANAM_BETA_CREDENTIALS is required when AVATAR_VENDOR=anam. "
-                "Set ANAM_BETA_CREDENTIALS in your .env file."
-            )
-
-        # For Anam BETA with no APP_CERTIFICATE, agora_token is the BETA APP_ID
-        # If there's a real token (agent_video_token), use that instead
-        agora_token_value = agent_video_token if agent_video_token else constants["ANAM_BETA_APP_ID"]
+        # For Anam, agora_token is the APP_ID if no real token
+        agora_token_value = agent_video_token if agent_video_token else constants["APP_ID"]
 
         return {
             "vendor": "anam",
@@ -194,9 +165,9 @@ def build_avatar_config(avatar_enabled, avatar_vendor, constants, channel, agent
             "params": {
                 "agora_token": agora_token_value,
                 "agora_uid": query_params.get('anam_uid', constants.get("AGENT_VIDEO_UID", "49345")),
-                "anam_api_key": constants["ANAM_API_KEY"],
-                "anam_base_url": query_params.get('anam_base_url', constants.get("ANAM_BASE_URL", "https://api.anam.ai/v1")),
-                "anam_avatar_id": constants["ANAM_AVATAR_ID"]
+                "anam_api_key": constants["AVATAR_API_KEY"],
+                "anam_base_url": constants["ANAM_BASE_URL"],
+                "anam_avatar_id": constants["AVATAR_ID"]
             }
         }
     else:
@@ -268,18 +239,17 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
     }
 
     # Get avatar settings early to determine remote_rtc_uids and token
-    avatar_enabled = query_params.get('avatar_enabled', constants["AVATAR_ENABLED"]).lower() == "true"
-    avatar_vendor = query_params.get('avatar_vendor', constants["AVATAR_VENDOR"])
+    avatar_vendor = constants.get("AVATAR_VENDOR")
 
     # Determine token value
-    # Anam BETA uses empty string for token (per working curl from Agora developer)
+    # Anam uses empty string for token (per working curl from Agora developer)
     # Regular mode uses APP_ID (since no certificate)
-    is_anam_avatar = avatar_enabled and avatar_vendor == "anam"
+    is_anam_avatar = avatar_vendor == "anam"
     app_id_for_token = "" if is_anam_avatar else constants["APP_ID"]
 
     # When avatar is enabled, can't use wildcard "*" for remote_rtc_uids
     # Must specify exact user UID
-    remote_rtc_uids = [constants["USER_UID"]] if avatar_enabled else ["*"]
+    remote_rtc_uids = [constants["USER_UID"]] if avatar_vendor else ["*"]
 
     # Build properties
     properties = OrderedDict([
@@ -326,12 +296,11 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
         })
     ])
 
-    # Add avatar configuration if enabled
-    if avatar_enabled:
-        # For Anam BETA, we don't need a real token (it uses app_id instead)
+    # Add avatar configuration if vendor is set
+    if avatar_vendor:
+        # For Anam, we don't need a real token (it uses app_id instead)
         # So pass agent_video_token even if it's empty string
         avatar_config = build_avatar_config(
-            avatar_enabled,
             avatar_vendor,
             constants,
             channel,
@@ -362,26 +331,19 @@ def send_agent_to_channel(channel, agent_payload, constants):
     Returns:
         Dictionary with the status code, response body, and success flag
     """
-    # Check if using Anam BETA avatar
-    is_anam_beta = (
+    # Check if using Anam avatar to determine endpoint
+    is_anam_avatar = (
         agent_payload.get("properties", {}).get("avatar", {}).get("vendor") == "anam"
     )
 
-    if is_anam_beta:
-        # Use BETA endpoint for Anam avatar
-        # Credentials already validated in build_avatar_config()
-        app_id = constants["ANAM_BETA_APP_ID"]
-        beta_endpoint = constants["ANAM_BETA_ENDPOINT"]
-        beta_creds = constants["ANAM_BETA_CREDENTIALS"]
-
-        agent_api_url = f"{beta_endpoint}/{app_id}/join"
-        import base64
-        auth_header = "Basic " + base64.b64encode(beta_creds.encode()).decode()
-
-        print(f"🎭 Using Anam BETA endpoint: {agent_api_url}")
+    if is_anam_avatar:
+        # Use Anam-specific endpoint
+        agent_api_url = f"{constants['ANAM_AGENT_ENDPOINT']}/{constants['APP_ID']}/join"
+        auth_header = constants["AGENT_AUTH_HEADER"]
+        print(f"🎭 Using Anam endpoint: {agent_api_url}")
     else:
         # Use regular endpoint
-        agent_api_url = f"{constants['AGENT_API_BASE_URL']}/{constants['APP_ID']}/join"
+        agent_api_url = f"{constants['AGENT_ENDPOINT']}/{constants['APP_ID']}/join"
         auth_header = constants["AGENT_AUTH_HEADER"]
 
     url_parts = urllib.parse.urlparse(agent_api_url)
@@ -465,7 +427,7 @@ def hangup_agent(agent_id, constants):
     Returns:
         Dictionary with the status code, response body, and success flag
     """
-    hangup_api_url = f"{constants['AGENT_API_BASE_URL']}/{constants['APP_ID']}/agents/{agent_id}/leave"
+    hangup_api_url = f"{constants['AGENT_ENDPOINT']}/{constants['APP_ID']}/agents/{agent_id}/leave"
 
     url_parts = urllib.parse.urlparse(hangup_api_url)
     host = url_parts.netloc
