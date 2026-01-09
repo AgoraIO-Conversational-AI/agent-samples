@@ -332,10 +332,26 @@ def send_agent_to_channel(channel, agent_payload, constants):
         # Use BETA endpoint for Anam avatar
         app_id = constants.get("ANAM_BETA_APP_ID")
         beta_endpoint = constants.get("ANAM_BETA_ENDPOINT")
-        agent_api_url = f"{beta_endpoint}/{app_id}/join"
-
-        # Use BETA credentials
         beta_creds = constants.get("ANAM_BETA_CREDENTIALS")
+
+        # Validate required Anam BETA credentials
+        if not app_id:
+            raise ValueError(
+                "ANAM_BETA_APP_ID is required when using Anam avatar. "
+                "Set ANAM_BETA_APP_ID in your .env file."
+            )
+        if not beta_endpoint:
+            raise ValueError(
+                "ANAM_BETA_ENDPOINT is required when using Anam avatar. "
+                "Set ANAM_BETA_ENDPOINT in your .env file (e.g., https://api-test.agora.io/api/conversational-ai-agent/v2/projects)."
+            )
+        if not beta_creds:
+            raise ValueError(
+                "ANAM_BETA_CREDENTIALS is required when using Anam avatar. "
+                "Set ANAM_BETA_CREDENTIALS in your .env file."
+            )
+
+        agent_api_url = f"{beta_endpoint}/{app_id}/join"
         import base64
         auth_header = "Basic " + base64.b64encode(beta_creds.encode()).decode()
 
