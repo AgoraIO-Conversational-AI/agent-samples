@@ -38,17 +38,18 @@ AGENT_AUTH_HEADER=YOUR_AGORA_AUTH_HEADER
 # LLM settings
 LLM_API_KEY=YOUR_OPENAI_API_KEY
 
-# TTS settings - Choose ONE vendor
-TTS_VENDOR=rime  # Options: rime, elevenlabs, openai, cartesia
-TTS_KEY=YOUR_TTS_API_KEY
-TTS_VOICE_ID=astra  # Voice/speaker ID for chosen vendor
+# TTS settings - Choose ONE vendor and provide all three values
+TTS_VENDOR=  # Required: rime, elevenlabs, openai, or cartesia
+TTS_KEY=  # Required: API key for your chosen TTS vendor
+TTS_VOICE_ID=  # Required: Voice/speaker ID for your chosen vendor
 ```
 
 **TTS Voice Options by Vendor:**
-- **Rime**: `astra`, `deedee`, `marsh` (no additional key needed beyond TTS_KEY)
-- **ElevenLabs**: Get voice ID from [ElevenLabs voice library](https://elevenlabs.io/)
+
+- **Rime**: `astra`, `deedee`, `marsh` - Get TTS_KEY from [Rime](https://rime.ai/)
+- **ElevenLabs**: Get voice ID from [voice library](https://elevenlabs.io/)
 - **OpenAI**: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`
-- **Cartesia**: Get voice ID from [Cartesia voice library](https://cartesia.ai/)
+- **Cartesia**: Get voice ID from [voice library](https://cartesia.ai/)
 
 ### Avatar Video Client Mode
 
@@ -59,6 +60,7 @@ TTS_VOICE_ID=astra  # Voice/speaker ID for chosen vendor
 **Choose HeyGen OR Anam:**
 
 **Option 1: HeyGen Avatar**
+
 ```bash
 # Add to your .env file (in addition to voice client settings)
 AVATAR_ENABLED=true
@@ -68,6 +70,7 @@ HEYGEN_AVATAR_ID=Wayne_20240711  # Get from HeyGen avatar library
 ```
 
 **Option 2: Anam Avatar (Beta)**
+
 ```bash
 # Add to your .env file (in addition to voice client settings)
 AVATAR_ENABLED=true
@@ -94,6 +97,7 @@ pip3 install -r requirements-local.txt
 **2. Configure environment:**
 
 Create `.env` file with your credentials based on which client you're running:
+
 - For voice clients, see [Voice Client Mode](#voice-client-mode) configuration above
 - For avatar video client, see [Avatar Video Client Mode](#avatar-video-client-mode) configuration above
 
