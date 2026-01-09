@@ -50,10 +50,19 @@ To run the server sample that your client will connect to, you will need:
 - **AGENT_AUTH_HEADER** - [Agora Console](https://console.agora.io/)
 - **LLM_API_KEY** -
   [OpenAI API Keys](https://platform.openai.com/settings/organization/api-keys)
-- **TTS_VENDOR** - TTS provider (`rime`, `elevenlabs`, `openai`, or `cartesia`)
-- **TTS_API_KEY** - TTS provider API key ([Rime AI](https://www.rime.ai/),
-  [ElevenLabs](https://elevenlabs.io/), etc.)
-- **TTS_VOICE_ID** - Voice ID for your chosen TTS provider (provider-specific)
+- **TTS_VENDOR** - Choose TTS provider: `rime` (default), `elevenlabs`,
+  `openai`, or `cartesia`
+- **TTS_API_KEY** - API key for your chosen TTS provider:
+  - Rime: Get from [Rime AI](https://www.rime.ai/)
+  - ElevenLabs: Get from [ElevenLabs](https://elevenlabs.io/)
+  - OpenAI: Same as LLM_API_KEY
+  - Cartesia: Get from [Cartesia](https://cartesia.ai/)
+- **TTS_VOICE_ID** - Voice ID (required for ElevenLabs, OpenAI, Cartesia; not
+  needed for Rime):
+  - ElevenLabs: Find in voice library (e.g., `TX3LPaxmHKxFdv7VOQHJ`)
+  - OpenAI: Choose from `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`
+  - Cartesia: Get from Cartesia voice library
+  - Rime: Uses `RIME_SPEAKER` instead (e.g., `astra`, `deedee`, `marsh`)
 
 ### Sample
 
