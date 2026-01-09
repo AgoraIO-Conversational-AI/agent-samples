@@ -84,7 +84,8 @@ def initialize_constants(profile=None):
         "CARTESIA_VOICE_ID": get_env_var('CARTESIA_VOICE_ID', profile, "71a7ad14-091c-4e8e-a314-022ece01c121"),
 
         # Rime TTS specific settings
-        "RIME_API_KEY": get_env_var('RIME_API_KEY', profile),
+        # Support both TTS_KEY and RIME_API_KEY for backward compatibility
+        "RIME_API_KEY": get_env_var('RIME_API_KEY', profile) or get_env_var('TTS_KEY', profile),
         "RIME_SPEAKER": get_env_var('RIME_SPEAKER', profile, "astra"),
         "RIME_MODEL_ID": get_env_var('RIME_MODEL_ID', profile, "mistv2"),
         "RIME_LANG": get_env_var('RIME_LANG', profile, "eng"),

@@ -39,9 +39,14 @@ LLM_API_KEY=YOUR_OPENAI_API_KEY
 LLM_MODEL=gpt-4o
 LLM_URL=https://api.openai.com/v1/chat/completions
 
-# TTS settings - Rime
-TTS_VENDOR=rime
-RIME_API_KEY=YOUR_RIME_API_KEY
+# TTS settings
+TTS_VENDOR=rime  # or elevenlabs, openai, cartesia
+TTS_KEY=YOUR_TTS_API_KEY
+TTS_VOICE_ID=YOUR_VOICE_ID  # For ElevenLabs/OpenAI/Cartesia
+
+# Rime-specific settings (if using rime vendor)
+RIME_SPEAKER=astra
+RIME_MODEL_ID=mistv2
 
 # ASR settings - Ares (default, no key needed)
 ASR_VENDOR=ares

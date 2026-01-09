@@ -127,7 +127,7 @@ Both React clients use the backend's TTS configuration. Configure in `simple-bac
 
 ```bash
 TTS_VENDOR=rime
-RIME_API_KEY=your_rime_key
+TTS_KEY=your_rime_key
 RIME_SPEAKER=astra
 RIME_MODEL_ID=mistv2
 RIME_SAMPLING_RATE=16000
@@ -168,7 +168,7 @@ Use profiles to configure different TTS per endpoint:
 ```bash
 # Default uses Rime
 TTS_VENDOR=rime
-RIME_API_KEY=your_rime_key
+TTS_KEY=your_rime_key
 
 # Avatar profile uses ElevenLabs
 AVATAR_TTS_VENDOR=elevenlabs
@@ -369,49 +369,49 @@ npm install agora-rtc-sdk-ng agora-rtm
 **RTC Setup:**
 
 ```javascript
-import AgoraRTC from "agora-rtc-sdk-ng"
+import AgoraRTC from "agora-rtc-sdk-ng";
 
-const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp9" })
+const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp9" });
 
 client.on("user-published", async (user, mediaType) => {
   if (mediaType === "audio") {
-    await client.subscribe(user, mediaType)
-    user.audioTrack.play()
+    await client.subscribe(user, mediaType);
+    user.audioTrack.play();
   }
-})
+});
 
-await client.join(appId, channel, token || null, parseInt(uid))
+await client.join(appId, channel, token || null, parseInt(uid));
 
 const localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
   encoderConfig: "high_quality_stereo",
   AEC: true,
   ANS: true,
   AGC: true,
-})
+});
 
-await client.publish(localAudioTrack)
+await client.publish(localAudioTrack);
 ```
 
 **RTM Setup:**
 
 ```javascript
-import AgoraRTM from "agora-rtm"
+import AgoraRTM from "agora-rtm";
 
-const rtmClient = AgoraRTM.createInstance(appId)
+const rtmClient = AgoraRTM.createInstance(appId);
 
 rtmClient.on("MessageFromPeer", (message, peerId) => {
-  const data = JSON.parse(message.text)
+  const data = JSON.parse(message.text);
 
   if (data.object === "assistant.transcription") {
-    console.log("Agent said:", data.text)
+    console.log("Agent said:", data.text);
   }
 
   if (data.object === "user.transcription") {
-    console.log("User said:", data.text)
+    console.log("User said:", data.text);
   }
-})
+});
 
-await rtmClient.login({ token, uid })
+await rtmClient.login({ token, uid });
 ```
 
 ## SDK API Reference
@@ -421,25 +421,25 @@ await rtmClient.login({ token, uid })
 **ConversationalAIAPI** - Main class managing RTC+RTM session
 
 ```typescript
-const api = ConversationalAIAPI.getInstance()
-await api.init({ rtcEngine, rtmConfig, agentUID, callback })
-await api.start()
+const api = ConversationalAIAPI.getInstance();
+await api.init({ rtcEngine, rtmConfig, agentUID, callback });
+await api.start();
 ```
 
 **RTCHelper** - RTC client lifecycle
 
 ```typescript
-const rtc = RTCHelper.getInstance()
-await rtc.init({ appId, channel, token, uid })
-await rtc.start()
+const rtc = RTCHelper.getInstance();
+await rtc.init({ appId, channel, token, uid });
+await rtc.start();
 ```
 
 **RTMHelper** - RTM message handling
 
 ```typescript
-const rtm = RTMHelper.getInstance()
-await rtm.init({ appId, token, uid, onMessageReceived })
-await rtm.start()
+const rtm = RTMHelper.getInstance();
+await rtm.init({ appId, token, uid, onMessageReceived });
+await rtm.start();
 ```
 
 ### React Hooks (@agora/conversational-ai-react)
@@ -455,19 +455,19 @@ const {
   joinChannel,
   leaveChannel,
   toggleMute,
-} = useConversationalAI({ appId, channel, token, uid, agentUID })
+} = useConversationalAI({ appId, channel, token, uid, agentUID });
 ```
 
 **useLocalVideo** - Local camera tracks
 
 ```typescript
-const { videoTrack, isVideoEnabled, toggleVideo } = useLocalVideo({ client })
+const { videoTrack, isVideoEnabled, toggleVideo } = useLocalVideo({ client });
 ```
 
 **useRemoteVideo** - Remote video streams
 
 ```typescript
-const { remoteVideoUsersArray } = useRemoteVideo({ client })
+const { remoteVideoUsersArray } = useRemoteVideo({ client });
 ```
 
 ## UI Kit Components
