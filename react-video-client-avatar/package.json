@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@agora/conversational-ai": "github:AgoraIO-Conversational-AI/agent-toolkit#main",
-    "@agora/conversational-ai-react": "github:AgoraIO-Conversational-AI/agent-toolkit#main",
     "@agora/agent-ui-kit": "github:AgoraIO-Conversational-AI/agent-ui-kit#main",
     "@lottiefiles/dotlottie-react": "^0.17.10",
     "@radix-ui/react-dropdown-menu": "^2.1.16",

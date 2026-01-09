@@ -1,11 +1,7 @@
-import type { NextConfig } from "next"
+import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: [
-    "@agora/conversational-ai",
-    "@agora/conversational-ai-react",
-    "@agora/agent-ui-kit",
-  ],
-}
+  transpilePackages: ["@agora/conversational-ai", "@agora/agent-ui-kit"],
+};
 
-export default nextConfig
+export default nextConfig;

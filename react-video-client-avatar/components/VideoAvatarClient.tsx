@@ -1,30 +1,30 @@
-"use client"
+"use client";
 
-import { useState, useRef, useEffect } from "react"
-import { Mic, MicOff, Video, VideoOff } from "lucide-react"
-import { useAgoraVoiceClient } from "@/hooks/useAgoraVoiceClient"
-import { useAudioVisualization } from "@/hooks/useAudioVisualization"
-import { useLocalVideo, useRemoteVideo } from "@agora/conversational-ai-react"
-import { MicButton } from "@agora/agent-ui-kit"
-import { Conversation, ConversationContent } from "@agora/agent-ui-kit"
-import { Message, MessageContent } from "@agora/agent-ui-kit"
-import { Response } from "@agora/agent-ui-kit"
-import { AvatarVideoDisplay, LocalVideoPreview } from "@agora/agent-ui-kit"
-import { VideoGrid, MobileTabs } from "@agora/agent-ui-kit"
-import { AgoraLogo } from "@agora/agent-ui-kit"
-import { cn } from "@/lib/utils"
+import { useState, useRef, useEffect } from "react";
+import { Mic, MicOff, Video, VideoOff } from "lucide-react";
+import { useAgoraVoiceClient } from "@/hooks/useAgoraVoiceClient";
+import { useAudioVisualization } from "@/hooks/useAudioVisualization";
+import { useLocalVideo, useRemoteVideo } from "@agora/conversational-ai";
+import { MicButton } from "@agora/agent-ui-kit";
+import { Conversation, ConversationContent } from "@agora/agent-ui-kit";
+import { Message, MessageContent } from "@agora/agent-ui-kit";
+import { Response } from "@agora/agent-ui-kit";
+import { AvatarVideoDisplay, LocalVideoPreview } from "@agora/agent-ui-kit";
+import { VideoGrid, MobileTabs } from "@agora/agent-ui-kit";
+import { AgoraLogo } from "@agora/agent-ui-kit";
+import { cn } from "@/lib/utils";
 
-const DEFAULT_BACKEND_URL = "http://localhost:8082"
+const DEFAULT_BACKEND_URL = "http://localhost:8082";
 
 export function VideoAvatarClient() {
-  const [backendUrl, setBackendUrl] = useState(DEFAULT_BACKEND_URL)
-  const [agentUID, setAgentUID] = useState<string | undefined>(undefined)
-  const [isLoading, setIsLoading] = useState(false)
-  const [chatMessage, setChatMessage] = useState("")
-  const [enableLocalVideo, setEnableLocalVideo] = useState(true)
-  const [enableAvatar, setEnableAvatar] = useState(true)
-  const [activeTab, setActiveTab] = useState("video")
-  const _conversationRef = useRef<HTMLDivElement>(null)
+  const [backendUrl, setBackendUrl] = useState(DEFAULT_BACKEND_URL);
+  const [agentUID, setAgentUID] = useState<string | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(false);
+  const [chatMessage, setChatMessage] = useState("");
+  const [enableLocalVideo, setEnableLocalVideo] = useState(true);
+  const [enableAvatar, setEnableAvatar] = useState(true);
+  const [activeTab, setActiveTab] = useState("video");
+  const _conversationRef = useRef<HTMLDivElement>(null);
 
   const {
     isConnected,
@@ -39,10 +39,13 @@ export function VideoAvatarClient() {
     toggleMute,
     sendMessage,
     rtcHelperRef,
-  } = useAgoraVoiceClient()
+  } = useAgoraVoiceClient();
 
   // Get audio visualization data (restart on mute/unmute to fix Web Audio API connection)
-  const frequencyData = useAudioVisualization(localAudioTrack, isConnected && !isMuted)
+  const frequencyData = useAudioVisualization(
+    localAudioTrack,
+    isConnected && !isMuted,
+  );
 
   // Video hooks
   const {
@@ -50,74 +53,80 @@ export function VideoAvatarClient() {
     isVideoEnabled: isLocalVideoActive,
     enableVideo,
     disableVideo,
-  } = useLocalVideo()
+  } = useLocalVideo();
 
   const { remoteVideoUsersArray } = useRemoteVideo({
     client: rtcHelperRef.current?.client,
-  })
+  });
 
   // Get avatar video track (first remote user with video)
   const avatarVideoTrack =
-    remoteVideoUsersArray.length > 0 ? remoteVideoUsersArray[0].videoTrack : null
+    remoteVideoUsersArray.length > 0
+      ? remoteVideoUsersArray[0].videoTrack
+      : null;
 
   // Publish local video track to channel when it becomes available
   useEffect(() => {
     const publishVideo = async () => {
-      const client = rtcHelperRef.current?.client
-      if (!client || !localVideoTrack || !isConnected || !isLocalVideoActive) return
+      const client = rtcHelperRef.current?.client;
+      if (!client || !localVideoTrack || !isConnected || !isLocalVideoActive)
+        return;
 
       try {
-        await client.publish(localVideoTrack)
-        console.log("[VideoAvatarClient] Published local video track")
+        await client.publish(localVideoTrack);
+        console.log("[VideoAvatarClient] Published local video track");
       } catch (error) {
-        console.error("[VideoAvatarClient] Failed to publish video:", error)
+        console.error("[VideoAvatarClient] Failed to publish video:", error);
       }
-    }
+    };
 
-    publishVideo()
+    publishVideo();
 
     // Unpublish on cleanup (if still connected)
     return () => {
-      const client = rtcHelperRef.current?.client
+      const client = rtcHelperRef.current?.client;
       if (client && localVideoTrack && isConnected) {
         client.unpublish(localVideoTrack).catch((err) => {
           // Ignore error if already disconnected
           if (!err.message?.includes("haven't joined")) {
-            console.error("[VideoAvatarClient] Failed to unpublish video:", err)
+            console.error(
+              "[VideoAvatarClient] Failed to unpublish video:",
+              err,
+            );
           }
-        })
+        });
       }
-    }
-  }, [localVideoTrack, isConnected, isLocalVideoActive])
+    };
+  }, [localVideoTrack, isConnected, isLocalVideoActive]);
 
   const handleStart = async () => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
       // Build query params for backend
-      const params = new URLSearchParams()
+      const params = new URLSearchParams();
 
       // Use avatar profile for separate avatar config
-      params.append("profile", "avatar")
+      params.append("profile", "avatar");
 
       if (enableAvatar) {
-        params.append("avatar_enabled", "true")
-        params.append("avatar_vendor", "anam")
+        params.append("avatar_enabled", "true");
+        params.append("avatar_vendor", "anam");
       }
 
       const url = params.toString()
         ? `${backendUrl}/start-agent?${params.toString()}`
-        : `${backendUrl}/start-agent`
+        : `${backendUrl}/start-agent`;
 
-      const response = await fetch(url)
+      const response = await fetch(url);
 
       if (!response.ok) {
-        throw new Error(`Backend error: ${response.statusText}`)
+        throw new Error(`Backend error: ${response.statusText}`);
       }
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (data.agent?.uid) {
-        setAgentUID(data.agent.uid)
+        setAgentUID(data.agent.uid);
       }
 
       await joinChannel({
@@ -125,58 +134,62 @@ export function VideoAvatarClient() {
         channel: data.channel,
         token: data.token || null,
         uid: parseInt(data.uid),
-      })
+      });
 
       // Auto-enable local video if checkbox was checked
       if (enableLocalVideo) {
-        console.log("[VideoAvatarClient] Auto-enabling local video after channel join")
-        await enableVideo()
-        console.log("[VideoAvatarClient] enableVideo() completed")
+        console.log(
+          "[VideoAvatarClient] Auto-enabling local video after channel join",
+        );
+        await enableVideo();
+        console.log("[VideoAvatarClient] enableVideo() completed");
       }
     } catch (error) {
-      console.error("Failed to start:", error)
-      alert(`Failed to start: ${error instanceof Error ? error.message : "Unknown error"}`)
+      console.error("Failed to start:", error);
+      alert(
+        `Failed to start: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleStop = async () => {
     if (isLocalVideoActive) {
-      await disableVideo()
+      await disableVideo();
     }
-    await leaveChannel()
-  }
+    await leaveChannel();
+  };
 
   const handleSendMessage = async () => {
-    if (!chatMessage.trim() || !isConnected) return
+    if (!chatMessage.trim() || !isConnected) return;
 
-    const success = await sendMessage(chatMessage, agentUID || "100")
+    const success = await sendMessage(chatMessage, agentUID || "100");
     if (success) {
-      setChatMessage("")
+      setChatMessage("");
     }
-  }
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
+      e.preventDefault();
+      handleSendMessage();
     }
-  }
+  };
 
   const toggleVideo = async () => {
     if (isLocalVideoActive) {
-      await disableVideo()
+      await disableVideo();
     } else {
-      await enableVideo()
+      await enableVideo();
     }
-  }
+  };
 
   // Helper to determine if message is from agent
   // Agent messages have uid: 0 (stream_id: 0)
   const isAgentMessage = (uid: number) => {
-    return uid === 0
-  }
+    return uid === 0;
+  };
 
   return (
     <div className="flex h-screen flex-col bg-gradient-to-b from-background to-muted overflow-hidden">
@@ -202,7 +215,10 @@ export function VideoAvatarClient() {
               <h2 className="mb-4 text-lg font-semibold">Connect to Agent</h2>
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="backend" className="mb-2 block text-sm font-medium">
+                  <label
+                    htmlFor="backend"
+                    className="mb-2 block text-sm font-medium"
+                  >
                     Backend URL
                   </label>
                   <input
@@ -223,7 +239,9 @@ export function VideoAvatarClient() {
                       onChange={(e) => setEnableLocalVideo(e.target.checked)}
                       className="h-4 w-4 rounded border-gray-300"
                     />
-                    <span className="text-sm font-medium">Enable Local Video</span>
+                    <span className="text-sm font-medium">
+                      Enable Local Video
+                    </span>
                   </label>
 
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -259,15 +277,20 @@ export function VideoAvatarClient() {
                   <div className="border-b p-4 flex-shrink-0 flex items-center justify-between">
                     <h2 className="font-semibold">Conversation</h2>
                     <p className="text-sm text-muted-foreground">
-                      {messageList.length} message{messageList.length !== 1 ? "s" : ""}
+                      {messageList.length} message
+                      {messageList.length !== 1 ? "s" : ""}
                     </p>
                   </div>
 
                   {/* Messages */}
-                  <Conversation height="" className="flex-1 min-h-0" style={{ overflow: "scroll" }}>
+                  <Conversation
+                    height=""
+                    className="flex-1 min-h-0"
+                    style={{ overflow: "scroll" }}
+                  >
                     <ConversationContent>
                       {messageList.map((msg, idx) => {
-                        const isAgent = isAgentMessage(msg.uid)
+                        const isAgent = isAgentMessage(msg.uid);
                         return (
                           <Message
                             key={`${msg.turn_id}-${msg.uid}-${idx}`}
@@ -278,23 +301,27 @@ export function VideoAvatarClient() {
                               <Response>{msg.text}</Response>
                             </MessageContent>
                           </Message>
-                        )
+                        );
                       })}
 
                       {/* In-progress message */}
                       {currentInProgressMessage &&
                         (() => {
-                          const isAgent = isAgentMessage(currentInProgressMessage.uid)
+                          const isAgent = isAgentMessage(
+                            currentInProgressMessage.uid,
+                          );
                           return (
                             <Message
                               from={isAgent ? "assistant" : "user"}
                               name={isAgent ? "Agent" : "User"}
                             >
                               <MessageContent className="animate-pulse">
-                                <Response>{currentInProgressMessage.text}</Response>
+                                <Response>
+                                  {currentInProgressMessage.text}
+                                </Response>
                               </MessageContent>
                             </Message>
-                          )
+                          );
                         })()}
                     </ConversationContent>
                   </Conversation>
@@ -340,7 +367,11 @@ export function VideoAvatarClient() {
                       <MicButton
                         state={micState}
                         icon={
-                          isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />
+                          isMuted ? (
+                            <MicOff className="h-4 w-4" />
+                          ) : (
+                            <Mic className="h-4 w-4" />
+                          )
                         }
                         audioData={frequencyData}
                         onClick={toggleMute}
@@ -352,7 +383,7 @@ export function VideoAvatarClient() {
                           "flex-1 rounded-lg border px-4 py-2 text-sm font-medium transition-colors",
                           isLocalVideoActive
                             ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
-                            : "border-input bg-background hover:bg-accent hover:text-accent-foreground"
+                            : "border-input bg-background hover:bg-accent hover:text-accent-foreground",
                         )}
                       >
                         {isLocalVideoActive ? (
@@ -398,7 +429,9 @@ export function VideoAvatarClient() {
                         <div className="flex-1 rounded-lg border bg-card shadow-lg overflow-hidden">
                           <AvatarVideoDisplay
                             videoTrack={avatarVideoTrack}
-                            state={avatarVideoTrack ? "connected" : "disconnected"}
+                            state={
+                              avatarVideoTrack ? "connected" : "disconnected"
+                            }
                             className="h-full w-full"
                             useMediaStream={true}
                           />
@@ -424,7 +457,9 @@ export function VideoAvatarClient() {
                         <div className="flex-[35] rounded-lg border bg-card shadow-lg overflow-hidden">
                           <AvatarVideoDisplay
                             videoTrack={avatarVideoTrack}
-                            state={avatarVideoTrack ? "connected" : "disconnected"}
+                            state={
+                              avatarVideoTrack ? "connected" : "disconnected"
+                            }
                             className="h-full w-full"
                             useMediaStream={true}
                           />
@@ -434,9 +469,12 @@ export function VideoAvatarClient() {
                         <div className="flex-[65] rounded-lg border bg-card shadow-lg overflow-hidden flex flex-col">
                           {/* Conversation Header */}
                           <div className="border-b p-3 flex-shrink-0 flex items-center justify-between">
-                            <h2 className="font-semibold text-sm">Conversation</h2>
+                            <h2 className="font-semibold text-sm">
+                              Conversation
+                            </h2>
                             <p className="text-xs text-muted-foreground">
-                              {messageList.length} message{messageList.length !== 1 ? "s" : ""}
+                              {messageList.length} message
+                              {messageList.length !== 1 ? "s" : ""}
                             </p>
                           </div>
 
@@ -448,7 +486,7 @@ export function VideoAvatarClient() {
                           >
                             <ConversationContent>
                               {messageList.map((msg, idx) => {
-                                const isAgent = isAgentMessage(msg.uid)
+                                const isAgent = isAgentMessage(msg.uid);
                                 return (
                                   <Message
                                     key={`${msg.turn_id}-${msg.uid}-${idx}`}
@@ -459,23 +497,27 @@ export function VideoAvatarClient() {
                                       <Response>{msg.text}</Response>
                                     </MessageContent>
                                   </Message>
-                                )
+                                );
                               })}
 
                               {/* In-progress message */}
                               {currentInProgressMessage &&
                                 (() => {
-                                  const isAgent = isAgentMessage(currentInProgressMessage.uid)
+                                  const isAgent = isAgentMessage(
+                                    currentInProgressMessage.uid,
+                                  );
                                   return (
                                     <Message
                                       from={isAgent ? "assistant" : "user"}
                                       name={isAgent ? "Agent" : "User"}
                                     >
                                       <MessageContent className="animate-pulse">
-                                        <Response>{currentInProgressMessage.text}</Response>
+                                        <Response>
+                                          {currentInProgressMessage.text}
+                                        </Response>
                                       </MessageContent>
                                     </Message>
-                                  )
+                                  );
                                 })()}
                             </ConversationContent>
                           </Conversation>
@@ -512,7 +554,13 @@ export function VideoAvatarClient() {
               <div className="flex gap-2 p-2 border-t bg-card flex-shrink-0">
                 <MicButton
                   state={micState}
-                  icon={isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                  icon={
+                    isMuted ? (
+                      <MicOff className="h-4 w-4" />
+                    ) : (
+                      <Mic className="h-4 w-4" />
+                    )
+                  }
                   audioData={frequencyData}
                   onClick={toggleMute}
                   className="flex-1 min-h-[44px]"
@@ -523,7 +571,7 @@ export function VideoAvatarClient() {
                     "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors min-h-[44px]",
                     isLocalVideoActive
                       ? "border-primary bg-primary text-primary-foreground"
-                      : "border-input bg-background"
+                      : "border-input bg-background",
                   )}
                 >
                   {isLocalVideoActive ? (
@@ -545,5 +593,5 @@ export function VideoAvatarClient() {
         )}
       </main>
     </div>
-  )
+  );
 }
