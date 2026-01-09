@@ -54,29 +54,36 @@ server technology.
 
 ## Required API Keys & Credentials
 
-**Base Requirements (All Clients):**
+**Base Requirements (Voice Clients):**
 
 - **APP_ID** - [Agora Console](https://console.agora.io/)
-- **APP_CERTIFICATE** - [Agora Console](https://console.agora.io/)
+- **APP_CERTIFICATE** - [Agora Console](https://console.agora.io/) (optional for testing)
 - **AGENT_AUTH_HEADER** - [Agora Console](https://console.agora.io/)
 - **LLM_API_KEY** - [OpenAI](https://platform.openai.com/settings/organization/api-keys)
 - **TTS_VENDOR** - Choose TTS provider: `rime`, `elevenlabs`, `openai`, or `cartesia`
 - **TTS_KEY** - API key for your chosen TTS provider
-- **TTS_VOICE_ID** - Voice/speaker ID for your chosen TTS provider (all vendors use this)
+- **TTS_VOICE_ID** - Voice/speaker ID for your chosen TTS provider
 
-**Additional Requirements for Video Avatar Client:**
+**Additional Requirements for Avatar Video Client:**
 
-- **AVATAR_ENABLED=true** - Enable avatar mode
-- **AVATAR_VENDOR** - Choose avatar provider: `heygen` or `anam`
-- **HEYGEN_API_KEY** + **HEYGEN_AVATAR_ID** (if using HeyGen)
-- **ANAM_API_KEY** + **ANAM_AVATAR_ID** (if using Anam)
+Use profile-based configuration to run avatar clients with completely different credentials:
+
+- **AVATAR_APP_ID** - Different Agora app (e.g., for beta instance)
+- **AVATAR_APP_CERTIFICATE** - Certificate for avatar app
+- **AVATAR_AGENT_AUTH_HEADER** - Auth header for avatar app
+- **AVATAR_TTS_VENDOR** - Different TTS vendor (e.g., elevenlabs)
+- **AVATAR_TTS_KEY** - Different TTS API key
+- **AVATAR_TTS_VOICE_ID** - Different voice
+- **AVATAR_AVATAR_VENDOR** - Avatar provider: `heygen` or `anam`
+- **AVATAR_AVATAR_API_KEY** - Avatar provider API key
+- **AVATAR_AVATAR_ID** - Avatar identifier from provider
 
 **Guide users to:**
 
 1. [Enable Conversational AI](https://docs.agora.io/en/conversational-ai/get-started/manage-agora-account) for APP_ID/APP_CERTIFICATE
 2. [RESTful authentication](https://docs.agora.io/en/conversational-ai/rest-api/restful-authentication) for AGENT_AUTH_HEADER
 
-See [simple-backend/README.md](./simple-backend/README.md) for detailed configuration and TTS vendor options.
+See [simple-backend/README.md](./simple-backend/README.md) for detailed configuration examples.
 
 ## Quick Start - Running Samples
 
@@ -114,33 +121,49 @@ npm run dev
 
 **Avatar Requirements:**
 
-The video avatar client requires additional backend configuration:
+The video avatar client sends `?profile=avatar` to use profile-based configuration. The backend must be configured with avatar profile settings:
 
-1. Set `AVATAR_ENABLED=true` in `.env`
-2. Add either HeyGen OR Anam credentials:
-   - HeyGen: `HEYGEN_API_KEY` + `HEYGEN_AVATAR_ID`
-   - Anam: `ANAM_API_KEY` + `ANAM_AVATAR_ID`
-3. Without avatar keys, the client works in voice-only mode
+1. Add `AVATAR_` prefixed variables to `.env` for complete separation
+2. Set `AVATAR_AVATAR_VENDOR=heygen` or `anam`
+3. Provide `AVATAR_AVATAR_API_KEY` and `AVATAR_AVATAR_ID`
+4. Avatar vendors: HeyGen or Anam (uses special Agora endpoint automatically)
 
-See [simple-backend/.env.example](./simple-backend/.env.example) for avatar configuration.
+See [simple-backend/README.md#avatar-mode-profile-example](./simple-backend/README.md#avatar-mode-profile-example) for complete configuration.
 
 ## Configuring TTS
 
 Both React clients use the backend's TTS configuration. All TTS vendors use the same three variables:
 
 ```bash
-TTS_VENDOR=rime  # Options: rime, elevenlabs, openai, cartesia
-TTS_KEY=your_api_key
-TTS_VOICE_ID=astra  # Voice/speaker ID for chosen vendor
+TTS_VENDOR=  # Required: rime, elevenlabs, openai, or cartesia
+TTS_KEY=  # Required: API key for your TTS vendor
+TTS_VOICE_ID=  # Required: Voice/speaker ID for your chosen vendor
 ```
 
 **Voice ID examples by vendor:**
+
 - **Rime**: `astra`, `deedee`, `marsh`
 - **ElevenLabs**: Get from [voice library](https://elevenlabs.io/)
 - **OpenAI**: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`
 - **Cartesia**: Get from [voice library](https://cartesia.ai/)
 
-See [simple-backend/README.md - Configuration for Client Types](./simple-backend/README.md#configuration-for-client-types) for complete vendor-specific configuration details and profile-specific TTS setup.
+**Profile-specific TTS:**
+
+You can use different TTS vendors per profile. For example, use Rime for voice clients and ElevenLabs for avatar:
+
+```bash
+# Base (voice clients)
+TTS_VENDOR=rime
+TTS_KEY=rime_api_key
+TTS_VOICE_ID=astra
+
+# Avatar profile
+AVATAR_TTS_VENDOR=elevenlabs
+AVATAR_TTS_KEY=elevenlabs_key
+AVATAR_TTS_VOICE_ID=voice_id_here
+```
+
+See [simple-backend/README.md#configuration](./simple-backend/README.md#configuration) for complete configuration examples.
 
 ## Using the Samples as Reference
 
