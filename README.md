@@ -49,30 +49,32 @@ To run the server sample that your client will connect to, you will need:
 APP_ID=                  # Required: Agora Console
 APP_CERTIFICATE=         # Optional for testing: Agora Console
 AGENT_AUTH_HEADER=       # Required: Agora Console
-LLM_API_KEY=            # Required: OpenAI API Keys
+
+LLM_API_KEY=            # Required: OpenAI or compatible API key
 TTS_VENDOR=             # Required: rime, elevenlabs, openai, or cartesia
 TTS_KEY=                # Required: API key for your TTS vendor
 TTS_VOICE_ID=           # Required: Voice/speaker ID for your chosen vendor
 ```
 
-**Where to get credentials:**
+**Agora Credentials:**
 
-- [Agora Console](https://console.agora.io/) - APP_ID, APP_CERTIFICATE, AGENT_AUTH_HEADER
-- [OpenAI API Keys](https://platform.openai.com/settings/organization/api-keys) - LLM_API_KEY
-- TTS vendors: [Rime](https://rime.ai/), [ElevenLabs](https://elevenlabs.io/), [OpenAI](https://platform.openai.com/), [Cartesia](https://cartesia.ai/)
+- **APP_ID / APP_CERTIFICATE**
+  - Console: [Project Management](https://console.agora.io/project-management)
+  - Help: [Manage Agora Account](https://docs.agora.io/en/conversational-ai/get-started/manage-agora-account)
+- **AGENT_AUTH_HEADER**
+  - Console: [RESTful API](https://console.agora.io/restful-api)
+  - Help: [RESTful Authentication](https://docs.agora.io/en/conversational-ai/rest-api/restful-authentication)
+
+**LLM & TTS Providers:**
+
+- **LLM**: [OpenAI API Keys](https://platform.openai.com/settings/organization/api-keys)
+- **TTS**: [Rime](https://rime.ai/) | [ElevenLabs](https://elevenlabs.io/) | [OpenAI](https://platform.openai.com/) | [Cartesia](https://cartesia.ai/)
 
 ### Sample
 
 **[Simple Backend](./simple-backend/)** Python backend for creating AI agents
 and generating RTC credentials. Supports local development, cloud instances, and
 AWS Lambda deployment.
-
-### Helpful Links
-
-- **[Enable Conversational AI](https://docs.agora.io/en/conversational-ai/get-started/manage-agora-account)** -
-  Create an Agora APP_ID and APP_CERTIFICATE
-- **[RESTful authentication](https://docs.agora.io/en/conversational-ai/rest-api/restful-authentication)** -
-  Create an AGENT_AUTH_HEADER
 
 ## Client Side
 
