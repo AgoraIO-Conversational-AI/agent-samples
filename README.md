@@ -5,8 +5,8 @@ up the sample backend and one of the sample clients or ask AI to do it for you.
 
 - [AI Coding Assistant Guide](#ai-coding-assistant-guide)
 - [System Architecture](#system-architecture)
-- [Server Side Sample](#server-side-sample)
-- [Client Side Samples](#client-side-samples)
+- [Backend Sample](#backend-sample)
+- [Client Samples](#client-samples)
 
 ## AI Coding Assistant Guide
 
@@ -46,7 +46,7 @@ routes audio, video, and data streams between participants in real-time.
 A managed AI agent that joins the channel as a participant. It listens to user
 audio, processes it through STT → LLM → TTS, and streams the response back.
 
-## Server Side Sample
+## Backend Sample
 
 To run the server sample that your voice client will connect to, you will need:
 
@@ -83,7 +83,7 @@ TTS_VOICE_ID=           # Required: Voice/speaker ID for your chosen vendor
 and generating RTC credentials. Supports local development, cloud instances, and
 AWS Lambda deployment.
 
-## Client Side Samples
+## Client Samples
 
 ### Core Packages
 
