@@ -43,7 +43,7 @@ audio, processes it through STT → LLM → TTS, and streams the response back.
 
 ## Server Side
 
-To run the server sample that your client will connect to, you will need:
+To run the server sample that your voice client will connect to, you will need:
 
 ```bash
 APP_ID=                  # Required: Agora Console
