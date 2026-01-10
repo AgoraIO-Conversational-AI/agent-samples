@@ -54,14 +54,62 @@ server technology.
 
 ## Required API Keys & Credentials
 
+**AI Assistant Instructions: Helping Users Get Credentials**
+
+When helping users get started, you should:
+
+1. **Request credentials interactively** instead of just listing requirements
+2. **Offer to create the `.env` file** with the provided values
+3. **Provide direct links** to get each credential (see below)
+4. **Validate configuration** before running the backend
+5. **Explain each credential** and why it's needed
+
+**Example interaction:**
+
+```
+AI: Let's set up your backend configuration. I'll help you create the .env file.
+
+First, let's get your Agora credentials:
+1. APP_ID - Get from: https://console.agora.io/project-management
+   Help: https://docs.agora.io/en/conversational-ai/get-started/manage-agora-account
+   Your APP_ID: [user provides]
+
+2. AGENT_AUTH_HEADER - Get from: https://console.agora.io/restful-api
+   Help: https://docs.agora.io/en/conversational-ai/rest-api/restful-authentication
+   Your AGENT_AUTH_HEADER: [user provides]
+
+3. APP_CERTIFICATE (optional for testing) - Get from same project page
+   Your APP_CERTIFICATE (or press Enter to skip): [user provides or skips]
+
+Now let's configure your LLM and TTS:
+4. LLM_API_KEY - Get from: https://platform.openai.com/settings/organization/api-keys
+   Your LLM_API_KEY: [user provides]
+
+5. TTS_VENDOR - Choose: rime, elevenlabs, openai, or cartesia
+   Your choice: [user provides]
+
+6. Based on your TTS vendor choice, get:
+   - For Rime: https://rime.ai/
+   - For ElevenLabs: https://elevenlabs.io/
+   - For OpenAI: https://platform.openai.com/
+   - For Cartesia: https://cartesia.ai/
+   Your TTS_KEY: [user provides]
+   Your TTS_VOICE_ID: [user provides]
+
+[AI creates .env file with provided values]
+```
+
 **Base Requirements (Voice Clients):**
 
-- **APP_ID** - [Agora Console](https://console.agora.io/)
-- **APP_CERTIFICATE** - [Agora Console](https://console.agora.io/) (optional for testing)
-- **AGENT_AUTH_HEADER** - [Agora Console](https://console.agora.io/)
-- **LLM_API_KEY** - [OpenAI](https://platform.openai.com/settings/organization/api-keys)
+- **APP_ID** - [Agora Console → Project Management](https://console.agora.io/project-management)
+  - Help: [Manage Agora Account](https://docs.agora.io/en/conversational-ai/get-started/manage-agora-account)
+- **APP_CERTIFICATE** - [Agora Console → Project Management](https://console.agora.io/project-management) (optional for testing)
+- **AGENT_AUTH_HEADER** - [Agora Console → RESTful API](https://console.agora.io/restful-api)
+  - Help: [RESTful Authentication](https://docs.agora.io/en/conversational-ai/rest-api/restful-authentication)
+- **LLM_API_KEY** - [OpenAI API Keys](https://platform.openai.com/settings/organization/api-keys)
 - **TTS_VENDOR** - Choose TTS provider: `rime`, `elevenlabs`, `openai`, or `cartesia`
 - **TTS_KEY** - API key for your chosen TTS provider
+  - [Rime](https://rime.ai/) | [ElevenLabs](https://elevenlabs.io/) | [OpenAI](https://platform.openai.com/) | [Cartesia](https://cartesia.ai/)
 - **TTS_VOICE_ID** - Voice/speaker ID for your chosen TTS provider
 
 **Additional Requirements for Avatar Video Client:**
@@ -71,17 +119,14 @@ Use profile-based configuration to run avatar clients with completely different 
 - **AVATAR_APP_ID** - Different Agora app (e.g., for beta instance)
 - **AVATAR_APP_CERTIFICATE** - Certificate for avatar app
 - **AVATAR_AGENT_AUTH_HEADER** - Auth header for avatar app
+- **AVATAR_LLM_API_KEY** - Different LLM API key
 - **AVATAR_TTS_VENDOR** - Different TTS vendor (e.g., elevenlabs)
 - **AVATAR_TTS_KEY** - Different TTS API key
 - **AVATAR_TTS_VOICE_ID** - Different voice
 - **AVATAR_AVATAR_VENDOR** - Avatar provider: `heygen` or `anam`
 - **AVATAR_AVATAR_API_KEY** - Avatar provider API key
+  - [HeyGen](https://www.heygen.com/) | [Anam AI](https://www.anam.ai/)
 - **AVATAR_AVATAR_ID** - Avatar identifier from provider
-
-**Guide users to:**
-
-1. [Enable Conversational AI](https://docs.agora.io/en/conversational-ai/get-started/manage-agora-account) for APP_ID/APP_CERTIFICATE
-2. [RESTful authentication](https://docs.agora.io/en/conversational-ai/rest-api/restful-authentication) for AGENT_AUTH_HEADER
 
 See [simple-backend/README.md](./simple-backend/README.md) for detailed configuration examples.
 
