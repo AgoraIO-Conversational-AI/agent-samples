@@ -90,7 +90,7 @@ AWS Lambda deployment.
 - **[agent-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-toolkit)** - Core SDK toolkit with RTC/RTM helpers and React hooks
 - **[agent-ui-kit](https://github.com/AgoraIO-Conversational-AI/agent-ui-kit)** - React UI components for voice, chat, and video
 
-### Voice AI Sample
+### Voice Agent Sample
 
 Recommended and complete React JS voice client sample which looks great on any device.
 
@@ -100,7 +100,7 @@ transcription display, voice controls, and integrated text chat.
 
 ![Voice Client Screenshot](./assets/client-voice-screenshot.png)
 
-### Video AI Sample
+### Video Agent Sample
 
 **[React Video Client with Avatar](./react-video-client-avatar/)** React/Next.js
 client with video avatar and local camera support. Includes responsive layouts
