@@ -144,85 +144,29 @@ Use profile-based configuration to run avatar clients with completely different 
 
 See [simple-backend/README.md](./simple-backend/README.md) for detailed configuration examples.
 
-## Quick Start - Running Samples
+## Integrating into Your App
 
-**Fastest path to working demo:**
+**Decision tree for existing applications:**
 
-1. Install dependencies: `pnpm install`
-2. Configure backend: See [simple-backend/README.md](./simple-backend/README.md)
-3. Start backend: `cd simple-backend && PORT=8082 python3 local_server.py`
-4. Start client: `pnpm dev` (voice) or `pnpm dev:video` (avatar)
+- **Have existing React/Next.js app?** → Use [Approach A: SDK Packages](#approach-a-sdk-packages-recommended)
+  - Install `@agora/conversational-ai-react` and `@agora/agent-ui-kit`
+  - Import hooks and components into your existing app
+  - Best for: Adding voice AI to existing React projects
 
-**Choose sample based on user needs:**
+- **Have existing Vue/Angular/vanilla JS app?** → Use [Approach C: Bare RTC/RTM](#approach-c-bare-rtcrtm)
+  - Install `agora-rtc-sdk-ng` and `agora-rtm` directly
+  - Implement connection patterns from samples
+  - Best for: Non-React frameworks, mobile apps
 
-- Voice only → [react-voice-client](./react-voice-client/)
-- Video/avatar → [react-video-client-avatar](./react-video-client-avatar/)
+- **Starting from scratch?** → Use [Approach B: Sample as Template](#approach-b-sample-as-template)
+  - Copy `react-voice-client` or `react-video-client-avatar`
+  - Customize UI and functionality
+  - Best for: New projects, rapid prototyping
 
-## Building React Client Samples
-
-The React samples install dependencies directly from GitHub and require `--legacy-peer-deps` due to agora-rtm peer dependencies.
-
-**React Voice Client (Port 8083):**
-
-```bash
-cd react-voice-client
-npm install --legacy-peer-deps
-npm run dev
-```
-
-**React Video Avatar Client (Port 8084):**
-
-```bash
-cd react-video-client-avatar
-npm install --legacy-peer-deps
-npm run dev
-```
-
-**Avatar Requirements:**
-
-The video avatar client sends `?profile=avatar` to use profile-based configuration. The backend must be configured with avatar profile settings:
-
-1. Add `AVATAR_` prefixed variables to `.env` for complete separation
-2. Set `AVATAR_AVATAR_VENDOR=heygen` or `anam`
-3. Provide `AVATAR_AVATAR_API_KEY` and `AVATAR_AVATAR_ID`
-4. Avatar vendors: HeyGen or Anam (uses special Agora endpoint automatically)
-
-See [simple-backend/README.md#avatar-mode-profile-example](./simple-backend/README.md#avatar-mode-profile-example) for complete configuration.
-
-## Configuring TTS
-
-Both React clients use the backend's TTS configuration. All TTS vendors use the same three variables:
-
-```bash
-TTS_VENDOR=  # Required: rime, elevenlabs, openai, or cartesia
-TTS_KEY=  # Required: API key for your TTS vendor
-TTS_VOICE_ID=  # Required: Voice/speaker ID for your chosen vendor
-```
-
-**Voice ID examples by vendor:**
-
-- **Rime**: `astra`, `deedee`, `marsh`
-- **ElevenLabs**: Get from [voice library](https://elevenlabs.io/)
-- **OpenAI**: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`
-- **Cartesia**: Get from [voice library](https://cartesia.ai/)
-
-**Profile-specific TTS:**
-
-You can use different TTS vendors per profile. For example, use Rime for voice clients and ElevenLabs for avatar:
-
-```bash
-# Base (voice clients)
-TTS_VENDOR=rime
-TTS_KEY=rime_api_key
-TTS_VOICE_ID=astra
-
-# Avatar profile
-AVATAR_TTS_VENDOR=elevenlabs
-AVATAR_TTS_KEY=elevenlabs_key
-AVATAR_TTS_VOICE_ID=voice_id_here
-```
-
-See [simple-backend/README.md#configuration](./simple-backend/README.md#configuration) for complete configuration examples.
+- **Need custom backend (Node.js/Go/Java)?** → Study [simple-backend/](./simple-backend/)
+  - Reference token generation patterns
+  - Reference Agent REST API calls
+  - Replicate in your preferred language
 
 ## Using the Samples as Reference
 
@@ -336,51 +280,49 @@ Both use the same channel and require proper token generation.
 
 ### Approach A: SDK Packages (Recommended)
 
-Best for: New projects, React apps, TypeScript
+Best for: React apps adding voice AI to existing projects
 
 **Install dependencies:**
 
 ```bash
-cd agora-convoai-samples
-pnpm install
+npm install agora-rtc-sdk-ng agora-rtm
+npm install @agora/agent-ui-kit  # Optional: Pre-built UI components
 ```
 
-**Use in your app:**
+**Implementation pattern:**
+
+Study `react-voice-client/hooks/useAgoraVoiceClient.ts` for the complete pattern. The core approach:
 
 ```typescript
-import { useConversationalAI } from '@agora/conversational-ai-react'
+import AgoraRTC from 'agora-rtc-sdk-ng'
+import AgoraRTM from 'agora-rtm'
 import { MicButton, AgentVisualizer, ConvoTextStream } from '@agora/agent-ui-kit'
 
 function VoiceClient() {
-  const {
-    isConnected,
-    isMuted,
-    messageList,
-    currentInProgressMessage,
-    isAgentSpeaking,
-    joinChannel,
-    toggleMute,
-  } = useConversationalAI({
-    appId: 'your_app_id',
-    channel: 'your_channel',
-    token: 'your_token',
-    uid: '101',
-    agentUID: '100',
+  // 1. Initialize RTC client
+  const rtcClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp9' })
+
+  // 2. Initialize RTM client for transcriptions
+  const rtmClient = AgoraRTM.createInstance(appId)
+
+  // 3. Handle RTM messages for transcriptions
+  rtmClient.on('MessageFromPeer', (message) => {
+    const data = JSON.parse(message.text)
+    // Handle user.transcription and assistant.transcription
   })
 
+  // 4. Use UI Kit components
   return (
     <div>
       <AgentVisualizer state={isAgentSpeaking ? 'talking' : 'listening'} />
       <MicButton state={isMuted ? 'idle' : 'listening'} onClick={toggleMute} />
-      <ConvoTextStream
-        messageList={messageList}
-        currentInProgressMessage={currentInProgressMessage}
-        agentUID="100"
-      />
+      <ConvoTextStream messageList={messageList} agentUID="100" />
     </div>
   )
 }
 ```
+
+See `react-voice-client/` for complete reference implementation.
 
 ### Approach B: Sample as Template
 
@@ -462,59 +404,69 @@ await rtmClient.login({ token, uid });
 
 ## SDK API Reference
 
-### Core SDK (@agora/conversational-ai)
+### Agora RTC SDK (agora-rtc-sdk-ng)
 
-**ConversationalAIAPI** - Main class managing RTC+RTM session
-
-```typescript
-const api = ConversationalAIAPI.getInstance();
-await api.init({ rtcEngine, rtmConfig, agentUID, callback });
-await api.start();
-```
-
-**RTCHelper** - RTC client lifecycle
+**Core RTC client:**
 
 ```typescript
-const rtc = RTCHelper.getInstance();
-await rtc.init({ appId, channel, token, uid });
-await rtc.start();
+import AgoraRTC from "agora-rtc-sdk-ng";
+
+const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp9" });
+await client.join(appId, channel, token || null, parseInt(uid));
+
+const localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
+  encoderConfig: "high_quality_stereo",
+  AEC: true, // Echo cancellation
+  ANS: true, // Noise suppression
+  AGC: true, // Auto gain control
+});
+
+await client.publish(localAudioTrack);
 ```
 
-**RTMHelper** - RTM message handling
+### Agora RTM SDK (agora-rtm)
+
+**Message handling:**
 
 ```typescript
-const rtm = RTMHelper.getInstance();
-await rtm.init({ appId, token, uid, onMessageReceived });
-await rtm.start();
+import AgoraRTM from "agora-rtm";
+
+const rtmClient = AgoraRTM.createInstance(appId);
+
+rtmClient.on("MessageFromPeer", (message, peerId) => {
+  const data = JSON.parse(message.text);
+  if (data.object === "assistant.transcription") {
+    // Handle agent transcription
+  }
+  if (data.object === "user.transcription") {
+    // Handle user transcription
+  }
+});
+
+await rtmClient.login({ token, uid });
 ```
 
-### React Hooks (@agora/conversational-ai-react)
-
-**useConversationalAI** - Complete session management
-
-```typescript
-const {
-  isConnected,
-  isMuted,
-  messageList,
-  isAgentSpeaking,
-  joinChannel,
-  leaveChannel,
-  toggleMute,
-} = useConversationalAI({ appId, channel, token, uid, agentUID });
-```
+### React Hooks (@agora/conversational-ai)
 
 **useLocalVideo** - Local camera tracks
 
 ```typescript
-const { videoTrack, isVideoEnabled, toggleVideo } = useLocalVideo({ client });
+import { useLocalVideo } from "@agora/conversational-ai";
+
+const { videoTrack, isVideoEnabled, toggleVideo } = useLocalVideo();
 ```
 
 **useRemoteVideo** - Remote video streams
 
 ```typescript
+import { useRemoteVideo } from "@agora/conversational-ai";
+
 const { remoteVideoUsersArray } = useRemoteVideo({ client });
 ```
+
+**Custom hook pattern:**
+
+For complete voice AI integration, reference `react-voice-client/hooks/useAgoraVoiceClient.ts`
 
 ## UI Kit Components
 
@@ -663,6 +615,53 @@ curl "http://localhost:8081/start-agent?channel=test&profile=avatar"
 
 See [simple-backend/README.md](./simple-backend/README.md#profile-support) for
 details.
+
+### TTS Configuration
+
+All TTS vendors use the same three environment variables:
+
+```bash
+TTS_VENDOR=  # Required: rime, elevenlabs, openai, or cartesia
+TTS_KEY=     # Required: API key for your TTS vendor
+TTS_VOICE_ID=  # Required: Voice/speaker ID for your chosen vendor
+```
+
+**Voice ID examples by vendor:**
+
+- **Rime**: `astra`, `deedee`, `marsh`
+- **ElevenLabs**: Get from [voice library](https://elevenlabs.io/)
+- **OpenAI**: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`
+- **Cartesia**: Get from [voice library](https://cartesia.ai/)
+
+**Profile-specific TTS example:**
+
+Use different TTS vendors per profile (e.g., Rime for voice, ElevenLabs for avatar):
+
+```bash
+# Base (voice clients)
+TTS_VENDOR=rime
+TTS_KEY=rime_api_key
+TTS_VOICE_ID=astra
+
+# Avatar profile
+AVATAR_TTS_VENDOR=elevenlabs
+AVATAR_TTS_KEY=elevenlabs_key
+AVATAR_TTS_VOICE_ID=voice_id_here
+```
+
+### Avatar Configuration
+
+When using video avatar clients, configure avatar-specific settings:
+
+```bash
+AVATAR_AVATAR_VENDOR=heygen  # or anam
+AVATAR_AVATAR_API_KEY=your_avatar_api_key
+AVATAR_AVATAR_ID=your_avatar_id
+```
+
+The client sends `?profile=avatar` to use these settings automatically.
+
+See [simple-backend/README.md#avatar-mode-profile-example](./simple-backend/README.md#avatar-mode-profile-example) for complete examples.
 
 ## Installation & Setup
 
