@@ -78,39 +78,61 @@ When helping users get started, you should:
 4. **Validate configuration** before running the backend
 5. **Explain each credential** and why it's needed
 
-**Example interaction:**
+**Example interaction for Voice Agent:**
 
 ```
-AI: Let's set up your backend configuration. I'll help you create the .env file.
+AI: I'll set up the Voice AI Agent. Please provide all required credentials:
 
-First, let's get your Agora credentials:
-1. APP_ID - Get from: https://console.agora.io/project-management
+**Agora Credentials:**
+1. APP_ID - Console: https://console.agora.io/project-management
    Help: https://docs.agora.io/en/conversational-ai/get-started/manage-agora-account
-   Your APP_ID: [user provides]
-
-2. AGENT_AUTH_HEADER - Get from: https://console.agora.io/restful-api
+2. AGENT_AUTH_HEADER - Console: https://console.agora.io/restful-api
    Help: https://docs.agora.io/en/conversational-ai/rest-api/restful-authentication
-   Your AGENT_AUTH_HEADER: [user provides]
+3. APP_CERTIFICATE (optional for testing) - Same project page
 
-3. APP_CERTIFICATE (optional for testing) - Get from same project page
-   Your APP_CERTIFICATE (or press Enter to skip): [user provides or skips]
-
-Now let's configure your LLM and TTS:
-4. LLM_API_KEY - Get from: https://platform.openai.com/settings/organization/api-keys
-   Your LLM_API_KEY: [user provides]
-
+**LLM & TTS:**
+4. LLM_API_KEY - https://platform.openai.com/settings/organization/api-keys
 5. TTS_VENDOR - Choose: rime, elevenlabs, openai, or cartesia
-   Your choice: [user provides]
+6. TTS_KEY - Get from your chosen vendor:
+   Rime: https://rime.ai/ | ElevenLabs: https://elevenlabs.io/
+   OpenAI: https://platform.openai.com/ | Cartesia: https://cartesia.ai/
+7. TTS_VOICE_ID - Voice ID for your chosen vendor
 
-6. Based on your TTS vendor choice, get:
-   - For Rime: https://rime.ai/
-   - For ElevenLabs: https://elevenlabs.io/
-   - For OpenAI: https://platform.openai.com/
-   - For Cartesia: https://cartesia.ai/
-   Your TTS_KEY: [user provides]
-   Your TTS_VOICE_ID: [user provides]
+[User provides all values in one response]
+[AI creates .env file in simple-backend/ and proceeds with installation]
+```
 
-[AI creates .env file with provided values]
+**Example interaction for Video Agent:**
+
+```
+AI: I'll set up the Video AI Agent with avatar. Please provide all required credentials:
+
+**Agora Credentials:**
+1. APP_ID - Console: https://console.agora.io/project-management
+2. AGENT_AUTH_HEADER - Console: https://console.agora.io/restful-api
+3. APP_CERTIFICATE (optional) - Same project page
+
+**LLM & TTS:**
+4. LLM_API_KEY - https://platform.openai.com/settings/organization/api-keys
+5. TTS_VENDOR - Choose: rime, elevenlabs, openai, or cartesia
+6. TTS_KEY - Get from chosen vendor (Rime | ElevenLabs | OpenAI | Cartesia)
+7. TTS_VOICE_ID - Voice ID for chosen vendor
+
+**Avatar Settings (AVATAR_ prefix):**
+8. AVATAR_AVATAR_VENDOR - Choose: heygen or anam
+   HeyGen: https://www.heygen.com/ | Anam AI: https://www.anam.ai/
+9. AVATAR_AVATAR_API_KEY - API key from avatar provider
+10. AVATAR_AVATAR_ID - Avatar identifier from provider
+
+Optional (for different avatar config):
+- AVATAR_APP_ID - Different Agora app (e.g., beta instance)
+- AVATAR_APP_CERTIFICATE - Certificate for avatar app
+- AVATAR_AGENT_AUTH_HEADER - Auth header for avatar app
+- AVATAR_LLM_API_KEY - Different LLM key
+- AVATAR_TTS_VENDOR, AVATAR_TTS_KEY, AVATAR_TTS_VOICE_ID - Different TTS
+
+[User provides all values in one response]
+[AI creates .env file with both base and AVATAR_ credentials]
 ```
 
 **Base Requirements (Voice Clients):**
