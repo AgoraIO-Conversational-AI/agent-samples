@@ -32,25 +32,39 @@ server technology.
 
 ## Getting Started - First Steps
 
-**For helping users get started from scratch:**
+**AI Assistant: Follow this process when user wants to run samples:**
 
-1. **Recommended Path:** Run backend + React sample first
-   - Provides working reference implementation
-   - Users can modify working code or build their own using same patterns
+1. **Choose React sample** (unless user explicitly asks for basic HTML/JS)
+   - Voice only: `react-voice-client` (default choice)
+   - Video/avatar: `react-video-client-avatar`
+   - Basic samples: Only if user specifically requests vanilla JS/HTML
 
-2. **Read these READMEs in order:**
-   - [README.md](./README.md) - Overview and architecture
-   - [simple-backend/README.md](./simple-backend/README.md) - Backend setup and
-     API keys
-   - [react-voice-client/README.md](./react-voice-client/README.md) OR
-   - [react-video-client-avatar/README.md](./react-video-client-avatar/README.md)
+2. **Install and build FIRST** - Do this before asking for credentials
+   - Backend: `cd simple-backend && pip install -r requirements.txt`
+   - Client: `cd react-voice-client && npm install --legacy-peer-deps`
+   - Verify builds complete successfully
 
-3. **For building custom implementations:**
-   - Study sample code for patterns
-   - [agent-toolkit/README.md](./agent-toolkit/README.md) - If using our SDK
-   - [agent-ui-kit/README.md](./agent-ui-kit/README.md) - If using our UI
-     components
-   - Replicate patterns in user's preferred technology
+3. **Then gather credentials interactively** - Do NOT just list requirements
+   - Ask for each credential one by one (see example interaction below)
+   - Provide console links for each credential
+   - Create `.env` file in `simple-backend/` with provided values
+   - Explain what each credential is for
+
+4. **Start services**
+   - Backend: `cd simple-backend && PORT=8082 python3 local_server.py`
+   - Client: `cd react-voice-client && npm run dev`
+   - Provide the local URL to access the client
+
+**Be proactive - start building immediately, don't ask which client to use first.**
+
+---
+
+**For building custom implementations:**
+
+- Study sample code for patterns
+- [agent-toolkit/README.md](./agent-toolkit/README.md) - If using our SDK
+- [agent-ui-kit/README.md](./agent-ui-kit/README.md) - If using our UI components
+- Replicate patterns in user's preferred technology
 
 ## Required API Keys & Credentials
 
