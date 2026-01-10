@@ -3,10 +3,14 @@
 A guide to understanding and implementing Agora voice and video AI agents. Spin
 up the sample backend and one of the sample clients or ask AI to do it for you.
 
-- [System Architecture](#system-architecture)
 - [AI Coding Assistant Guide](#ai-coding-assistant-guide)
+- [System Architecture](#system-architecture)
 - [Server Side](#server-side)
 - [Client Side](#client-side)
+
+## AI Coding Assistant Guide
+
+**Comprehensive implementation guide for AI agents** → [AGENT.md](./AGENT.md)
 
 ## System Architecture
 
@@ -41,10 +45,6 @@ routes audio, video, and data streams between participants in real-time.
 
 A managed AI agent that joins the channel as a participant. It listens to user
 audio, processes it through STT → LLM → TTS, and streams the response back.
-
-## AI Coding Assistant Guide
-
-**Comprehensive implementation guide for AI agents** → [AGENT.md](./AGENT.md)
 
 ## Server Side
 
