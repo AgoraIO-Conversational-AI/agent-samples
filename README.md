@@ -10,17 +10,7 @@ up the sample backend and one of the sample clients or ask AI to do it for you.
 
 ## AI Coding Assistant Guide
 
-**🤖 AI Assistant: Read [AGENT.md](./AGENT.md) first for complete instructions.**
-
-When helping users run samples:
-
-1. **Read AGENT.md immediately** - Contains detailed setup instructions
-2. **Gather credentials interactively** - Request each credential from user
-3. **Create .env file** - Use provided credentials
-4. **Install and build** - Set up backend and client automatically
-5. **Start services** - Run backend and client
-
-**Do not just list options - proactively start the setup process.**
+**Comprehensive implementation guide for AI agents** → [AGENT.md](./AGENT.md)
 
 ## System Architecture
 
