@@ -45,18 +45,13 @@ audio, processes it through STT → LLM → TTS, and streams the response back.
 
 To run the server sample that your voice client will connect to, you will need:
 
+**Agora Credentials:**
+
 ```bash
 APP_ID=                  # Required: Agora Console
 APP_CERTIFICATE=         # Optional for testing: Agora Console
 AGENT_AUTH_HEADER=       # Required: Agora Console
-
-LLM_API_KEY=            # Required: OpenAI or compatible API key
-TTS_VENDOR=             # Required: rime, elevenlabs, openai, or cartesia
-TTS_KEY=                # Required: API key for your TTS vendor
-TTS_VOICE_ID=           # Required: Voice/speaker ID for your chosen vendor
 ```
-
-**Agora Credentials:**
 
 - **APP_ID / APP_CERTIFICATE**
   - Console: [Project Management](https://console.agora.io/project-management)
@@ -66,6 +61,13 @@ TTS_VOICE_ID=           # Required: Voice/speaker ID for your chosen vendor
   - Help: [RESTful Authentication](https://docs.agora.io/en/conversational-ai/rest-api/restful-authentication)
 
 **LLM & TTS Providers:**
+
+```bash
+LLM_API_KEY=            # Required: OpenAI or compatible API key
+TTS_VENDOR=             # Required: rime, elevenlabs, openai, or cartesia
+TTS_KEY=                # Required: API key for your TTS vendor
+TTS_VOICE_ID=           # Required: Voice/speaker ID for your chosen vendor
+```
 
 - **LLM**: [OpenAI API Keys](https://platform.openai.com/settings/organization/api-keys)
 - **TTS**: [Rime](https://rime.ai/) | [ElevenLabs](https://elevenlabs.io/) | [OpenAI](https://platform.openai.com/) | [Cartesia](https://cartesia.ai/)
