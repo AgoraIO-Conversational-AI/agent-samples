@@ -3,6 +3,11 @@
 A guide to understanding and implementing Agora voice and video AI agents. Spin
 up the sample backend and one of the sample clients or ask AI to do it for you.
 
+- [System Architecture](#system-architecture)
+- [AI Coding Assistant Guide](#ai-coding-assistant-guide)
+- [Server Side](#server-side)
+- [Client Side](#client-side)
+
 ## System Architecture
 
 ![System Architecture Diagram](./assets/system.svg)
@@ -12,7 +17,7 @@ the Agora Agent REST API to start the AI agent. Both client and agent join the
 same channel via SD-RTN where audio, video, and transcription data flow
 bidirectionally in real-time.
 
-## Architecture Overview
+### Architecture Overview
 
 ### Voice AI Client
 
