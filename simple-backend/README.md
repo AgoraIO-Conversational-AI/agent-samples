@@ -127,6 +127,27 @@ VIDEO_DEFAULT_FAILURE_MESSAGE=Oops, something went wrong
 
 The greeting is sent as the first message when the agent joins. The prompt defines the LLM's personality and behavior.
 
+### Debug Settings
+
+**Curl dump for debugging:**
+
+```bash
+# Base settings
+ENABLE_CURL_DUMP=true
+
+# VIDEO profile (requires VIDEO_ prefix - no fallback)
+VIDEO_ENABLE_CURL_DUMP=true
+```
+
+When enabled, the backend will:
+
+1. Print the equivalent curl command to console
+2. Write a timestamped shell script to `/tmp/agora_curl_YYYYMMDD_HHMMSS.sh`
+
+This is useful for debugging API requests. The curl dump includes full request headers and payload.
+
+**Important:** Due to no fallback behavior, VIDEO profile requires `VIDEO_ENABLE_CURL_DUMP=true` (not `ENABLE_CURL_DUMP`).
+
 ## Usage
 
 **Start agent:**
