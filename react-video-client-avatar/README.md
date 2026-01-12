@@ -91,17 +91,17 @@ http://localhost:8084
 
 **Backend Configuration:**
 
-This client sends `?profile=avatar` to use avatar profile configuration. The backend must be configured with avatar-specific settings.
+This client sends `?profile=video` to use video profile configuration. The backend must be configured with video-specific settings.
 
 **Required Backend Setup:**
 
-Configure the backend with avatar profile settings (AVATAR\_\* prefixed variables):
+Configure the backend with video profile settings (VIDEO\_\* prefixed variables):
 
-- `AVATAR_APP_ID`, `AVATAR_APP_CERTIFICATE`, `AVATAR_AGENT_AUTH_HEADER` (Agora credentials for avatar)
-- `AVATAR_LLM_API_KEY` (LLM for avatar)
-- `AVATAR_TTS_VENDOR`, `AVATAR_TTS_KEY`, `AVATAR_TTS_VOICE_ID` (TTS for avatar)
-- `AVATAR_AVATAR_VENDOR` (heygen or anam)
-- `AVATAR_AVATAR_API_KEY`, `AVATAR_AVATAR_ID` (avatar provider credentials)
+- `VIDEO_APP_ID`, `VIDEO_APP_CERTIFICATE`, `VIDEO_AGENT_AUTH_HEADER` (Agora credentials for video)
+- `VIDEO_LLM_API_KEY` (LLM for video)
+- `VIDEO_TTS_VENDOR`, `VIDEO_TTS_KEY`, `VIDEO_TTS_VOICE_ID` (TTS for video)
+- `VIDEO_AVATAR_VENDOR` (heygen or anam)
+- `VIDEO_AVATAR_API_KEY`, `VIDEO_AVATAR_ID` (avatar provider credentials)
 
 See [../simple-backend/README.md#avatar-mode-profile-example](../simple-backend/README.md#avatar-mode-profile-example) for complete configuration example.
 
@@ -125,8 +125,8 @@ See [../simple-backend/README.md#avatar-mode-profile-example](../simple-backend/
    - Enable "Enable Local Video" to show your camera
    - Enable "Enable Avatar" to show avatar video
    - Click "Start Conversation"
-   - Client automatically calls `/start-agent?profile=avatar` to use
-     avatar-specific backend configuration
+   - Client automatically calls `/start-agent?profile=video` to use
+     video-specific backend configuration
 
 4. **Interact with Agent**:
    - Speak into your microphone

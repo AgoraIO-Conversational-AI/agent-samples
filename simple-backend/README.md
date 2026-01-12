@@ -62,31 +62,32 @@ TTS_VOICE_ID=  # Voice ID for your TTS vendor
 **For react-video-client-avatar**, add profile-specific settings to run with **completely different credentials and vendors**:
 
 ```bash
-# Avatar profile overrides (accessed via ?profile=avatar)
-AVATAR_APP_ID=              # Different Agora app (e.g., for beta)
-AVATAR_APP_CERTIFICATE=     # Certificate for avatar app
-AVATAR_AGENT_AUTH_HEADER=   # Auth header for avatar app
-AVATAR_TTS_VENDOR=          # Different TTS vendor (e.g., elevenlabs)
-AVATAR_TTS_KEY=             # Different TTS API key
-AVATAR_TTS_VOICE_ID=        # Different voice
-AVATAR_AVATAR_VENDOR=       # heygen or anam
-AVATAR_AVATAR_API_KEY=      # Avatar provider API key
-AVATAR_AVATAR_ID=           # Avatar identifier
+# Avatar profile overrides (accessed via ?profile=video)
+VIDEO_APP_ID=              # Different Agora app (e.g., for beta)
+VIDEO_APP_CERTIFICATE=     # Certificate for avatar app
+VIDEO_AGENT_AUTH_HEADER=   # Auth header for avatar app
+VIDEO_TTS_VENDOR=          # Different TTS vendor (e.g., elevenlabs)
+VIDEO_TTS_KEY=             # Different TTS API key
+VIDEO_TTS_VOICE_ID=        # Different voice
+VIDEO_AVATAR_VENDOR=       # heygen or anam
+VIDEO_AVATAR_API_KEY=      # Avatar provider API key
+VIDEO_AVATAR_ID=           # Avatar identifier
 ```
 
 **Avatar Vendors:**
 
-- **HeyGen**: Set `AVATAR_AVATAR_VENDOR=heygen`
-- **Anam**: Set `AVATAR_AVATAR_VENDOR=anam` (uses special Agora endpoint automatically)
+- **HeyGen**: Set `VIDEO_AVATAR_VENDOR=heygen`
+- **Anam**: Set `VIDEO_AVATAR_VENDOR=anam` (uses special Agora endpoint automatically)
 
 **How profiles work:**
 
-1. Client sends `?profile=avatar`
-2. Backend checks `AVATAR_TTS_VENDOR`, falls back to `TTS_VENDOR`
-3. Backend checks `AVATAR_APP_ID`, falls back to `APP_ID`
-4. etc. for all settings
+1. Client sends `?profile=video`
+2. Backend ONLY uses VIDEO\_\* prefixed variables (no fallback to base)
+3. Video profile requires complete set of VIDEO\_\* credentials
 
-This allows running voice-only clients with Rime on one Agora app, and avatar clients with ElevenLabs on a different Agora app.
+**NOTE:** Video profile does NOT fall back to base variables. You must provide all required VIDEO\_\* settings.
+
+This allows running voice-only clients and video avatar clients with completely separate configurations.
 
 ## Usage
 
@@ -99,7 +100,7 @@ curl "http://localhost:8081/start-agent?channel=test"
 **Start agent with profile:**
 
 ```bash
-curl "http://localhost:8081/start-agent?channel=test&profile=avatar"
+curl "http://localhost:8081/start-agent?channel=test&profile=video"
 ```
 
 **Stop agent:**

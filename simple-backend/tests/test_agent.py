@@ -91,7 +91,6 @@ class TestCreateAgentPayload:
             "ENABLE_AIVAD": "false",
             "ASR_VENDOR": "ares",
             "ASR_LANGUAGE": "en-US",
-            "AVATAR_ENABLED": "false",
             "AVATAR_VENDOR": ""
         })
 
