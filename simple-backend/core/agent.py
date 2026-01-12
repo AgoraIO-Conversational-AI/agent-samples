@@ -357,6 +357,11 @@ def send_agent_to_channel(channel, agent_payload, constants):
         "Authorization": auth_header
     }
 
+    # Add X-Request-Id for Anam requests
+    if is_anam_avatar:
+        import uuid
+        headers["X-Request-Id"] = str(uuid.uuid4()).replace('-', '')
+
     payload_json = json.dumps(agent_payload, indent=2)
 
     print(f"Sending agent to Agora ConvoAI:")
