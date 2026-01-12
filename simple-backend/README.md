@@ -28,11 +28,11 @@ Server runs on http://localhost:8081 (default).
 
 ## Configuration
 
-The backend uses **profiles** to support multiple configurations. Each profile can override any base setting using the `PROFILENAME_VAR_NAME` format.
+The backend supports **base settings** and optional **profile settings** for running multiple configurations.
 
-### Voice-Only Mode (Base Profile)
+### Base Settings
 
-**Required for all voice clients:**
+**Required settings (no profile prefix):**
 
 ```bash
 # Agora credentials
@@ -50,6 +50,14 @@ TTS_KEY=     # API key for your TTS vendor
 TTS_VOICE_ID=  # Voice ID for your TTS vendor
 ```
 
+**Optional avatar settings (add to base settings for avatar support):**
+
+```bash
+AVATAR_VENDOR=  # heygen or anam
+AVATAR_API_KEY= # API key from avatar provider
+AVATAR_ID=      # Avatar identifier from provider
+```
+
 **TTS Voice Options:**
 
 - **Rime**: `astra`, `deedee`, `marsh`
@@ -57,15 +65,25 @@ TTS_VOICE_ID=  # Voice ID for your TTS vendor
 - **OpenAI**: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`
 - **Cartesia**: Get from [voice library](https://cartesia.ai/)
 
-### Avatar Mode (Profile Example)
+**Avatar Vendors:**
 
-**For react-video-client-avatar**, add profile-specific settings to run with **completely different credentials and vendors**:
+- **HeyGen**: Set `AVATAR_VENDOR=heygen`
+- **Anam**: Set `AVATAR_VENDOR=anam` (uses special Agora endpoint automatically)
+
+### Profile Settings
+
+Profiles allow running **completely separate configurations** with different credentials and vendors. When a client sends `?profile=<name>`, the backend uses only the `<NAME>_*` prefixed variables with **no fallback** to base settings.
+
+**Profile format:** `PROFILENAME_VAR_NAME` (profile name is uppercased)
+
+**Example: Video profile** (used by react-video-client-avatar with `?profile=video`):
 
 ```bash
-# Avatar profile overrides (accessed via ?profile=video)
-VIDEO_APP_ID=              # Different Agora app (e.g., for beta)
-VIDEO_APP_CERTIFICATE=     # Certificate for avatar app
-VIDEO_AGENT_AUTH_HEADER=   # Auth header for avatar app
+# Video profile - completely separate from base settings
+VIDEO_APP_ID=              # Different Agora app (e.g., beta instance)
+VIDEO_APP_CERTIFICATE=     # Certificate for video app
+VIDEO_AGENT_AUTH_HEADER=   # Auth header for video app
+VIDEO_LLM_API_KEY=         # Different LLM API key
 VIDEO_TTS_VENDOR=          # Different TTS vendor (e.g., elevenlabs)
 VIDEO_TTS_KEY=             # Different TTS API key
 VIDEO_TTS_VOICE_ID=        # Different voice
@@ -74,20 +92,20 @@ VIDEO_AVATAR_API_KEY=      # Avatar provider API key
 VIDEO_AVATAR_ID=           # Avatar identifier
 ```
 
-**Avatar Vendors:**
-
-- **HeyGen**: Set `VIDEO_AVATAR_VENDOR=heygen`
-- **Anam**: Set `VIDEO_AVATAR_VENDOR=anam` (uses special Agora endpoint automatically)
-
 **How profiles work:**
 
-1. Client sends `?profile=video`
-2. Backend ONLY uses VIDEO\_\* prefixed variables (no fallback to base)
-3. Video profile requires complete set of VIDEO\_\* credentials
+1. Client sends `?profile=video` (react-video-client-avatar does this automatically)
+2. Backend ONLY uses `VIDEO_*` prefixed variables
+3. No fallback to base variables - profile must have complete set of credentials
+4. If variable missing, uses hardcoded defaults (not base settings)
 
-**NOTE:** Video profile does NOT fall back to base variables. You must provide all required VIDEO\_\* settings.
+**Example use cases:**
 
-This allows running voice-only clients and video avatar clients with completely separate configurations.
+- **Base settings**: Voice-only client with Rime TTS on production Agora app
+- **VIDEO profile**: Avatar client with ElevenLabs TTS on beta Agora app
+- **STAGING profile**: Test environment with different credentials
+
+This allows running multiple clients with completely isolated configurations.
 
 ## Usage
 
