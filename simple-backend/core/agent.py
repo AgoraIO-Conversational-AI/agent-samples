@@ -373,9 +373,14 @@ def send_agent_to_channel(channel, agent_payload, constants):
     enable_curl_dump = constants.get("ENABLE_CURL_DUMP", "false").lower() == "true"
 
     if enable_curl_dump:
+        # Build header arguments for curl from the headers dict
+        header_args = ""
+        for header_name, header_value in headers.items():
+            header_args += f"  -H '{header_name}: {header_value}' \\\n"
+
         # Print equivalent curl command for debugging
         payload_compact = json.dumps(agent_payload)
-        curl_cmd = f"curl -X POST '{agent_api_url}' \\\n  -H 'Authorization: {auth_header}' \\\n  -H 'Content-Type: application/json' \\\n  -d '{payload_compact}'"
+        curl_cmd = f"curl -X POST '{agent_api_url}' \\\n{header_args}  -d '{payload_compact}'"
         print(f"\n📋 Equivalent curl command:\n{curl_cmd}\n")
 
         # Write curl command to file with timestamp
@@ -391,9 +396,7 @@ def send_agent_to_channel(channel, agent_payload, constants):
 # Channel: {channel}
 
 curl -X POST '{agent_api_url}' \\
-  -H 'Authorization: {auth_header}' \\
-  -H 'Content-Type: application/json' \\
-  -d '{payload_pretty}'
+{header_args}  -d '{payload_pretty}'
 """
 
         with open(curl_file_path, 'w') as f:
