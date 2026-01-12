@@ -102,42 +102,65 @@ AI: I'll set up the Voice AI Agent. Please provide all required credentials:
 [AI creates .env file in simple-backend/ and proceeds with installation]
 ```
 
-**Example interaction for Video Agent:**
+**Example interaction for Video Agent with Avatar:**
 
 ```
-AI: I'll set up the Video AI Agent with avatar. Please provide all required credentials:
+AI: I'll set up the Video AI Agent with avatar using the VIDEO profile.
 
-**Agora Credentials:**
-1. APP_ID - Console: https://console.agora.io/project-management
-2. AGENT_AUTH_HEADER - Console: https://console.agora.io/restful-api
-3. APP_CERTIFICATE (optional) - Same project page
+The backend supports two configuration modes:
+1. **Base settings** (no prefix) - for voice-only or simple avatar clients
+2. **Profile settings** (VIDEO_* prefix) - for completely isolated configurations
 
-**LLM & TTS:**
-4. LLM_API_KEY - https://platform.openai.com/settings/organization/api-keys
-5. TTS_VENDOR - Choose: rime, elevenlabs, openai, or cartesia
-6. TTS_KEY - Get from chosen vendor (Rime | ElevenLabs | OpenAI | Cartesia)
-7. TTS_VOICE_ID - Voice ID for chosen vendor
+The react-video-client-avatar uses ?profile=video, which requires ALL credentials
+with VIDEO_* prefix (no fallback to base settings).
 
-**Avatar Settings (VIDEO_ prefix - ALL required for video profile):**
+Please provide all required VIDEO profile credentials:
+
+**VIDEO Profile - Agora Credentials:**
+1. VIDEO_APP_ID - Console: https://console.agora.io/project-management
+2. VIDEO_AGENT_AUTH_HEADER - Console: https://console.agora.io/restful-api
+3. VIDEO_APP_CERTIFICATE (optional) - Same project page
+
+**VIDEO Profile - LLM & TTS:**
+4. VIDEO_LLM_API_KEY - https://platform.openai.com/settings/organization/api-keys
+5. VIDEO_TTS_VENDOR - Choose: rime, elevenlabs, openai, or cartesia
+6. VIDEO_TTS_KEY - Get from chosen vendor (Rime | ElevenLabs | OpenAI | Cartesia)
+7. VIDEO_TTS_VOICE_ID - Voice ID for chosen vendor
+
+**VIDEO Profile - Avatar Settings:**
 8. VIDEO_AVATAR_VENDOR - Choose: heygen or anam
    HeyGen: https://www.heygen.com/ | Anam AI: https://www.anam.ai/
 9. VIDEO_AVATAR_API_KEY - API key from avatar provider
 10. VIDEO_AVATAR_ID - Avatar identifier from provider
 
-Additional VIDEO_ settings (must provide complete set):
-- VIDEO_APP_ID - Required for video profile
-- VIDEO_APP_CERTIFICATE - Certificate for video app (optional)
-- VIDEO_AGENT_AUTH_HEADER - Required for video profile
-- VIDEO_LLM_API_KEY - Required for video profile
-- VIDEO_TTS_VENDOR, VIDEO_TTS_KEY, VIDEO_TTS_VOICE_ID - Required for video profile
-
-NOTE: Video profile does NOT fall back to base variables. All VIDEO_* settings must be provided.
+NOTE: All 10 credentials must use VIDEO_* prefix. No fallback to base settings.
 
 [User provides all values in one response]
-[AI creates .env file with VIDEO_* prefixed credentials for video profile]
+[AI creates .env file with complete VIDEO_* configuration]
 ```
 
-**Base Requirements (Voice Clients):**
+**Alternative: Avatar with Base Settings**
+
+If user wants to run avatar client without profiles, they can use base settings:
+
+```bash
+# Base settings (no prefix) - used when no ?profile= parameter
+APP_ID=
+AGENT_AUTH_HEADER=
+LLM_API_KEY=
+TTS_VENDOR=
+TTS_KEY=
+TTS_VOICE_ID=
+AVATAR_VENDOR=    # heygen or anam
+AVATAR_API_KEY=
+AVATAR_ID=
+```
+
+### Backend Configuration Modes
+
+The backend supports two configuration approaches:
+
+**1. Base Settings (no prefix)** - Used when no `?profile=` parameter is sent:
 
 - **APP_ID** - [Agora Console → Project Management](https://console.agora.io/project-management)
   - Help: [Manage Agora Account](https://docs.agora.io/en/conversational-ai/get-started/manage-agora-account)
@@ -150,23 +173,31 @@ NOTE: Video profile does NOT fall back to base variables. All VIDEO_* settings m
   - [Rime](https://rime.ai/) | [ElevenLabs](https://elevenlabs.io/) | [OpenAI](https://platform.openai.com/) | [Cartesia](https://cartesia.ai/)
 - **TTS_VOICE_ID** - Voice/speaker ID for your chosen TTS provider
 
-**Additional Requirements for Avatar Video Client:**
+**Optional base settings for avatar support:**
 
-Use profile-based configuration to run avatar clients with completely different credentials:
+- **AVATAR_VENDOR** - Avatar provider: `heygen` or `anam`
+- **AVATAR_API_KEY** - Avatar provider API key
+  - [HeyGen](https://www.heygen.com/) | [Anam AI](https://www.anam.ai/)
+- **AVATAR_ID** - Avatar identifier from provider
 
-- **VIDEO_APP_ID** - Different Agora app (e.g., for beta instance)
-- **VIDEO_APP_CERTIFICATE** - Certificate for avatar app
-- **VIDEO_AGENT_AUTH_HEADER** - Auth header for avatar app
-- **VIDEO_LLM_API_KEY** - Different LLM API key
-- **VIDEO_TTS_VENDOR** - Different TTS vendor (e.g., elevenlabs)
-- **VIDEO_TTS_KEY** - Different TTS API key
-- **VIDEO_TTS_VOICE_ID** - Different voice
+**2. Profile Settings (VIDEO\_\* prefix)** - Used when `?profile=video` is sent:
+
+The **react-video-client-avatar** sends `?profile=video` automatically, which requires a complete, isolated set of credentials with VIDEO\_\* prefix:
+
+- **VIDEO_APP_ID** - Agora app (can be different from base)
+- **VIDEO_APP_CERTIFICATE** - Certificate for video app (optional)
+- **VIDEO_AGENT_AUTH_HEADER** - Auth header for video app
+- **VIDEO_LLM_API_KEY** - LLM API key
+- **VIDEO_TTS_VENDOR** - TTS vendor (can be different from base)
+- **VIDEO_TTS_KEY** - TTS API key
+- **VIDEO_TTS_VOICE_ID** - Voice ID
 - **VIDEO_AVATAR_VENDOR** - Avatar provider: `heygen` or `anam`
 - **VIDEO_AVATAR_API_KEY** - Avatar provider API key
-  - [HeyGen](https://www.heygen.com/) | [Anam AI](https://www.anam.ai/)
-- **VIDEO_AVATAR_ID** - Avatar identifier from provider
+- **VIDEO_AVATAR_ID** - Avatar identifier
 
-See [simple-backend/README.md](./simple-backend/README.md) for detailed configuration examples.
+**Important:** Profile settings do NOT fall back to base settings. When using `?profile=video`, all VIDEO\_\* credentials must be provided.
+
+See [simple-backend/README.md](./simple-backend/README.md#configuration) for detailed configuration examples and use cases.
 
 ## Integrating into Your App
 
@@ -612,11 +643,27 @@ payload = {
 
 ### Profile-Based Configuration
 
-Override configuration per use case using profile-specific environment
-variables:
+The backend supports isolated configurations using profiles. When a client sends `?profile=<name>`, the backend uses ONLY the `<NAME>_*` prefixed environment variables with **no fallback** to base settings.
+
+**Base settings example** (no profile):
 
 ```bash
-# .env file
+# .env file - used when no ?profile= parameter sent
+APP_ID=your_app_id
+AGENT_AUTH_HEADER=your_auth_header
+LLM_API_KEY=your_llm_key
+TTS_VENDOR=rime
+TTS_KEY=your_rime_key
+TTS_VOICE_ID=astra
+AVATAR_VENDOR=heygen     # Optional for avatar support
+AVATAR_API_KEY=your_key
+AVATAR_ID=your_avatar_id
+```
+
+**VIDEO profile example** (used by react-video-client-avatar):
+
+```bash
+# .env file - used when ?profile=video sent
 VIDEO_APP_ID=your_beta_app_id
 VIDEO_AGENT_AUTH_HEADER=your_auth_header
 VIDEO_LLM_API_KEY=your_llm_key
@@ -631,13 +678,16 @@ VIDEO_AVATAR_ID=your_avatar_id
 **Usage:**
 
 ```bash
+# Base settings
+curl "http://localhost:8081/start-agent?channel=test"
+
+# VIDEO profile (react-video-client-avatar sends this automatically)
 curl "http://localhost:8081/start-agent?channel=test&profile=video"
 ```
 
-**NOTE:** When using `profile=video`, you MUST provide all VIDEO\_\* prefixed variables. No fallback to base variables.
+**Important:** When using `?profile=video`, you MUST provide all VIDEO\_\* prefixed variables. No fallback to base variables.
 
-See [simple-backend/README.md](./simple-backend/README.md#profile-support) for
-details.
+See [simple-backend/README.md](./simple-backend/README.md#configuration) for detailed configuration examples and use cases.
 
 ### TTS Configuration
 
@@ -656,17 +706,17 @@ TTS_VOICE_ID=  # Required: Voice/speaker ID for your chosen vendor
 - **OpenAI**: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`
 - **Cartesia**: Get from [voice library](https://cartesia.ai/)
 
-**Profile-specific TTS example:**
+**Using different TTS vendors:**
 
-Use different TTS vendors per profile (e.g., Rime for voice, ElevenLabs for avatar):
+You can use different TTS vendors for base settings vs VIDEO profile:
 
 ```bash
-# Base (voice clients)
+# Base settings (no profile) - voice clients use Rime
 TTS_VENDOR=rime
 TTS_KEY=rime_api_key
 TTS_VOICE_ID=astra
 
-# Avatar profile
+# VIDEO profile - avatar client uses ElevenLabs
 VIDEO_TTS_VENDOR=elevenlabs
 VIDEO_TTS_KEY=elevenlabs_key
 VIDEO_TTS_VOICE_ID=voice_id_here
@@ -674,7 +724,15 @@ VIDEO_TTS_VOICE_ID=voice_id_here
 
 ### Avatar Configuration
 
-When using video avatar clients, configure avatar-specific settings:
+**Base settings with avatar:**
+
+```bash
+AVATAR_VENDOR=heygen  # or anam
+AVATAR_API_KEY=your_avatar_api_key
+AVATAR_ID=your_avatar_id
+```
+
+**VIDEO profile with avatar** (react-video-client-avatar):
 
 ```bash
 VIDEO_AVATAR_VENDOR=heygen  # or anam
@@ -682,9 +740,9 @@ VIDEO_AVATAR_API_KEY=your_avatar_api_key
 VIDEO_AVATAR_ID=your_avatar_id
 ```
 
-The client sends `?profile=video` to use these settings automatically.
+The **react-video-client-avatar** sends `?profile=video` automatically to use VIDEO\_\* settings.
 
-See [simple-backend/README.md#avatar-mode-profile-example](./simple-backend/README.md#avatar-mode-profile-example) for complete examples.
+See [simple-backend/README.md#configuration](./simple-backend/README.md#configuration) for complete examples.
 
 ## Installation & Setup
 
