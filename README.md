@@ -15,7 +15,9 @@ up the sample backend and one of the sample clients or ask AI to do it for you.
 **Example prompt for Claude Code:**
 
 ```
-using https://github.com/AgoraIO-Conversational-AI/agent-samples I want to run the Video AI Agent with Avatar Sample here on my laptop. Be sure to read the AGENT.md before you begin.
+using https://github.com/AgoraIO-Conversational-AI/agent-samples I want to run the
+Video AI Agent with Avatar Sample here on my laptop. Be sure to read the AGENT.md
+before you begin.
 ```
 
 ## System Architecture
