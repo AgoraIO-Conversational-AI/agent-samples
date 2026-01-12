@@ -783,10 +783,16 @@ These can be customized per profile, allowing different agent personalities for 
 
 3. **Install backend dependencies:**
 
+   The backend requires Python packages. Use a virtual environment to avoid system conflicts:
+
    ```bash
    cd simple-backend
+   python3 -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
    pip install -r requirements-local.txt
    ```
+
+   **Note:** Modern Python installations (especially on macOS via Homebrew) use externally-managed environments. Always use a virtual environment (`venv`) to install packages.
 
 4. **Configure backend:**
 
@@ -801,6 +807,7 @@ These can be customized per profile, allowing different agent personalities for 
 
 ```bash
 cd simple-backend
+source venv/bin/activate  # Activate virtual environment first
 PORT=8082 python3 local_server.py
 ```
 
