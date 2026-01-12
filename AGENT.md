@@ -111,32 +111,31 @@ The backend supports two configuration modes:
 1. **Base settings** (no prefix) - for voice-only or simple avatar clients
 2. **Profile settings** (VIDEO_* prefix) - for completely isolated configurations
 
-The react-video-client-avatar uses ?profile=video, which requires ALL credentials
-with VIDEO_* prefix (no fallback to base settings).
+The react-video-client-avatar uses ?profile=video, which requires a complete set of
+credentials that will be stored with VIDEO_* prefix in the .env file.
 
-Please provide all required VIDEO profile credentials:
+Please provide all required credentials for the video profile:
 
-**VIDEO Profile - Agora Credentials:**
-1. VIDEO_APP_ID - Console: https://console.agora.io/project-management
-2. VIDEO_AGENT_AUTH_HEADER - Console: https://console.agora.io/restful-api
-3. VIDEO_APP_CERTIFICATE (optional) - Same project page
+**Agora Credentials:**
+1. APP_ID - Console: https://console.agora.io/project-management
+2. AGENT_AUTH_HEADER - Console: https://console.agora.io/restful-api
+3. APP_CERTIFICATE (optional) - Same project page
 
-**VIDEO Profile - LLM & TTS:**
-4. VIDEO_LLM_API_KEY - https://platform.openai.com/settings/organization/api-keys
-5. VIDEO_TTS_VENDOR - Choose: rime, elevenlabs, openai, or cartesia
-6. VIDEO_TTS_KEY - Get from chosen vendor (Rime | ElevenLabs | OpenAI | Cartesia)
-7. VIDEO_TTS_VOICE_ID - Voice ID for chosen vendor
+**LLM & TTS:**
+4. LLM_API_KEY - https://platform.openai.com/settings/organization/api-keys
+5. TTS_VENDOR - Choose: rime, elevenlabs, openai, or cartesia
+6. TTS_KEY - Get from chosen vendor (Rime | ElevenLabs | OpenAI | Cartesia)
+7. TTS_VOICE_ID - Voice ID for chosen vendor
 
-**VIDEO Profile - Avatar Settings:**
-8. VIDEO_AVATAR_VENDOR - Choose: heygen or anam
+**Avatar Settings:**
+8. AVATAR_VENDOR - Choose: heygen or anam
    HeyGen: https://www.heygen.com/ | Anam AI: https://www.anam.ai/
-9. VIDEO_AVATAR_API_KEY - API key from avatar provider
-10. VIDEO_AVATAR_ID - Avatar identifier from provider
-
-NOTE: All 10 credentials must use VIDEO_* prefix. No fallback to base settings.
+9. AVATAR_API_KEY - API key from avatar provider
+10. AVATAR_ID - Avatar identifier from provider
 
 [User provides all values in one response]
-[AI creates .env file with complete VIDEO_* configuration]
+[AI writes to .env with VIDEO_ prefix: VIDEO_APP_ID, VIDEO_AGENT_AUTH_HEADER, etc.]
+[AI notes: "I've created the .env file with VIDEO_* prefixed credentials for the video profile"]
 ```
 
 **Alternative: Avatar with Base Settings**
