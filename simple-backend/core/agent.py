@@ -141,17 +141,19 @@ def build_avatar_config(avatar_vendor, constants, channel, agent_video_token, qu
         )
 
     if avatar_vendor == "heygen":
+        # For HeyGen, agora_token is the APP_ID if no real token
+        agora_token_value = agent_video_token if agent_video_token else constants["APP_ID"]
+
         return {
-            "enable": True,
             "vendor": "heygen",
+            "enable": True,
             "params": {
                 "api_key": constants["AVATAR_API_KEY"],
-                "avatar_id": constants["AVATAR_ID"],
                 "quality": query_params.get('heygen_quality', constants["HEYGEN_QUALITY"]),
-                "agora_appid": constants["APP_ID"],
-                "agora_token": agent_video_token,
-                "agora_channel": channel,
                 "agora_uid": constants["AGENT_VIDEO_UID"],
+                "agora_token": agora_token_value,
+                "avatar_id": constants["AVATAR_ID"],
+                "disable_idle_timeout": False,
                 "activity_idle_timeout": int(query_params.get('heygen_idle_timeout', constants["HEYGEN_ACTIVITY_IDLE_TIMEOUT"]))
             }
         }
