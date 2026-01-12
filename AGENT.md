@@ -686,6 +686,20 @@ curl "http://localhost:8081/start-agent?channel=test&profile=video"
 
 **Important:** When using `?profile=video`, you MUST provide all VIDEO\_\* prefixed variables. No fallback to base variables.
 
+**Vendor-specific settings** also need the profile prefix when using a profile:
+
+```bash
+# Base settings (no profile)
+ELEVENLABS_MODEL=eleven_flash_v2_5
+TTS_SAMPLE_RATE=24000
+HEYGEN_QUALITY=high
+
+# VIDEO profile - must prefix vendor-specific settings too
+VIDEO_ELEVENLABS_MODEL=eleven_flash_v2_5
+VIDEO_TTS_SAMPLE_RATE=24000
+VIDEO_HEYGEN_QUALITY=high
+```
+
 See [simple-backend/README.md](./simple-backend/README.md#configuration) for detailed configuration examples and use cases.
 
 ### TTS Configuration
