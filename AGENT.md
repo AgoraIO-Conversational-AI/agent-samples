@@ -743,6 +743,28 @@ The **react-video-client-avatar** sends `?profile=video` automatically to use VI
 
 See [simple-backend/README.md#configuration](./simple-backend/README.md#configuration) for complete examples.
 
+### Customizing Agent Behavior
+
+**Greeting and Prompt Settings:**
+
+```bash
+# Base settings
+DEFAULT_PROMPT=You are a helpful assistant. Keep responses concise and friendly.
+DEFAULT_GREETING=hi there
+DEFAULT_FAILURE_MESSAGE=Sorry, something went wrong
+
+# VIDEO profile (optional - different personality for avatar)
+VIDEO_DEFAULT_PROMPT=You are a video avatar assistant. The user can see you as a digital human...
+VIDEO_DEFAULT_GREETING=Hello, I can see you!
+VIDEO_DEFAULT_FAILURE_MESSAGE=Oops, something went wrong
+```
+
+- **DEFAULT_PROMPT** - System prompt that defines the LLM's personality and behavior
+- **DEFAULT_GREETING** - First message sent when agent joins the channel
+- **DEFAULT_FAILURE_MESSAGE** - Message sent when errors occur
+
+These can be customized per profile, allowing different agent personalities for voice vs video clients.
+
 ## Installation & Setup
 
 ### First Time Setup

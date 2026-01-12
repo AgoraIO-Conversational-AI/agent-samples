@@ -107,6 +107,26 @@ VIDEO_AVATAR_ID=           # Avatar identifier
 
 This allows running multiple clients with completely isolated configurations.
 
+### Customizing Agent Behavior
+
+**Base settings:**
+
+```bash
+DEFAULT_PROMPT=You are a helpful assistant...
+DEFAULT_GREETING=hi there
+DEFAULT_FAILURE_MESSAGE=Sorry, something went wrong
+```
+
+**Profile-specific prompts:**
+
+```bash
+VIDEO_DEFAULT_PROMPT=You are a video avatar assistant...
+VIDEO_DEFAULT_GREETING=Hello, I can see you!
+VIDEO_DEFAULT_FAILURE_MESSAGE=Oops, something went wrong
+```
+
+The greeting is sent as the first message when the agent joins. The prompt defines the LLM's personality and behavior.
+
 ## Usage
 
 **Start agent:**
