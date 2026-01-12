@@ -789,7 +789,7 @@ These can be customized per profile, allowing different agent personalities for 
    cd simple-backend
    python3 -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
-   pip install -r requirements-local.txt
+   pip install -r requirements.txt
    ```
 
    **Note:** Modern Python installations (especially on macOS via Homebrew) use externally-managed environments. Always use a virtual environment (`venv`) to install packages.
