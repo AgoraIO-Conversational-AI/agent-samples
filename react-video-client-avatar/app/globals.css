@@ -117,6 +117,18 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+@layer utilities {
+  .inline-flex {
+    display: inline-flex;
+  }
+}
+
+@layer components {
+  .bg-input-field-bg {
+    background-color: var(--background, #ffffff);
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -125,3 +125,15 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .inline-flex {
+    display: inline-flex;
+  }
+}
+
+@layer components {
+  .bg-input-field-bg {
+    background-color: var(--background, #ffffff);
+  }
+}

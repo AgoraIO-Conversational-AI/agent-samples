@@ -1,25 +1,33 @@
-"use client"
+"use client";
 
-import { useState, useRef } from "react"
-import { Mic, MicOff } from "lucide-react"
-import { useAgoraVoiceClient } from "@/hooks/useAgoraVoiceClient"
-import { useAudioVisualization } from "@/hooks/useAudioVisualization"
-import { MicButton } from "@agora/agent-ui-kit"
-import { AgentVisualizer, AgentVisualizerState } from "@agora/agent-ui-kit"
-import { Conversation, ConversationContent } from "@agora/agent-ui-kit"
-import { Message, MessageContent } from "@agora/agent-ui-kit"
-import { Response } from "@agora/agent-ui-kit"
-import { AgoraLogo } from "@agora/agent-ui-kit"
-import { cn } from "@/lib/utils"
+import { useState, useRef } from "react";
+import { Mic, MicOff, Settings } from "lucide-react";
+import { useAgoraVoiceClient } from "@/hooks/useAgoraVoiceClient";
+import { useAudioVisualization } from "@/hooks/useAudioVisualization";
+import { MicButton } from "@agora/agent-ui-kit";
+import { AgentVisualizer, AgentVisualizerState } from "@agora/agent-ui-kit";
+import { Conversation, ConversationContent } from "@agora/agent-ui-kit";
+import { Message, MessageContent } from "@agora/agent-ui-kit";
+import { Response } from "@agora/agent-ui-kit";
+import { AgoraLogo } from "@agora/agent-ui-kit";
+import { SettingsDialog } from "@agora/agent-ui-kit";
+import { cn } from "@/lib/utils";
 
-const DEFAULT_BACKEND_URL = "http://localhost:8082"
+const DEFAULT_BACKEND_URL = "http://localhost:8082";
 
 export function VoiceClient() {
-  const [backendUrl, setBackendUrl] = useState(DEFAULT_BACKEND_URL)
-  const [agentUID, setAgentUID] = useState<string | undefined>(undefined)
-  const [isLoading, setIsLoading] = useState(false)
-  const [chatMessage, setChatMessage] = useState("")
-  const conversationRef = useRef<HTMLDivElement>(null)
+  const [backendUrl, setBackendUrl] = useState(DEFAULT_BACKEND_URL);
+  const [agentUID, setAgentUID] = useState<string | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(false);
+  const [chatMessage, setChatMessage] = useState("");
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [enableAivad, setEnableAivad] = useState(true);
+  const [language, setLanguage] = useState("en-US");
+  const [prompt, setPrompt] = useState(
+    "You are a virtual companion. The user can both talk and type to you and you will be sent text. Say you can hear them if asked. They can also see you as a digital human. Keep responses to around 10 to 20 words or shorter. Be upbeat and try and keep conversation going by learning more about the user.",
+  );
+  const [greeting, setGreeting] = useState("hi there");
+  const conversationRef = useRef<HTMLDivElement>(null);
 
   const {
     isConnected,
@@ -33,25 +41,42 @@ export function VoiceClient() {
     leaveChannel,
     toggleMute,
     sendMessage,
-  } = useAgoraVoiceClient()
+  } = useAgoraVoiceClient();
 
   // Get audio visualization data (restart on mute/unmute to fix Web Audio API connection)
-  const frequencyData = useAudioVisualization(localAudioTrack, isConnected && !isMuted)
+  const frequencyData = useAudioVisualization(
+    localAudioTrack,
+    isConnected && !isMuted,
+  );
 
   const handleStart = async () => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      // Backend will auto-generate random channel if not provided
-      const response = await fetch(`${backendUrl}/start-agent`)
+      // Build query params with agent settings
+      const params = new URLSearchParams({
+        enable_aivad: enableAivad.toString(),
+        asr_language: language,
+      });
 
-      if (!response.ok) {
-        throw new Error(`Backend error: ${response.statusText}`)
+      // Add prompt and greeting if provided
+      if (prompt.trim()) {
+        params.append("prompt", prompt.trim());
+      }
+      if (greeting.trim()) {
+        params.append("greeting", greeting.trim());
       }
 
-      const data = await response.json()
+      // Backend will auto-generate random channel if not provided
+      const response = await fetch(`${backendUrl}/start-agent?${params}`);
+
+      if (!response.ok) {
+        throw new Error(`Backend error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
 
       if (data.agent?.uid) {
-        setAgentUID(data.agent.uid)
+        setAgentUID(data.agent.uid);
       }
 
       await joinChannel({
@@ -59,58 +84,75 @@ export function VoiceClient() {
         channel: data.channel,
         token: data.token || null,
         uid: parseInt(data.uid),
-      })
+      });
     } catch (error) {
-      console.error("Failed to start:", error)
-      alert(`Failed to start: ${error instanceof Error ? error.message : "Unknown error"}`)
+      console.error("Failed to start:", error);
+      alert(
+        `Failed to start: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleStop = async () => {
-    await leaveChannel()
-  }
+    await leaveChannel();
+  };
 
   const handleSendMessage = async () => {
-    if (!chatMessage.trim() || !isConnected) return
+    if (!chatMessage.trim() || !isConnected) return;
 
-    const success = await sendMessage(chatMessage, agentUID || "100")
+    const success = await sendMessage(chatMessage, agentUID || "100");
     if (success) {
-      setChatMessage("")
+      setChatMessage("");
     }
-  }
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
+      e.preventDefault();
+      handleSendMessage();
     }
-  }
+  };
 
   const getAgentState = (): AgentVisualizerState => {
-    const state = !isConnected ? "not-joined" : isAgentSpeaking ? "talking" : "listening"
-    return state
-  }
+    const state = !isConnected
+      ? "not-joined"
+      : isAgentSpeaking
+        ? "talking"
+        : "listening";
+    return state;
+  };
 
   // Helper to determine if message is from agent
   // Agent messages have uid: 0 (stream_id: 0)
   const isAgentMessage = (uid: number) => {
-    return uid === 0
-  }
+    return uid === 0;
+  };
 
   return (
     <div className="flex h-screen flex-col bg-gradient-to-b from-background to-muted overflow-hidden">
       {/* Header - Responsive */}
       <header className="border-b bg-card/50 backdrop-blur-sm flex-shrink-0">
         <div className="container mx-auto px-4 py-3 md:py-4">
-          <h1 className="text-lg md:text-2xl font-bold flex items-center gap-2">
-            <AgoraLogo size={24} />
-            Voice AI Client
-          </h1>
-          <p className="text-xs md:text-sm text-muted-foreground hidden md:block">
-            React with Agora AI UIKit
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-lg md:text-2xl font-bold flex items-center gap-2">
+                <AgoraLogo size={24} />
+                Voice AI Client
+              </h1>
+              <p className="text-xs md:text-sm text-muted-foreground hidden md:block">
+                React with Agora AI UIKit
+              </p>
+            </div>
+            <button
+              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+              className="rounded-full p-2 hover:bg-accent transition-colors"
+              aria-label="Toggle settings"
+            >
+              <Settings className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -123,7 +165,10 @@ export function VoiceClient() {
               <h2 className="mb-4 text-lg font-semibold">Connect to Agent</h2>
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="backend" className="mb-2 block text-sm font-medium">
+                  <label
+                    htmlFor="backend"
+                    className="mb-2 block text-sm font-medium"
+                  >
                     Backend URL
                   </label>
                   <input
@@ -155,7 +200,9 @@ export function VoiceClient() {
                 <div
                   className={cn(
                     "h-3 w-3 rounded-full",
-                    isAgentSpeaking ? "bg-green-500 animate-pulse" : "bg-blue-500"
+                    isAgentSpeaking
+                      ? "bg-green-500 animate-pulse"
+                      : "bg-blue-500",
                   )}
                 />
                 <span className="text-sm font-medium">
@@ -179,7 +226,13 @@ export function VoiceClient() {
                 <div className="flex gap-3">
                   <MicButton
                     state={micState}
-                    icon={isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                    icon={
+                      isMuted ? (
+                        <MicOff className="h-4 w-4" />
+                      ) : (
+                        <Mic className="h-4 w-4" />
+                      )
+                    }
                     audioData={frequencyData}
                     onClick={toggleMute}
                     className="flex-1"
@@ -204,7 +257,9 @@ export function VoiceClient() {
                   )}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Mic:</span>
-                    <span className="font-mono font-medium">{isMuted ? "Muted" : "Active"}</span>
+                    <span className="font-mono font-medium">
+                      {isMuted ? "Muted" : "Active"}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -219,15 +274,20 @@ export function VoiceClient() {
               <div className="border-b p-4 flex-shrink-0">
                 <h2 className="font-semibold">Conversation</h2>
                 <p className="text-sm text-muted-foreground">
-                  {messageList.length} message{messageList.length !== 1 ? "s" : ""}
+                  {messageList.length} message
+                  {messageList.length !== 1 ? "s" : ""}
                 </p>
               </div>
 
               {/* Messages */}
-              <Conversation height="" className="flex-1 min-h-0" style={{ overflow: "scroll" }}>
+              <Conversation
+                height=""
+                className="flex-1 min-h-0"
+                style={{ overflow: "scroll" }}
+              >
                 <ConversationContent>
                   {messageList.map((msg, idx) => {
-                    const isAgent = isAgentMessage(msg.uid)
+                    const isAgent = isAgentMessage(msg.uid);
                     return (
                       <Message
                         key={`${msg.turn_id}-${msg.uid}-${idx}`}
@@ -238,13 +298,15 @@ export function VoiceClient() {
                           <Response>{msg.text}</Response>
                         </MessageContent>
                       </Message>
-                    )
+                    );
                   })}
 
                   {/* In-progress message */}
                   {currentInProgressMessage &&
                     (() => {
-                      const isAgent = isAgentMessage(currentInProgressMessage.uid)
+                      const isAgent = isAgentMessage(
+                        currentInProgressMessage.uid,
+                      );
                       return (
                         <Message
                           from={isAgent ? "assistant" : "user"}
@@ -254,7 +316,7 @@ export function VoiceClient() {
                             <Response>{currentInProgressMessage.text}</Response>
                           </MessageContent>
                         </Message>
-                      )
+                      );
                     })()}
                 </ConversationContent>
               </Conversation>
@@ -286,7 +348,13 @@ export function VoiceClient() {
             <div className="flex md:hidden gap-3 p-4 border-t bg-card">
               <MicButton
                 state={micState}
-                icon={isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                icon={
+                  isMuted ? (
+                    <MicOff className="h-4 w-4" />
+                  ) : (
+                    <Mic className="h-4 w-4" />
+                  )
+                }
                 audioData={frequencyData}
                 onClick={toggleMute}
                 className="flex-1 min-h-[48px]"
@@ -301,6 +369,21 @@ export function VoiceClient() {
           </div>
         )}
       </main>
+
+      {/* Settings Dialog */}
+      <SettingsDialog
+        open={isSettingsOpen}
+        onOpenChange={setIsSettingsOpen}
+        enableAivad={enableAivad}
+        onEnableAivadChange={setEnableAivad}
+        language={language}
+        onLanguageChange={setLanguage}
+        prompt={prompt}
+        onPromptChange={setPrompt}
+        greeting={greeting}
+        onGreetingChange={setGreeting}
+        disabled={isConnected}
+      />
     </div>
-  )
+  );
 }

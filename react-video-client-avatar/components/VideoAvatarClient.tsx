@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Mic, MicOff, Video, VideoOff } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, Settings } from "lucide-react";
 import { useAgoraVoiceClient } from "@/hooks/useAgoraVoiceClient";
 import { useAudioVisualization } from "@/hooks/useAudioVisualization";
 import { useLocalVideo, useRemoteVideo } from "@agora/conversational-ai";
@@ -12,6 +12,7 @@ import { Response } from "@agora/agent-ui-kit";
 import { AvatarVideoDisplay, LocalVideoPreview } from "@agora/agent-ui-kit";
 import { VideoGrid, MobileTabs } from "@agora/agent-ui-kit";
 import { AgoraLogo } from "@agora/agent-ui-kit";
+import { SettingsDialog } from "@agora/agent-ui-kit";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_BACKEND_URL = "http://localhost:8082";
@@ -23,6 +24,13 @@ export function VideoAvatarClient() {
   const [chatMessage, setChatMessage] = useState("");
   const [enableLocalVideo, setEnableLocalVideo] = useState(true);
   const [enableAvatar, setEnableAvatar] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [enableAivad, setEnableAivad] = useState(true);
+  const [language, setLanguage] = useState("en-US");
+  const [prompt, setPrompt] = useState(
+    "You are a virtual companion. The user can both talk and type to you and you will be sent text. Say you can hear them if asked. They can also see you as a digital human. Keep responses to around 10 to 20 words or shorter. Be upbeat and try and keep conversation going by learning more about the user.",
+  );
+  const [greeting, setGreeting] = useState("hi there");
   const [activeTab, setActiveTab] = useState("video");
   const _conversationRef = useRef<HTMLDivElement>(null);
 
@@ -110,6 +118,18 @@ export function VideoAvatarClient() {
         params.append("profile", "video");
       }
 
+      // Add agent settings
+      params.append("enable_aivad", enableAivad.toString());
+      params.append("asr_language", language);
+
+      // Add prompt and greeting if provided
+      if (prompt.trim()) {
+        params.append("prompt", prompt.trim());
+      }
+      if (greeting.trim()) {
+        params.append("greeting", greeting.trim());
+      }
+
       const url = params.toString()
         ? `${backendUrl}/start-agent?${params.toString()}`
         : `${backendUrl}/start-agent`;
@@ -193,13 +213,24 @@ export function VideoAvatarClient() {
       {/* Header - Responsive */}
       <header className="border-b bg-card/50 backdrop-blur-sm flex-shrink-0">
         <div className="container mx-auto px-4 py-3 md:py-4">
-          <h1 className="text-lg md:text-2xl font-bold flex items-center gap-2">
-            <AgoraLogo size={24} />
-            Video Avatar AI Client
-          </h1>
-          <p className="text-xs md:text-sm text-muted-foreground hidden md:block">
-            React with Agora AI UIKit - Video + Avatar
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-lg md:text-2xl font-bold flex items-center gap-2">
+                <AgoraLogo size={24} />
+                Video Avatar AI Client
+              </h1>
+              <p className="text-xs md:text-sm text-muted-foreground hidden md:block">
+                React with Agora AI UIKit - Video + Avatar
+              </p>
+            </div>
+            <button
+              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+              className="rounded-full p-2 hover:bg-accent transition-colors"
+              aria-label="Toggle settings"
+            >
+              <Settings className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -589,6 +620,21 @@ export function VideoAvatarClient() {
           </>
         )}
       </main>
+
+      {/* Settings Dialog */}
+      <SettingsDialog
+        open={isSettingsOpen}
+        onOpenChange={setIsSettingsOpen}
+        enableAivad={enableAivad}
+        onEnableAivadChange={setEnableAivad}
+        language={language}
+        onLanguageChange={setLanguage}
+        prompt={prompt}
+        onPromptChange={setPrompt}
+        greeting={greeting}
+        onGreetingChange={setGreeting}
+        disabled={isConnected}
+      />
     </div>
   );
 }
