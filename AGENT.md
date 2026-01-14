@@ -18,7 +18,11 @@ server technology.
 ## Table of Contents
 
 - [Getting Started](#getting-started---first-steps)
+  - [Pre-Flight Check](#pre-flight-check)
+  - [Video Avatar Quick Start](#video-avatar-quick-start)
 - [Required API Keys](#required-api-keys--credentials)
+  - [Video Avatar Credentials](#video-avatar-credentials)
+- [AI Assistant Troubleshooting](#ai-assistant-troubleshooting)
 - [Quick Start](#quick-start---running-samples)
 - [Using Samples as Reference](#using-the-samples-as-reference)
 - [Architecture Overview](#architecture)
@@ -56,6 +60,86 @@ server technology.
    - Provide the local URL to access the client
 
 **Be proactive - start building immediately, don't ask which client to use first.**
+
+### Pre-Flight Check
+
+**AI Assistant: Before starting setup, verify these conditions to avoid unnecessary work:**
+
+1. **Is repo already cloned locally?**
+   - Check if directory exists at expected path
+   - If yes: Use local files for all operations (skip cloning)
+   - If no: Clone from GitHub
+
+2. **Is backend already installed?**
+   - Check for `simple-backend/venv` directory or pip packages
+   - If yes: Skip backend installation, proceed to configuration
+   - If no: Install dependencies
+
+3. **Is frontend already installed?**
+   - Check for `react-voice-client/node_modules` or `react-video-client-avatar/node_modules`
+   - If yes: Skip npm install, proceed to configuration
+   - If no: Run `npm install --legacy-peer-deps`
+
+4. **Are services already running?**
+   - Check ports: `lsof -ti:8082` (backend), `lsof -ti:8083` (voice), `lsof -ti:8084` (video)
+   - If yes: Inform user and offer to restart or use existing
+   - If no: Start services
+
+**Important:** Prefer reading local files over web fetching. Only fetch raw file contents from GitHub when repository is not cloned locally.
+
+### Video Avatar Quick Start
+
+**AI Assistant: Follow this exact sequence when user wants to run the Video AI Agent with Avatar Sample:**
+
+1. **Verify/Clone repository:**
+   - Check if repo exists locally FIRST (see [Pre-Flight Check](#pre-flight-check))
+   - If yes: Use local files (skip clone)
+   - If no: Clone from `https://github.com/AgoraIO-Conversational-AI/agent-samples`
+
+2. **Backend setup (simple-backend/):**
+
+   ```bash
+   cd simple-backend
+   pip3 install -r requirements-local.txt
+   # Or use virtual environment:
+   python3 -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip3 install -r requirements-local.txt
+   ```
+
+3. **Frontend setup (react-video-client-avatar/):**
+
+   ```bash
+   cd react-video-client-avatar
+   npm install --legacy-peer-deps
+   ```
+
+4. **Configure VIDEO profile in backend .env:**
+   - Copy `.env.example` to `.env`
+   - Gather VIDEO\_\* prefixed credentials (see [Video Avatar Credentials](#video-avatar-credentials) below)
+   - Explain: Video profile uses completely separate config from base/voice settings
+   - Important: All credentials must have VIDEO\_ prefix (no fallback to base variables)
+
+5. **Start services:**
+
+   ```bash
+   # Terminal 1 - Backend
+   cd simple-backend
+   source venv/bin/activate  # If using venv
+   PORT=8082 python3 local_server.py
+
+   # Terminal 2 - Frontend
+   cd react-video-client-avatar
+   npm run dev
+   ```
+
+6. **Access:** http://localhost:8084
+   - Backend URL should be `http://localhost:8082` (default)
+   - Enable "Enable Local Video" to show your camera
+   - Enable "Enable Avatar" to show avatar video
+   - Click "Start Conversation"
+
+7. **Troubleshooting:** See [AI Assistant Troubleshooting](#ai-assistant-troubleshooting) section below for common issues
 
 ---
 
@@ -155,6 +239,76 @@ AVATAR_API_KEY=
 AVATAR_ID=
 ```
 
+### Video Avatar Credentials
+
+**AI Assistant: For Video Avatar setup, ask for these credentials one-by-one:**
+
+**Agora (Video Profile) - Required:**
+
+1. **VIDEO_APP_ID**
+   - Get from: [Agora Console → Project Management](https://console.agora.io/project-management)
+   - Help: [Manage Agora Account](https://docs.agora.io/en/conversational-ai/get-started/manage-agora-account)
+   - What: Agora application identifier for video profile
+
+2. **VIDEO_AGENT_AUTH_HEADER**
+   - Get from: [Agora Console → RESTful API](https://console.agora.io/restful-api)
+   - Help: [RESTful Authentication](https://docs.agora.io/en/conversational-ai/rest-api/restful-authentication)
+   - What: Authentication header for Agora Agent REST API
+
+3. **VIDEO_APP_CERTIFICATE** (optional for testing)
+   - Get from: Same project page as APP_ID
+   - What: Security certificate for token generation
+
+**LLM & TTS (Video Profile) - Required:**
+
+4. **VIDEO_LLM_API_KEY**
+   - Get from: [OpenAI API Keys](https://platform.openai.com/settings/organization/api-keys)
+   - What: API key for language model
+
+5. **VIDEO_TTS_VENDOR**
+   - Choose: `rime`, `elevenlabs`, `openai`, or `cartesia`
+   - What: Text-to-speech provider
+
+6. **VIDEO_TTS_KEY**
+   - Get from your chosen vendor:
+     - [Rime](https://rime.ai/)
+     - [ElevenLabs](https://elevenlabs.io/)
+     - [OpenAI](https://platform.openai.com/)
+     - [Cartesia](https://cartesia.ai/)
+   - What: API key for TTS vendor
+
+7. **VIDEO_TTS_VOICE_ID**
+   - Get from vendor's voice library
+   - Examples:
+     - Rime: `astra`, `deedee`, `marsh`
+     - ElevenLabs: Get from [voice library](https://elevenlabs.io/)
+     - OpenAI: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`
+     - Cartesia: Get from [voice library](https://cartesia.ai/)
+   - What: Specific voice/speaker identifier
+
+**Avatar Provider (Video Profile) - Required:**
+
+8. **VIDEO_AVATAR_VENDOR**
+   - Choose: `heygen` or `anam`
+   - What: Avatar video provider
+
+9. **VIDEO_AVATAR_API_KEY**
+   - Get from:
+     - [HeyGen](https://www.heygen.com/)
+     - [Anam AI](https://www.anam.ai/)
+   - What: API key from avatar provider
+
+10. **VIDEO_AVATAR_ID**
+    - Get from: Avatar provider console (avatar identifier)
+    - What: Specific avatar to use in video stream
+
+**Important Notes:**
+
+- All credentials MUST have `VIDEO_` prefix
+- No fallback to base variables when using `?profile=video`
+- react-video-client-avatar sends `?profile=video` automatically
+- See [simple-backend/.env.video.example](./simple-backend/.env.video.example) for complete template
+
 ### Backend Configuration Modes
 
 The backend supports two configuration approaches:
@@ -197,6 +351,129 @@ The **react-video-client-avatar** sends `?profile=video` automatically, which re
 **Important:** Profile settings do NOT fall back to base settings. When using `?profile=video`, all VIDEO\_\* credentials must be provided.
 
 See [simple-backend/README.md](./simple-backend/README.md#configuration) for detailed configuration examples and use cases.
+
+## AI Assistant Troubleshooting
+
+**AI Assistant: Use this section to quickly resolve common issues during setup:**
+
+### Failed to Fetch / 404 Errors
+
+❌ **Problem:** Making multiple failed web requests trying to find repository structure
+
+**Solution:**
+
+- Check if repository is cloned locally FIRST
+- Use local file operations instead of web scraping
+- Only fetch raw file contents when repository truly doesn't exist locally
+- Example check: Test if directory exists before attempting GitHub API calls
+
+### Port Already in Use
+
+❌ **Problem:** "EADDRINUSE" or "port already in use" errors
+
+**Solution:**
+
+```bash
+# Check if backend running
+lsof -ti:8082 && echo "Backend already running"
+
+# Check if voice client running
+lsof -ti:8083 && echo "Voice client already running"
+
+# Check if video client running
+lsof -ti:8084 && echo "Video client already running"
+
+# Kill process if needed
+lsof -ti:8082 | xargs kill
+```
+
+### Backend BAD REQUEST (Video Profile)
+
+❌ **Problem:** Backend returns 400 BAD REQUEST with "TTS_VENDOR must be set" error
+
+**Root Cause:** Missing VIDEO\_\* prefixed environment variables
+
+**Solution:**
+
+1. Verify ALL credentials have `VIDEO_` prefix in `.env`
+2. Check that VIDEO_APP_ID, VIDEO_AGENT_AUTH_HEADER exist (not just APP_ID)
+3. Check that VIDEO_TTS_VENDOR, VIDEO_TTS_KEY, VIDEO_TTS_VOICE_ID exist
+4. Check that VIDEO_AVATAR_VENDOR, VIDEO_AVATAR_API_KEY, VIDEO_AVATAR_ID exist
+5. Remember: NO fallback to base variables when using profile
+6. Backend logs will show which specific variable is missing
+
+### Avatar Not Showing
+
+❌ **Problem:** Avatar video not appearing in react-video-client-avatar
+
+**Solution:**
+
+1. Confirm VIDEO_AVATAR_VENDOR is set (`heygen` or `anam`)
+2. Confirm VIDEO_AVATAR_API_KEY is valid
+3. Confirm VIDEO_AVATAR_ID is correct avatar identifier
+4. Check "Enable Avatar" checkbox in UI before connecting
+5. Review backend logs for agent creation errors
+6. Verify avatar provider account has sufficient credits/quota
+
+### npm install Fails
+
+❌ **Problem:** Peer dependency conflicts during `npm install`
+
+**Solution:**
+
+- Always use `npm install --legacy-peer-deps` flag
+- Required due to agora-rtm peer dependency requirements
+- Example: `cd react-video-client-avatar && npm install --legacy-peer-deps`
+
+### Python Package Installation Errors
+
+❌ **Problem:** "externally-managed-environment" error on macOS/Linux
+
+**Solution:**
+
+```bash
+cd simple-backend
+python3 -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip3 install -r requirements-local.txt
+```
+
+Always use virtual environment to avoid system Python conflicts.
+
+### Module Not Found Errors
+
+❌ **Problem:** Cannot find @agora/agent-ui-kit or @agora/conversational-ai
+
+**Solution:**
+
+1. If using samples: Dependencies should be installed automatically
+2. Check that npm install completed successfully
+3. Verify node_modules directory exists
+4. Try: `rm -rf node_modules package-lock.json && npm install --legacy-peer-deps`
+
+### Services Detection
+
+**AI Assistant: Before starting any service, check if it's already running:**
+
+```bash
+# Detect backend
+if lsof -ti:8082 > /dev/null 2>&1; then
+  echo "Backend already running on port 8082"
+  # Offer to restart or use existing
+fi
+
+# Detect voice client
+if lsof -ti:8083 > /dev/null 2>&1; then
+  echo "Voice client already running on port 8083"
+fi
+
+# Detect video client
+if lsof -ti:8084 > /dev/null 2>&1; then
+  echo "Video client already running on port 8084"
+fi
+```
+
+This prevents unnecessary restarts and informs the user of current state.
 
 ## Integrating into Your App
 

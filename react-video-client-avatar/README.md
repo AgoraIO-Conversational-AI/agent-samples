@@ -4,6 +4,8 @@ React/Next.js implementation demonstrating video avatar integration with the
 Agora Conversational AI SDK and UI Kit.
 
 > **📘 For AI Coding Assistants:** See [../AGENT.md](../AGENT.md) for comprehensive implementation guidance and API reference.
+>
+> **⚡ Quick Start:** Follow the [Video Avatar Quick Start](../AGENT.md#video-avatar-quick-start) guide in AGENT.md for step-by-step setup instructions.
 
 ## Table of Contents
 
@@ -103,7 +105,7 @@ Configure the backend with video profile settings (VIDEO\_\* prefixed variables)
 - `VIDEO_AVATAR_VENDOR` (heygen or anam)
 - `VIDEO_AVATAR_API_KEY`, `VIDEO_AVATAR_ID` (avatar provider credentials)
 
-See [../simple-backend/README.md#avatar-mode-profile-example](../simple-backend/README.md#avatar-mode-profile-example) for complete configuration example.
+See [Video Avatar Credentials](../AGENT.md#video-avatar-credentials) in AGENT.md for detailed credential gathering instructions, or [../simple-backend/README.md#avatar-mode-profile-example](../simple-backend/README.md#avatar-mode-profile-example) for complete configuration example. You can also reference [../simple-backend/.env.video.example](../simple-backend/.env.video.example) as a template.
 
 **Start Services:**
 
@@ -297,6 +299,12 @@ The build creates an optimized production bundle with:
   `../simple-backend/README.md`)
 - Check "Enable Avatar" is checked before connecting
 - Verify backend logs for agent creation success
+
+**Backend BAD REQUEST errors:**
+
+- See [AI Assistant Troubleshooting](../AGENT.md#ai-assistant-troubleshooting) in AGENT.md for comprehensive troubleshooting guidance
+- Common cause: Missing VIDEO\_\* prefixed environment variables
+- Remember: Video profile requires ALL credentials with VIDEO\_ prefix (no fallback to base variables)
 
 **Layout issues:**
 
