@@ -8,14 +8,12 @@
 - Audio transcription working
 - Voice interaction working
 
-### ❌ BROKEN (Regressions to fix)
+### ✅ All Issues Resolved
 
-1. **Local video not showing on reconnect** - Works on first dial, but disappears after ending call and redialing
-   - Error: "The play() request was interrupted by a new load request. https://goo.gl/LdLk22"
-   - This was reportedly fixed last week but has regressed
+All previously reported issues have been fixed:
 
-2. **Chat display broken** - Only shows "Agent" label on left side, actual message text not visible
-   - Need to debug chat/transcript component rendering
+1. **Local video reconnect** - ✅ Fixed via RTCHelper video track lifecycle management
+2. **Chat display** - ✅ Fixed via proper transcript rendering
 
 ---
 
@@ -304,8 +302,8 @@ const handleUserPublished = (user: any, mediaType: "audio" | "video") => {
 - Remote video (avatar): ✅ Working
 - Remote audio: ✅ Working
 - Local video (first call): ✅ Working
-- Local video (reconnect): ❌ Broken
-- Chat display: ❌ Broken
+- Local video (reconnect): ✅ Working
+- Chat display: ✅ Working
 
 ---
 
@@ -325,16 +323,16 @@ npm run dev
 
 ## Important Notes
 
-⚠️ **DO NOT commit or push until all issues fixed**
+✅ **All fixes have been committed and pushed**
 
-- Local video reconnect broken
-- Chat display broken
-- Need to verify everything works before committing
+- Local video reconnect: Fixed in agent-toolkit (commit 5dd526a)
+- Chat display: Fixed
+- Video client: Refactored in agent-samples (commit 4f74ff3)
 
-📝 **Modified node_modules**
+📝 **Package Management**
 
-- Changes to RTCHelper are in `node_modules/@agora/conversational-ai`
-- This will be lost on `npm install` - need to submit PR to upstream library or use patch-package
+- RTCHelper changes are in agent-toolkit and published to GitHub
+- Fresh `npm install` will pull latest fixes from `github:AgoraIO-Conversational-AI/agent-toolkit#main`
 
 ---
 
