@@ -2,9 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Mic, MicOff, Video, VideoOff, Settings } from "lucide-react";
-import { useAgoraVoiceClient } from "@/hooks/useAgoraVoiceClient";
+import { useAgoraVideoClient } from "@/hooks/useAgoraVideoClient";
 import { useAudioVisualization } from "@/hooks/useAudioVisualization";
-import { useLocalVideo, useRemoteVideo } from "@agora/conversational-ai";
 import { MicButton } from "@agora/agent-ui-kit";
 import { Conversation, ConversationContent } from "@agora/agent-ui-kit";
 import { Message, MessageContent } from "@agora/agent-ui-kit";
@@ -27,6 +26,7 @@ export function VideoAvatarClient() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [enableAivad, setEnableAivad] = useState(true);
   const [language, setLanguage] = useState("en-US");
+  const [profile, setProfile] = useState("");
   const [prompt, setPrompt] = useState(
     "You are a virtual companion. The user can both talk and type to you and you will be sent text. Say you can hear them if asked. They can also see you as a digital human. Keep responses to around 10 to 20 words or shorter. Be upbeat and try and keep conversation going by learning more about the user.",
   );
@@ -42,12 +42,15 @@ export function VideoAvatarClient() {
     currentInProgressMessage,
     isAgentSpeaking: _isAgentSpeaking,
     localAudioTrack,
+    remoteVideoTrack: avatarVideoTrack,
     joinChannel,
     leaveChannel,
     toggleMute,
     sendMessage,
     rtcHelperRef,
-  } = useAgoraVoiceClient();
+  } = useAgoraVideoClient();
+
+  // Removed verbose logging - see useAgoraVideoClient for agent message logs
 
   // Get audio visualization data (restart on mute/unmute to fix Web Audio API connection)
   const frequencyData = useAudioVisualization(
@@ -55,57 +58,30 @@ export function VideoAvatarClient() {
     isConnected && !isMuted,
   );
 
-  // Video hooks
-  const {
-    videoTrack: localVideoTrack,
-    isVideoEnabled: isLocalVideoActive,
-    enableVideo,
-    disableVideo,
-  } = useLocalVideo();
+  // Local video state - managed by RTCHelper
+  const [localVideoTrack, setLocalVideoTrack] = useState<any>(null);
+  const [isLocalVideoActive, setIsLocalVideoActive] = useState(false);
 
-  const { remoteVideoUsersArray } = useRemoteVideo({
-    client: rtcHelperRef.current?.client,
-  });
-
-  // Get avatar video track (first remote user with video)
-  const avatarVideoTrack =
-    remoteVideoUsersArray.length > 0
-      ? remoteVideoUsersArray[0].videoTrack
-      : null;
-
-  // Publish local video track to channel when it becomes available
+  // Sync local video track from RTCHelper
   useEffect(() => {
-    const publishVideo = async () => {
-      const client = rtcHelperRef.current?.client;
-      if (!client || !localVideoTrack || !isConnected || !isLocalVideoActive)
-        return;
+    const rtcHelper = rtcHelperRef.current;
+    if (!rtcHelper) return;
 
-      try {
-        await client.publish(localVideoTrack);
-        console.log("[VideoAvatarClient] Published local video track");
-      } catch (error) {
-        console.error("[VideoAvatarClient] Failed to publish video:", error);
+    // Update local state when RTCHelper's video track changes
+    const interval = setInterval(() => {
+      const currentTrack = rtcHelper.localVideoTrack;
+      const currentEnabled = rtcHelper.getVideoEnabled();
+
+      // Check if track object reference changed (new track created)
+      if (currentTrack !== localVideoTrack) {
+        console.log("[VideoAvatarClient] Track changed, updating state");
+        setLocalVideoTrack(currentTrack);
+        setIsLocalVideoActive(currentEnabled);
       }
-    };
+    }, 100);
 
-    publishVideo();
-
-    // Unpublish on cleanup (if still connected)
-    return () => {
-      const client = rtcHelperRef.current?.client;
-      if (client && localVideoTrack && isConnected) {
-        client.unpublish(localVideoTrack).catch((err) => {
-          // Ignore error if already disconnected
-          if (!err.message?.includes("haven't joined")) {
-            console.error(
-              "[VideoAvatarClient] Failed to unpublish video:",
-              err,
-            );
-          }
-        });
-      }
-    };
-  }, [localVideoTrack, isConnected, isLocalVideoActive]);
+    return () => clearInterval(interval);
+  }, [rtcHelperRef.current, localVideoTrack]);
 
   const handleStart = async () => {
     setIsLoading(true);
@@ -113,9 +89,11 @@ export function VideoAvatarClient() {
       // Build query params for backend
       const params = new URLSearchParams();
 
-      // Use video profile - backend will use VIDEO_* prefixed environment variables
-      if (enableAvatar) {
-        params.append("profile", "video");
+      // Add profile override if provided, otherwise use default "VIDEO" profile
+      if (profile.trim()) {
+        params.append("profile", profile.trim());
+      } else {
+        params.append("profile", "VIDEO");
       }
 
       // Add agent settings
@@ -154,12 +132,20 @@ export function VideoAvatarClient() {
       });
 
       // Auto-enable local video if checkbox was checked
-      if (enableLocalVideo) {
-        console.log(
-          "[VideoAvatarClient] Auto-enabling local video after channel join",
-        );
-        await enableVideo();
-        console.log("[VideoAvatarClient] enableVideo() completed");
+      if (enableLocalVideo && rtcHelperRef.current) {
+        const rtcHelper = rtcHelperRef.current;
+
+        // Create video track using RTCHelper
+        await rtcHelper.createVideoTrack({ encoderConfig: "720p_2" });
+
+        // Publish video track
+        if (rtcHelper.localVideoTrack && rtcHelper.client) {
+          await rtcHelper.client.publish(rtcHelper.localVideoTrack);
+        }
+
+        // Update local state
+        setLocalVideoTrack(rtcHelper.localVideoTrack);
+        setIsLocalVideoActive(true);
       }
     } catch (error) {
       console.error("Failed to start:", error);
@@ -172,9 +158,7 @@ export function VideoAvatarClient() {
   };
 
   const handleStop = async () => {
-    if (isLocalVideoActive) {
-      await disableVideo();
-    }
+    // RTCHelper.leave() will cleanup video track automatically
     await leaveChannel();
   };
 
@@ -182,6 +166,7 @@ export function VideoAvatarClient() {
     if (!chatMessage.trim() || !isConnected) return;
 
     const success = await sendMessage(chatMessage, agentUID || "100");
+
     if (success) {
       setChatMessage("");
     }
@@ -195,11 +180,12 @@ export function VideoAvatarClient() {
   };
 
   const toggleVideo = async () => {
-    if (isLocalVideoActive) {
-      await disableVideo();
-    } else {
-      await enableVideo();
-    }
+    const rtcHelper = rtcHelperRef.current;
+    if (!rtcHelper) return;
+
+    const newState = !isLocalVideoActive;
+    await rtcHelper.setVideoEnabled(newState);
+    setIsLocalVideoActive(newState);
   };
 
   // Helper to determine if message is from agent
@@ -257,6 +243,26 @@ export function VideoAvatarClient() {
                     placeholder={DEFAULT_BACKEND_URL}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="profile"
+                    className="mb-2 block text-sm font-medium"
+                  >
+                    Server Profile
+                  </label>
+                  <input
+                    id="profile"
+                    type="text"
+                    value={profile}
+                    onChange={(e) => setProfile(e.target.value)}
+                    placeholder="VIDEO"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Leave empty for default "VIDEO" profile
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -434,7 +440,7 @@ export function VideoAvatarClient() {
               localVideo={
                 <div className="h-full flex items-center justify-center p-2">
                   <LocalVideoPreview
-                    videoTrack={localVideoTrack}
+                    videoTrack={isLocalVideoActive ? localVideoTrack : null}
                     className="h-full w-full"
                     useMediaStream={true}
                   />
@@ -468,7 +474,7 @@ export function VideoAvatarClient() {
                         {/* Local Video - 50% */}
                         <div className="flex-1 rounded-lg border bg-card shadow-lg overflow-hidden">
                           <LocalVideoPreview
-                            videoTrack={localVideoTrack}
+                            videoTrack={isLocalVideoActive ? localVideoTrack : null}
                             className="h-full w-full"
                             useMediaStream={true}
                           />

@@ -24,7 +24,7 @@ export interface IMessageListItem {
   timestamp?: number
 }
 
-export function useAgoraVoiceClient() {
+export function useAgoraVideoClient() {
   const [localAudioTrack, setLocalAudioTrack] = useState<IMicrophoneAudioTrack | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
@@ -35,36 +35,57 @@ export function useAgoraVoiceClient() {
   )
   const [isAgentSpeaking, setIsAgentSpeaking] = useState(false)
   const [remoteAudioTrack, setRemoteAudioTrack] = useState<any>(null)
+  const [remoteVideoTrack, setRemoteVideoTrack] = useState<any>(null)
 
   const rtcHelperRef = useRef<RTCHelper | null>(null)
   const apiRef = useRef<ConversationalAIAPI | null>(null)
   const volumeCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Setup RTC event listeners
+  // Setup RTC event listeners for both audio and video
   useEffect(() => {
     const rtcHelper = rtcHelperRef.current
     if (!rtcHelper) return
 
     const handleUserPublished = (user: any, mediaType: "audio" | "video") => {
-      if (mediaType === "audio" && user.audioTrack) {
-        user.audioTrack.play()
-        setRemoteAudioTrack(user.audioTrack)
+      console.log(`🎥 VIDEO_DEBUG RTCHelper user-published:`, {
+        uid: user.uid,
+        mediaType,
+        hasAudioTrack: !!(user as any).audioTrack,
+        hasVideoTrack: !!(user as any).videoTrack,
+      });
+
+      if (mediaType === "audio") {
+        console.log(`🎥 VIDEO_DEBUG Audio published by user ${user.uid}`)
+        setRemoteAudioTrack((user as any).audioTrack)
         setIsAgentSpeaking(true)
+      } else if (mediaType === "video") {
+        console.log(`🎥 VIDEO_DEBUG Video published by user ${user.uid}`)
+        setRemoteVideoTrack((user as any).videoTrack)
       }
     }
 
     const handleUserUnpublished = (user: any, mediaType: "audio" | "video") => {
+      console.log(`🎥 VIDEO_DEBUG RTCHelper user-unpublished:`, {
+        uid: user.uid,
+        mediaType
+      });
+
       if (mediaType === "audio") {
         setIsAgentSpeaking(false)
         setRemoteAudioTrack(null)
+      } else if (mediaType === "video") {
+        setRemoteVideoTrack(null)
       }
     }
 
     const handleUserLeft = (user: any) => {
+      console.log(`🎥 VIDEO_DEBUG User left:`, user.uid)
       setIsAgentSpeaking(false)
       setRemoteAudioTrack(null)
+      setRemoteVideoTrack(null)
     }
 
+    // Listen to RTCHelper events - it now handles both audio and video
     rtcHelper.on(RTCHelperEvents.USER_PUBLISHED, handleUserPublished)
     rtcHelper.on(RTCHelperEvents.USER_UNPUBLISHED, handleUserUnpublished)
     rtcHelper.on(RTCHelperEvents.USER_LEFT, handleUserLeft)
@@ -175,6 +196,14 @@ export function useAgoraVoiceClient() {
 
           const inProgress = convertedMessages.find((msg) => msg.status === TurnStatus.IN_PROGRESS)
 
+          // Log only when NEW agent messages arrive (not on every re-render)
+          const agentMessages = messages.filter(m => m.uid === 0 && m.status === 0) // IN_PROGRESS
+          if (agentMessages.length > 0) {
+            agentMessages.forEach(m => {
+              console.log(`💬 AGENT MSG turn_id=${m.turn_id} text="${m.text}" (${m.text?.length || 0} chars) status=${m.status}`)
+            })
+          }
+
           setMessageList(completedMessages)
           setCurrentInProgressMessage(inProgress || null)
         })
@@ -208,6 +237,7 @@ export function useAgoraVoiceClient() {
       setIsAgentSpeaking(false)
       setMessageList([])
       setCurrentInProgressMessage(null)
+      setRemoteVideoTrack(null)
     } catch (error) {
       console.error("Error leaving channel:", error)
     }
@@ -250,6 +280,7 @@ export function useAgoraVoiceClient() {
     currentInProgressMessage,
     isAgentSpeaking,
     localAudioTrack,
+    remoteVideoTrack,
     joinChannel,
     leaveChannel,
     toggleMute,
