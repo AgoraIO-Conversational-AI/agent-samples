@@ -9,7 +9,7 @@ This is a thin wrapper that:
 """
 
 from dotenv import load_dotenv
-load_dotenv()  # Load .env file before importing core modules
+load_dotenv(override=True)  # Load .env file before importing core modules, override existing env vars
 
 from flask import Flask, request, jsonify
 from core.config import initialize_constants
@@ -48,8 +48,10 @@ def start_agent():
     # Get query parameters from HTTP request
     query_params = request.args.to_dict()
 
-    # Get optional profile parameter
+    # Get optional profile parameter (normalize to lowercase)
     profile = query_params.get('profile')
+    if profile:
+        profile = profile.lower()
 
     # Initialize constants with profile
     constants = initialize_constants(profile)
@@ -159,8 +161,10 @@ def hangup_agent_route():
     # Get query parameters
     query_params = request.args.to_dict()
 
-    # Get optional profile parameter
+    # Get optional profile parameter (normalize to lowercase)
     profile = query_params.get('profile')
+    if profile:
+        profile = profile.lower()
 
     # Initialize constants
     constants = initialize_constants(profile)

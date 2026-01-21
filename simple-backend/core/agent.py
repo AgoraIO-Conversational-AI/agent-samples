@@ -109,6 +109,65 @@ def build_asr_config(asr_vendor, constants, query_params=None):
     return asr_config
 
 
+def build_mllm_config(constants, query_params=None):
+    """
+    Builds MLLM (Multimodal LLM) configuration for Gemini Live.
+
+    Args:
+        constants: Dictionary of constants
+        query_params: Optional query parameters for overrides
+
+    Returns:
+        Dictionary containing MLLM configuration
+    """
+    query_params = query_params or {}
+    import base64
+
+    # Get adc_credentials_string - can be stringified JSON or base64
+    adc_credentials = query_params.get('adc_credentials_string', constants.get("MLLM_ADC_CREDENTIALS_STRING", ""))
+
+    # If it looks like JSON (starts with {), use it directly; otherwise assume base64
+    if adc_credentials and not adc_credentials.strip().startswith("{"):
+        try:
+            adc_credentials = base64.b64decode(adc_credentials).decode('utf-8')
+        except Exception:
+            # If base64 decode fails, use as-is
+            pass
+
+    mllm_config = {
+        "predefined_tools": ["_publish_message"],
+        "vendor": query_params.get('mllm_vendor', constants.get("MLLM_VENDOR", "vertexai")),
+        "url": query_params.get('mllm_url', constants.get("MLLM_URL", "")),
+        "api_key": "",
+        "messages": [
+            {
+                "role": "system",
+                "content": query_params.get('prompt', constants.get("DEFAULT_PROMPT", "You are a friendly assistant."))
+            }
+        ],
+        "params": {
+            "model": query_params.get('mllm_model', constants.get("MLLM_MODEL", "gemini-live-2.5-flash-preview-native-audio-09-2025")),
+            "temperature": 0.9,
+            "instructions": query_params.get('prompt', constants.get("DEFAULT_PROMPT", "You are a friendly assistant.")),
+            "voice": query_params.get('mllm_voice', constants.get("MLLM_VOICE", "Charon")),
+            "max_tokens": 3000,
+            "affective_dialog": False,
+            "proactive_audio": False,
+            "adc_credentials_string": adc_credentials,
+            "project_id": query_params.get('mllm_project_id', constants.get("MLLM_PROJECT_ID", "")),
+            "location": query_params.get('mllm_location', constants.get("MLLM_LOCATION", "us-central1")),
+            "transcribe_agent": query_params.get('mllm_transcribe_agent', constants.get("MLLM_TRANSCRIBE_AGENT", "true")).lower() == "true",
+            "transcribe_user": query_params.get('mllm_transcribe_user', constants.get("MLLM_TRANSCRIBE_USER", "true")).lower() == "true"
+        },
+        "output_modalities": ["audio"],
+        "max_history": 20,
+        "greeting_message": query_params.get('greeting', constants.get("DEFAULT_GREETING", "Hey There Sir")),
+        "failure_message": query_params.get('failure_message', constants.get("DEFAULT_FAILURE_MESSAGE", "Something went wrong"))
+    }
+
+    return mllm_config
+
+
 def build_avatar_config(avatar_vendor, constants, channel, agent_video_token, query_params=None):
     """
     Builds avatar configuration based on vendor.
@@ -192,53 +251,70 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
     """
     query_params = query_params or {}
 
-    # Get TTS and ASR vendors
-    tts_vendor = query_params.get('tts_vendor', constants["TTS_VENDOR"])
-    asr_vendor = query_params.get('asr_vendor', constants["ASR_VENDOR"])
-
-    if not tts_vendor:
-        raise ValueError("TTS_VENDOR must be set via environment variable or query parameter")
-
-    # Build TTS configuration
-    tts_config = build_tts_config(tts_vendor, constants, query_params)
-
-    # Build ASR configuration
-    asr_config = build_asr_config(asr_vendor, constants, query_params)
-
-    # Get LLM parameters
-    llm_url = query_params.get('llm_url', constants["LLM_URL"])
-    llm_api_key = query_params.get('llm_api_key', constants["LLM_API_KEY"])
-    llm_model = query_params.get('llm_model', constants["LLM_MODEL"])
-
-    # Get prompt and messages
-    prompt = query_params.get('prompt', constants["DEFAULT_PROMPT"])
-    greeting = query_params.get('greeting', constants["DEFAULT_GREETING"])
-    failure_message = query_params.get('failure_message', constants["DEFAULT_FAILURE_MESSAGE"])
+    # Check if MLLM mode is enabled
+    enable_mllm = query_params.get('enable_mllm', constants.get("ENABLE_MLLM", "false")).lower() == "true"
+    print(f"🔍 DEBUG: enable_mllm={enable_mllm}, ENABLE_MLLM from constants={constants.get('ENABLE_MLLM', 'NOT SET')}")
 
     # Get other settings
-    max_history = int(query_params.get('max_history', constants["MAX_HISTORY"]))
     idle_timeout = int(query_params.get('idle_timeout', constants["IDLE_TIMEOUT"]))
     vad_silence_duration = int(query_params.get('vad_silence_duration_ms', constants["VAD_SILENCE_DURATION_MS"]))
     enable_aivad = query_params.get('enable_aivad', constants["ENABLE_AIVAD"]).lower() == "true"
 
-    # Build LLM configuration
-    llm_config = {
-        "url": llm_url,
-        "api_key": llm_api_key,
-        "system_messages": [
-            {
-                "role": "system",
-                "content": prompt
-            }
-        ],
-        "greeting_message": greeting,
-        "failure_message": failure_message,
-        "max_history": max_history,
-        "params": {
-            "model": llm_model
-        },
-        "style": "openai"
-    }
+    # MLLM mode: Build mllm config, skip TTS/LLM
+    if enable_mllm:
+        mllm_config = build_mllm_config(constants, query_params)
+
+        # Get ASR vendor for MLLM mode (still needed)
+        asr_vendor = query_params.get('asr_vendor', constants.get("ASR_VENDOR", "ares"))
+        asr_config = build_asr_config(asr_vendor, constants, query_params)
+
+        tts_config = None
+        llm_config = None
+    else:
+        # Standard mode: Build TTS and LLM configs
+        tts_vendor = query_params.get('tts_vendor', constants.get("TTS_VENDOR"))
+        asr_vendor = query_params.get('asr_vendor', constants.get("ASR_VENDOR"))
+
+        if not tts_vendor:
+            raise ValueError("TTS_VENDOR must be set via environment variable or query parameter")
+
+        # Build TTS configuration
+        tts_config = build_tts_config(tts_vendor, constants, query_params)
+
+        # Build ASR configuration
+        asr_config = build_asr_config(asr_vendor, constants, query_params)
+
+        # Get LLM parameters
+        llm_url = query_params.get('llm_url', constants["LLM_URL"])
+        llm_api_key = query_params.get('llm_api_key', constants["LLM_API_KEY"])
+        llm_model = query_params.get('llm_model', constants["LLM_MODEL"])
+
+        # Get prompt and messages
+        prompt = query_params.get('prompt', constants["DEFAULT_PROMPT"])
+        greeting = query_params.get('greeting', constants["DEFAULT_GREETING"])
+        failure_message = query_params.get('failure_message', constants["DEFAULT_FAILURE_MESSAGE"])
+        max_history = int(query_params.get('max_history', constants["MAX_HISTORY"]))
+
+        # Build LLM configuration
+        llm_config = {
+            "url": llm_url,
+            "api_key": llm_api_key,
+            "system_messages": [
+                {
+                    "role": "system",
+                    "content": prompt
+                }
+            ],
+            "greeting_message": greeting,
+            "failure_message": failure_message,
+            "max_history": max_history,
+            "params": {
+                "model": llm_model
+            },
+            "style": "openai"
+        }
+
+        mllm_config = None
 
     # Get avatar settings early to determine remote_rtc_uids and token
     avatar_vendor = constants.get("AVATAR_VENDOR")
@@ -253,6 +329,17 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
     # Must specify exact user UID
     remote_rtc_uids = [constants["USER_UID"]] if avatar_vendor else ["*"]
 
+    # Build advanced_features
+    advanced_features = {
+        "enable_bhvs": True,
+        "enable_rtm": True,
+        "enable_aivad": enable_aivad,
+        "enable_sal": False
+    }
+    if enable_mllm:
+        advanced_features["enable_mllm"] = True
+        advanced_features["enable_tools"] = False
+
     # Build properties
     properties = OrderedDict([
         ("channel", channel),
@@ -260,43 +347,44 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
         ("agent_rtc_uid", constants["AGENT_UID"]),
         ("agent_rtm_uid", f"{constants['AGENT_UID']}-{channel}"),
         ("remote_rtc_uids", remote_rtc_uids),
-        ("advanced_features", {
-            "enable_bhvs": True,
-            "enable_rtm": True,
-            "enable_aivad": enable_aivad,
-            "enable_sal": False
-        }),
+        ("advanced_features", advanced_features),
         ("enable_string_uid", False),
         ("idle_timeout", idle_timeout),
-        ("llm", llm_config),
-        ("vad", {
-            "silence_duration_ms": vad_silence_duration
-        }),
-        ("asr", asr_config),
-        ("tts", tts_config),
-        ("parameters", {
-            "enable_flexible": True,
-            "enable_metrics": True,
-            "enable_error_message": True,
-            "enable_dump": True,
-            "dump_params": {
-                "enable_downstream_3a": True,
-                "enable_upstream_3a": True,
-                "enable_tts": True
-            },
-            "aivad": {
-                "max_history": 2,
-                "force_threshold": 3000
-            },
-            "output_audio_codec": "OPUSFB",
-            "audio_scenario": "default",
+    ])
+
+    # Add mllm or llm configuration
+    if enable_mllm:
+        properties["mllm"] = mllm_config
+    else:
+        properties["llm"] = llm_config
+
+    # Add VAD configuration
+    properties["vad"] = {
+        "silence_duration_ms": vad_silence_duration
+    }
+
+    # Add ASR configuration
+    properties["asr"] = asr_config
+
+    # Add TTS configuration (only in non-MLLM mode)
+    if not enable_mllm:
+        properties["tts"] = tts_config
+
+    # Add turn_detection for MLLM mode
+    if enable_mllm:
+        properties["turn_detection"] = {
+            "type": query_params.get('turn_detection_type', constants.get("TURN_DETECTION_TYPE", "server_vad"))
+        }
+
+    # Add transcript parameters for TTS+LLM mode
+    if not enable_mllm:
+        properties["parameters"] = {
             "transcript": {
                 "enable": True,
                 "protocol_version": "v2",
                 "enable_words": False
             }
-        })
-    ])
+        }
 
     # Add avatar configuration if vendor is set
     if avatar_vendor:
@@ -385,10 +473,11 @@ def send_agent_to_channel(channel, agent_payload, constants):
         curl_cmd = f"curl -X POST '{agent_api_url}' \\\n{header_args}  -d '{payload_compact}'"
         print(f"\n📋 Equivalent curl command:\n{curl_cmd}\n")
 
-        # Write curl command to file with timestamp
+        # Write curl command to file with timestamp and profile name
         from datetime import datetime
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        curl_file_path = f"/tmp/agora_curl_{timestamp}.sh"
+        profile_name = constants.get("PROFILE_NAME", "default")
+        curl_file_path = f"/tmp/agora_curl_{profile_name}_{timestamp}.sh"
 
         # Write prettified version to file
         payload_pretty = json.dumps(agent_payload, indent=2)
@@ -447,7 +536,7 @@ def hangup_agent(agent_id, constants):
 
     headers = {
         "Content-Type": "application/json",
-        "Authorization": constants["AGENT_AUTH_HEADER"]
+        "Authorization": constants.get("AGENT_AUTH_HEADER") or ""
     }
 
     conn.request("POST", path, "", headers)

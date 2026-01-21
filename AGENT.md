@@ -1,1260 +1,409 @@
-# Agora Conversational AI - AI Coding Assistant Guide
+# Agent Video Avatar - Session Notes
 
-Guide for AI coding assistants to help developers integrate Agora Conversational
-AI voice and video agents.
+## Current Status (2026-01-20)
 
-## Purpose
+### ✅ WORKING
 
-This guide helps AI coding assistants help developers:
+- **Remote video (avatar) displays correctly** - HeyGen avatar video now shows
+- Audio transcription working
+- Voice interaction working
 
-1. **Run the sample applications** (backend + React client)
-2. **Understand the reference implementations** to replicate functionality
-3. **Integrate Agora Conversational AI** into their own applications
+### ❌ BROKEN (Regressions to fix)
 
-**Key Principle:** The samples are production-quality reference implementations.
-Use them as templates for implementing similar functionality in any client or
-server technology.
+1. **Local video not showing on reconnect** - Works on first dial, but disappears after ending call and redialing
+   - Error: "The play() request was interrupted by a new load request. https://goo.gl/LdLk22"
+   - This was reportedly fixed last week but has regressed
 
-## Table of Contents
-
-- [Getting Started](#getting-started---first-steps)
-  - [Pre-Flight Check](#pre-flight-check)
-  - [Video Avatar Quick Start](#video-avatar-quick-start)
-- [Required API Keys](#required-api-keys--credentials)
-  - [Video Avatar Credentials](#video-avatar-credentials)
-- [AI Assistant Troubleshooting](#ai-assistant-troubleshooting)
-- [Quick Start](#quick-start---running-samples)
-- [Using Samples as Reference](#using-the-samples-as-reference)
-- [Architecture Overview](#architecture)
-- [Implementation Approaches](#implementation-approaches)
-- [SDK API Reference](#sdk-api-reference)
-- [UI Kit Components](#ui-kit-components)
-- [Backend Setup](#backend-setup)
-- [Common Issues](#common-issues)
-- [Common Implementation Tasks](#common-implementation-tasks)
-- [Documentation Index](#documentation-index)
-
-## Getting Started - First Steps
-
-**AI Assistant: Follow this process when user wants to run samples:**
-
-1. **Choose React sample** (unless user explicitly asks for basic HTML/JS)
-   - Voice only: `react-voice-client` (default choice)
-   - Video/avatar: `react-video-client-avatar`
-   - Basic samples: Only if user specifically requests vanilla JS/HTML
-
-2. **Install and build FIRST** - Do this before asking for credentials
-   - Backend: `cd simple-backend && pip install -r requirements.txt`
-   - Client: `cd react-voice-client && npm install --legacy-peer-deps`
-   - Verify builds complete successfully
-
-3. **Then gather credentials interactively** - Do NOT just list requirements
-   - Ask for each credential one by one (see example interaction below)
-   - Provide console links for each credential
-   - Create `.env` file in `simple-backend/` with provided values
-   - Explain what each credential is for
-
-4. **Start services**
-   - Backend: `cd simple-backend && PORT=8082 python3 local_server.py`
-   - Client: `cd react-voice-client && npm run dev`
-   - Provide the local URL to access the client
-
-**Be proactive - start building immediately, don't ask which client to use first.**
-
-### Pre-Flight Check
-
-**AI Assistant: Before starting setup, verify these conditions to avoid unnecessary work:**
-
-1. **Is repo already cloned locally?**
-   - Check if directory exists at expected path
-   - If yes: Use local files for all operations (skip cloning)
-   - If no: Clone from GitHub
-
-2. **Is backend already installed?**
-   - Check for `simple-backend/venv` directory or pip packages
-   - If yes: Skip backend installation, proceed to configuration
-   - If no: Install dependencies
-
-3. **Is frontend already installed?**
-   - Check for `react-voice-client/node_modules` or `react-video-client-avatar/node_modules`
-   - If yes: Skip npm install, proceed to configuration
-   - If no: Run `npm install --legacy-peer-deps`
-
-4. **Are services already running?**
-   - Check ports: `lsof -ti:8082` (backend), `lsof -ti:8083` (voice), `lsof -ti:8084` (video)
-   - If yes: Inform user and offer to restart or use existing
-   - If no: Start services
-
-**Important:** Prefer reading local files over web fetching. Only fetch raw file contents from GitHub when repository is not cloned locally.
-
-### Video Avatar Quick Start
-
-**AI Assistant: Follow this exact sequence when user wants to run the Video AI Agent with Avatar Sample:**
-
-1. **Verify/Clone repository:**
-   - Check if repo exists locally FIRST (see [Pre-Flight Check](#pre-flight-check))
-   - If yes: Use local files (skip clone)
-   - If no: Clone from `https://github.com/AgoraIO-Conversational-AI/agent-samples`
-
-2. **Backend setup (simple-backend/):**
-
-   ```bash
-   cd simple-backend
-   pip3 install -r requirements-local.txt
-   # Or use virtual environment:
-   python3 -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   pip3 install -r requirements-local.txt
-   ```
-
-3. **Frontend setup (react-video-client-avatar/):**
-
-   ```bash
-   cd react-video-client-avatar
-   npm install --legacy-peer-deps
-   ```
-
-4. **Configure VIDEO profile in backend .env:**
-   - Copy `.env.example` to `.env`
-   - Gather VIDEO\_\* prefixed credentials (see [Video Avatar Credentials](#video-avatar-credentials) below)
-   - Explain: Video profile uses completely separate config from base/voice settings
-   - Important: All credentials must have VIDEO\_ prefix (no fallback to base variables)
-
-5. **Start services:**
-
-   ```bash
-   # Terminal 1 - Backend
-   cd simple-backend
-   source venv/bin/activate  # If using venv
-   PORT=8082 python3 local_server.py
-
-   # Terminal 2 - Frontend
-   cd react-video-client-avatar
-   npm run dev
-   ```
-
-6. **Access:** http://localhost:8084
-   - Backend URL should be `http://localhost:8082` (default)
-   - Enable "Enable Local Video" to show your camera
-   - Enable "Enable Avatar" to show avatar video
-   - Click "Start Conversation"
-
-7. **Troubleshooting:** See [AI Assistant Troubleshooting](#ai-assistant-troubleshooting) section below for common issues
+2. **Chat display broken** - Only shows "Agent" label on left side, actual message text not visible
+   - Need to debug chat/transcript component rendering
 
 ---
 
-**For building custom implementations:**
+## Changes Made Today
 
-- Study sample code for patterns
-- [agent-toolkit/README.md](./agent-toolkit/README.md) - If using our SDK
-- [agent-ui-kit/README.md](./agent-ui-kit/README.md) - If using our UI components
-- Replicate patterns in user's preferred technology
+### 1. Enhanced RTCHelper for Video Support
 
-## Required API Keys & Credentials
+**File:** `react-video-client-avatar/node_modules/@agora/conversational-ai/packages/conversational-ai/helper/rtc.ts`
 
-**AI Assistant Instructions: Helping Users Get Credentials**
+**Changes:**
 
-When helping users get started, you should:
+- Added optional subscription filter callbacks to `init()`:
+  ```typescript
+  shouldSubscribeAudio?: (uid: number) => boolean
+  shouldSubscribeVideo?: (uid: number) => boolean
+  ```
+- Modified `setupEventListeners()` to handle BOTH audio and video in `user-published` handler
+- Default behavior: Subscribe to all audio and all video
+- Added video event emission via `RTCHelperEvents.USER_PUBLISHED` for video mediaType
 
-1. **Request credentials interactively** instead of just listing requirements
-2. **Offer to create the `.env` file** with the provided values
-3. **Provide direct links** to get each credential (see below)
-4. **Validate configuration** before running the backend
-5. **Explain each credential** and why it's needed
+**Why:** RTCHelper was originally audio-only for voice clients. It ignored video `user-published` events. This made it inconsistent and forced us to bypass RTCHelper and listen to raw RTC client events directly.
 
-**Example interaction for Voice Agent:**
+**Result:** Now audio and video are handled consistently through the same event system.
 
-```
-AI: I'll set up the Voice AI Agent. Please provide all required credentials:
+---
 
-**Agora Credentials:**
-1. APP_ID - Console: https://console.agora.io/project-management
-   Help: https://docs.agora.io/en/conversational-ai/get-started/manage-agora-account
-2. AGENT_AUTH_HEADER - Console: https://console.agora.io/restful-api
-   Help: https://docs.agora.io/en/conversational-ai/rest-api/restful-authentication
-3. APP_CERTIFICATE (optional for testing) - Same project page
+### 2. Updated useAgoraVideoClient Hook
 
-**LLM & TTS:**
-4. LLM_API_KEY - https://platform.openai.com/settings/organization/api-keys
-5. TTS_VENDOR - Choose: rime, elevenlabs, openai, or cartesia
-6. TTS_KEY - Get from your chosen vendor:
-   Rime: https://rime.ai/ | ElevenLabs: https://elevenlabs.io/
-   OpenAI: https://platform.openai.com/ | Cartesia: https://cartesia.ai/
-7. TTS_VOICE_ID - Voice ID for your chosen vendor
+**File:** `react-video-client-avatar/hooks/useAgoraVideoClient.ts`
 
-[User provides all values in one response]
-[AI creates .env file in simple-backend/ and proceeds with installation]
-```
+**Changes:**
 
-**Example interaction for Video Agent with Avatar:**
+- Changed from listening to raw `rtcHelper.client` events to `RTCHelper` events
+- Removed manual video subscription code
+- Now uses unified event handlers for both audio and video through RTCHelper
+- Events: `USER_PUBLISHED`, `USER_UNPUBLISHED`, `USER_LEFT`
 
-```
-AI: I'll set up the Video AI Agent with avatar using the VIDEO profile.
-
-The backend supports two configuration modes:
-1. **Base settings** (no prefix) - for voice-only or simple avatar clients
-2. **Profile settings** (VIDEO_* prefix) - for completely isolated configurations
-
-The react-video-client-avatar uses ?profile=video, which requires a complete set of
-credentials that will be stored with VIDEO_* prefix in the .env file.
-
-Please provide all required credentials for the video profile:
-
-**Agora Credentials:**
-1. APP_ID - Console: https://console.agora.io/project-management
-2. AGENT_AUTH_HEADER - Console: https://console.agora.io/restful-api
-3. APP_CERTIFICATE (optional) - Same project page
-
-**LLM & TTS:**
-4. LLM_API_KEY - https://platform.openai.com/settings/organization/api-keys
-5. TTS_VENDOR - Choose: rime, elevenlabs, openai, or cartesia
-6. TTS_KEY - Get from chosen vendor (Rime | ElevenLabs | OpenAI | Cartesia)
-7. TTS_VOICE_ID - Voice ID for chosen vendor
-
-**Avatar Settings:**
-8. AVATAR_VENDOR - Choose: heygen or anam
-   HeyGen: https://www.heygen.com/ | Anam AI: https://www.anam.ai/
-9. AVATAR_API_KEY - API key from avatar provider
-10. AVATAR_ID - Avatar identifier from provider
-
-[User provides all values in one response]
-[AI writes to .env with VIDEO_ prefix: VIDEO_APP_ID, VIDEO_AGENT_AUTH_HEADER, etc.]
-[AI notes: "I've created the .env file with VIDEO_* prefixed credentials for the video profile"]
-```
-
-**Alternative: Avatar with Base Settings**
-
-If user wants to run avatar client without profiles, they can use base settings:
-
-```bash
-# Base settings (no prefix) - used when no ?profile= parameter
-APP_ID=
-AGENT_AUTH_HEADER=
-LLM_API_KEY=
-TTS_VENDOR=
-TTS_KEY=
-TTS_VOICE_ID=
-AVATAR_VENDOR=    # heygen or anam
-AVATAR_API_KEY=
-AVATAR_ID=
-```
-
-### Video Avatar Credentials
-
-**AI Assistant: For Video Avatar setup, ask for these credentials one-by-one:**
-
-**Agora (Video Profile) - Required:**
-
-1. **VIDEO_APP_ID**
-   - Get from: [Agora Console → Project Management](https://console.agora.io/project-management)
-   - Help: [Manage Agora Account](https://docs.agora.io/en/conversational-ai/get-started/manage-agora-account)
-   - What: Agora application identifier for video profile
-
-2. **VIDEO_AGENT_AUTH_HEADER**
-   - Get from: [Agora Console → RESTful API](https://console.agora.io/restful-api)
-   - Help: [RESTful Authentication](https://docs.agora.io/en/conversational-ai/rest-api/restful-authentication)
-   - What: Authentication header for Agora Agent REST API
-
-3. **VIDEO_APP_CERTIFICATE** (optional for testing)
-   - Get from: Same project page as APP_ID
-   - What: Security certificate for token generation
-
-**LLM & TTS (Video Profile) - Required:**
-
-4. **VIDEO_LLM_API_KEY**
-   - Get from: [OpenAI API Keys](https://platform.openai.com/settings/organization/api-keys)
-   - What: API key for language model
-
-5. **VIDEO_TTS_VENDOR**
-   - Choose: `rime`, `elevenlabs`, `openai`, or `cartesia`
-   - What: Text-to-speech provider
-
-6. **VIDEO_TTS_KEY**
-   - Get from your chosen vendor:
-     - [Rime](https://rime.ai/)
-     - [ElevenLabs](https://elevenlabs.io/)
-     - [OpenAI](https://platform.openai.com/)
-     - [Cartesia](https://cartesia.ai/)
-   - What: API key for TTS vendor
-
-7. **VIDEO_TTS_VOICE_ID**
-   - Get from vendor's voice library
-   - Examples:
-     - Rime: `astra`, `deedee`, `marsh`
-     - ElevenLabs: Get from [voice library](https://elevenlabs.io/)
-     - OpenAI: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`
-     - Cartesia: Get from [voice library](https://cartesia.ai/)
-   - What: Specific voice/speaker identifier
-
-**Avatar Provider (Video Profile) - Required:**
-
-8. **VIDEO_AVATAR_VENDOR**
-   - Choose: `heygen` or `anam`
-   - What: Avatar video provider
-
-9. **VIDEO_AVATAR_API_KEY**
-   - Get from:
-     - [HeyGen](https://www.heygen.com/)
-     - [Anam AI](https://www.anam.ai/)
-   - What: API key from avatar provider
-
-10. **VIDEO_AVATAR_ID**
-    - Get from: Avatar provider console (avatar identifier)
-    - What: Specific avatar to use in video stream
-
-**Important Notes:**
-
-- All credentials MUST have `VIDEO_` prefix
-- No fallback to base variables when using `?profile=video`
-- react-video-client-avatar sends `?profile=video` automatically
-- See [simple-backend/.env.video.example](./simple-backend/.env.video.example) for complete template
-
-### Backend Configuration Modes
-
-The backend supports two configuration approaches:
-
-**1. Base Settings (no prefix)** - Used when no `?profile=` parameter is sent:
-
-- **APP_ID** - [Agora Console → Project Management](https://console.agora.io/project-management)
-  - Help: [Manage Agora Account](https://docs.agora.io/en/conversational-ai/get-started/manage-agora-account)
-- **APP_CERTIFICATE** - [Agora Console → Project Management](https://console.agora.io/project-management) (optional for testing)
-- **AGENT_AUTH_HEADER** - [Agora Console → RESTful API](https://console.agora.io/restful-api)
-  - Help: [RESTful Authentication](https://docs.agora.io/en/conversational-ai/rest-api/restful-authentication)
-- **LLM_API_KEY** - [OpenAI API Keys](https://platform.openai.com/settings/organization/api-keys)
-- **TTS_VENDOR** - Choose TTS provider: `rime`, `elevenlabs`, `openai`, or `cartesia`
-- **TTS_KEY** - API key for your chosen TTS provider
-  - [Rime](https://rime.ai/) | [ElevenLabs](https://elevenlabs.io/) | [OpenAI](https://platform.openai.com/) | [Cartesia](https://cartesia.ai/)
-- **TTS_VOICE_ID** - Voice/speaker ID for your chosen TTS provider
-
-**Optional base settings for avatar support:**
-
-- **AVATAR_VENDOR** - Avatar provider: `heygen` or `anam`
-- **AVATAR_API_KEY** - Avatar provider API key
-  - [HeyGen](https://www.heygen.com/) | [Anam AI](https://www.anam.ai/)
-- **AVATAR_ID** - Avatar identifier from provider
-
-**2. Profile Settings (VIDEO\_\* prefix)** - Used when `?profile=video` is sent:
-
-The **react-video-client-avatar** sends `?profile=video` automatically, which requires a complete, isolated set of credentials with VIDEO\_\* prefix:
-
-- **VIDEO_APP_ID** - Agora app (can be different from base)
-- **VIDEO_APP_CERTIFICATE** - Certificate for video app (optional)
-- **VIDEO_AGENT_AUTH_HEADER** - Auth header for video app
-- **VIDEO_LLM_API_KEY** - LLM API key
-- **VIDEO_TTS_VENDOR** - TTS vendor (can be different from base)
-- **VIDEO_TTS_KEY** - TTS API key
-- **VIDEO_TTS_VOICE_ID** - Voice ID
-- **VIDEO_AVATAR_VENDOR** - Avatar provider: `heygen` or `anam`
-- **VIDEO_AVATAR_API_KEY** - Avatar provider API key
-- **VIDEO_AVATAR_ID** - Avatar identifier
-
-**Important:** Profile settings do NOT fall back to base settings. When using `?profile=video`, all VIDEO\_\* credentials must be provided.
-
-See [simple-backend/README.md](./simple-backend/README.md#configuration) for detailed configuration examples and use cases.
-
-## AI Assistant Troubleshooting
-
-**AI Assistant: Use this section to quickly resolve common issues during setup:**
-
-### Failed to Fetch / 404 Errors
-
-❌ **Problem:** Making multiple failed web requests trying to find repository structure
-
-**Solution:**
-
-- Check if repository is cloned locally FIRST
-- Use local file operations instead of web scraping
-- Only fetch raw file contents when repository truly doesn't exist locally
-- Example check: Test if directory exists before attempting GitHub API calls
-
-### Port Already in Use
-
-❌ **Problem:** "EADDRINUSE" or "port already in use" errors
-
-**Solution:**
-
-```bash
-# Check if backend running
-lsof -ti:8082 && echo "Backend already running"
-
-# Check if voice client running
-lsof -ti:8083 && echo "Voice client already running"
-
-# Check if video client running
-lsof -ti:8084 && echo "Video client already running"
-
-# Kill process if needed
-lsof -ti:8082 | xargs kill
-```
-
-### Backend BAD REQUEST (Video Profile)
-
-❌ **Problem:** Backend returns 400 BAD REQUEST with "TTS_VENDOR must be set" error
-
-**Root Cause:** Missing VIDEO\_\* prefixed environment variables
-
-**Solution:**
-
-1. Verify ALL credentials have `VIDEO_` prefix in `.env`
-2. Check that VIDEO_APP_ID, VIDEO_AGENT_AUTH_HEADER exist (not just APP_ID)
-3. Check that VIDEO_TTS_VENDOR, VIDEO_TTS_KEY, VIDEO_TTS_VOICE_ID exist
-4. Check that VIDEO_AVATAR_VENDOR, VIDEO_AVATAR_API_KEY, VIDEO_AVATAR_ID exist
-5. Remember: NO fallback to base variables when using profile
-6. Backend logs will show which specific variable is missing
-
-### Avatar Not Showing
-
-❌ **Problem:** Avatar video not appearing in react-video-client-avatar
-
-**Solution:**
-
-1. Confirm VIDEO_AVATAR_VENDOR is set (`heygen` or `anam`)
-2. Confirm VIDEO_AVATAR_API_KEY is valid
-3. Confirm VIDEO_AVATAR_ID is correct avatar identifier
-4. Check "Enable Avatar" checkbox in UI before connecting
-5. Review backend logs for agent creation errors
-6. Verify avatar provider account has sufficient credits/quota
-
-### npm install Fails
-
-❌ **Problem:** Peer dependency conflicts during `npm install`
-
-**Solution:**
-
-- Always use `npm install --legacy-peer-deps` flag
-- Required due to agora-rtm peer dependency requirements
-- Example: `cd react-video-client-avatar && npm install --legacy-peer-deps`
-
-### Python Package Installation Errors
-
-❌ **Problem:** "externally-managed-environment" error on macOS/Linux
-
-**Solution:**
-
-```bash
-cd simple-backend
-python3 -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip3 install -r requirements-local.txt
-```
-
-Always use virtual environment to avoid system Python conflicts.
-
-### Module Not Found Errors
-
-❌ **Problem:** Cannot find @agora/agent-ui-kit or @agora/conversational-ai
-
-**Solution:**
-
-1. If using samples: Dependencies should be installed automatically
-2. Check that npm install completed successfully
-3. Verify node_modules directory exists
-4. Try: `rm -rf node_modules package-lock.json && npm install --legacy-peer-deps`
-
-### Services Detection
-
-**AI Assistant: Before starting any service, check if it's already running:**
-
-```bash
-# Detect backend
-if lsof -ti:8082 > /dev/null 2>&1; then
-  echo "Backend already running on port 8082"
-  # Offer to restart or use existing
-fi
-
-# Detect voice client
-if lsof -ti:8083 > /dev/null 2>&1; then
-  echo "Voice client already running on port 8083"
-fi
-
-# Detect video client
-if lsof -ti:8084 > /dev/null 2>&1; then
-  echo "Video client already running on port 8084"
-fi
-```
-
-This prevents unnecessary restarts and informs the user of current state.
-
-## Integrating into Your App
-
-**Decision tree for existing applications:**
-
-- **Have existing React/Next.js app?** → Use [Approach A: SDK Packages](#approach-a-sdk-packages-recommended)
-  - Install `@agora/conversational-ai-react` and `@agora/agent-ui-kit`
-  - Import hooks and components into your existing app
-  - Best for: Adding voice AI to existing React projects
-
-- **Have existing Vue/Angular/vanilla JS app?** → Use [Approach C: Bare RTC/RTM](#approach-c-bare-rtcrtm)
-  - Install `agora-rtc-sdk-ng` and `agora-rtm` directly
-  - Implement connection patterns from samples
-  - Best for: Non-React frameworks, mobile apps
-
-- **Starting from scratch?** → Use [Approach B: Sample as Template](#approach-b-sample-as-template)
-  - Copy `react-voice-client` or `react-video-client-avatar`
-  - Customize UI and functionality
-  - Best for: New projects, rapid prototyping
-
-- **Need custom backend (Node.js/Go/Java)?** → Study [simple-backend/](./simple-backend/)
-  - Reference token generation patterns
-  - Reference Agent REST API calls
-  - Replicate in your preferred language
-
-## Using the Samples as Reference
-
-**The samples demonstrate production patterns you can replicate:**
-
-**Backend Reference ([simple-backend/](./simple-backend/)):**
-
-- Token generation (v007 with RTC+RTM)
-- Agent REST API calls (start/stop agents)
-- Profile-based configuration
-- Environment variable management
-- Can be replicated in Node.js, Go, Java, PHP, etc.
-
-**Client Reference ([react-voice-client/](./react-voice-client/),
-[react-video-client-avatar/](./react-video-client-avatar/)):**
-
-- RTC/RTM connection management
-- Agent communication patterns
-- Real-time transcription handling
-- UI state management
-- Can be replicated in Vue, Angular, vanilla JS, mobile apps, etc.
-
-**When helping users build their own implementations:**
-
-1. **Read the relevant sample code** to understand the pattern
-2. **Adapt the pattern** to user's technology stack
-3. **Reference specific files** (e.g., "See simple-backend/core/agent.py:45 for
-   agent creation")
-4. **Maintain the same architecture** (backend generates tokens, calls Agent
-   API; client joins channel via RTC/RTM)
-
-## Architecture
-
-### System Overview
-
-```
-                          ┌─────────────────────────┐
-                          │  Your Backend Services  │
-                          └───────┬───────────┬─────┘
-                                 ╱             ╲
-                                ╱               ╲
-                               ╱                 ╲
-                              ╱                   ╲
-         1. Serves client app│                     │3. Agent REST API
-         2. Provides token,  │                     │   (token, uid, channel,
-            uid, channel     │                     │    agent properties)
-                            ╱                       ╲
-                           ╱                         ╲
-                          ↓                           ↓
-              ┌────────────────────┐      ┌────────────────────┐
-              │  Voice AI Client   │      │  AI Agent Instance │
-              └──────────┬─────────┘      └─────────┬──────────┘
-                         │                          │
-                         │     ┌──────────────┐     │
-                         └────→│ Agora SD-RTN │←────┘
-                               │ Audio, Video,│
-                               │     Data     │
-                               └──────────────┘
-```
-
-**Flow:**
-
-1. Backend serves client app and generates credentials (token, uid, channel)
-2. Backend calls Agora Agent REST API to start AI agent
-3. Both client and agent join same Agora channel
-4. Real-time audio/video/data flows through SD-RTN
-
-### Repository Structure
-
-```
-agora-convoai-samples/
-├── agent-toolkit/                 # SDK Implementation
-│   ├── conversational-ai-api/     # Core SDK
-│   │   ├── helper/                # RTC and RTM helpers
-│   │   ├── utils/                 # Utilities
-│   │   └── index.ts              # Main exports
-│   └── react/                     # React hooks
-│       └── use-conversational-ai.ts
-│
-├── agent-ui-kit/                  # UI Components
-│   ├── components/
-│   │   ├── voice/                # Voice components
-│   │   ├── chat/                 # Chat components
-│   │   ├── video/                # Video components
-│   │   └── layout/               # Layout helpers
-│   └── index.ts
-│
-├── react-voice-client/            # Voice sample app
-├── react-video-client-avatar/     # Video sample app
-├── simple-voice-client/           # HTML/JS sample
-└── simple-backend/                # Python backend
-```
-
-### RTC and RTM Explained
-
-**RTC (Real-Time Communication)**
-
-- Audio and video streaming between client and agent
-- Low-latency transport with echo cancellation, noise suppression
-- Used for: Voice input/output, video streams, audio visualizations
-
-**RTM (Real-Time Messaging)**
-
-- Text messages and control signals
-- Live transcriptions, turn status, interrupts
-- Used for: Chat display, agent state, structured JSON messages
-
-Both use the same channel and require proper token generation.
-
-## Implementation Approaches
-
-### Approach A: SDK Packages (Recommended)
-
-Best for: React apps adding voice AI to existing projects
-
-**Install dependencies:**
-
-```bash
-npm install agora-rtc-sdk-ng agora-rtm
-npm install @agora/agent-ui-kit  # Optional: Pre-built UI components
-```
-
-**Implementation pattern:**
-
-Study `react-voice-client/hooks/useAgoraVoiceClient.ts` for the complete pattern. The core approach:
+**Before (broken):**
 
 ```typescript
-import AgoraRTC from 'agora-rtc-sdk-ng'
-import AgoraRTM from 'agora-rtm'
-import { MicButton, AgentVisualizer, ConvoTextStream } from '@agora/agent-ui-kit'
-
-function VoiceClient() {
-  // 1. Initialize RTC client
-  const rtcClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp9' })
-
-  // 2. Initialize RTM client for transcriptions
-  const rtmClient = AgoraRTM.createInstance(appId)
-
-  // 3. Handle RTM messages for transcriptions
-  rtmClient.on('MessageFromPeer', (message) => {
-    const data = JSON.parse(message.text)
-    // Handle user.transcription and assistant.transcription
-  })
-
-  // 4. Use UI Kit components
-  return (
-    <div>
-      <AgentVisualizer state={isAgentSpeaking ? 'talking' : 'listening'} />
-      <MicButton state={isMuted ? 'idle' : 'listening'} onClick={toggleMute} />
-      <ConvoTextStream messageList={messageList} agentUID="100" />
-    </div>
-  )
-}
+// Had to bypass RTCHelper and listen to raw RTC client
+rtcHelper.client.on("user-published", async (user, mediaType) => {
+  if (mediaType === "video") {
+    await rtcHelper.client.subscribe(user, "video");
+    setRemoteVideoTrack(user.videoTrack);
+  }
+});
 ```
 
-See `react-voice-client/` for complete reference implementation.
+**After (clean):**
 
-### Approach B: Sample as Template
+```typescript
+// RTCHelper handles both audio and video consistently
+rtcHelper.on(RTCHelperEvents.USER_PUBLISHED, (user, mediaType) => {
+  if (mediaType === "video") {
+    setRemoteVideoTrack(user.videoTrack);
+  }
+});
+```
 
-Best for: Quick prototyping, learning by example
+---
 
-**Voice only:**
+## Architecture Summary
+
+### RTCHelper Purpose
+
+- **Voice-focused wrapper** around Agora RTC SDK for Conversational AI
+- Provides:
+  - Audio/video subscription automation
+  - Volume monitoring for audio levels
+  - Audio PTS emission for transcript sync
+  - Stream message handling (receives transcript data from AI agent)
+  - Connection state management
+  - Singleton pattern
+
+### Why We Enhanced It (Instead of Bypassing)
+
+1. **Consistency** - Audio and video treated identically
+2. **Simplicity** - One place to control subscriptions (init config)
+3. **Integration** - Still get transcript sync, volume monitoring, AI features
+4. **Flexibility** - Can filter subscriptions by UID if needed
+5. **Maintainability** - All RTC logic in one place
+
+### Current Architecture
+
+- **One RTC SDK client instance**: Created by RTCHelper (`rtcHelper.client`)
+- **One RTCHelper instance**: Singleton pattern
+- **RTCHelper now handles**: Both audio and video subscriptions + events
+- **Hook subscribes to**: RTCHelper events (not raw RTC client events)
+
+---
+
+## Backend Configuration
+
+The backend (`simple-backend/`) uses a **profile-based configuration system** to manage different client types and use cases.
+
+### Default Profiles (Required)
+
+Two profiles are required for the clients to work out of the box:
+
+**1. `VOICE` profile** - Used by the voice client (`VOICE_*` prefixed variables)
+
+- **Architecture**: TTS + LLM mode (Rime TTS + OpenAI LLM)
+- **Key features**: Rime voice synthesis with "astra" voice, GPT-4o-mini LLM
+- **Transcript delivery**: RTM stream messages with `is_final=true` for completed utterances
+
+**2. `VIDEO` profile** - Used by the video client (`VIDEO_*` prefixed variables)
+
+- **Architecture**: Traditional TTS + LLM stack with avatar
+- **Key features**: Separate TTS (ElevenLabs), LLM (GPT-4o), avatar (HeyGen)
+- **Transcript delivery**: RTM stream messages
+
+**Note**: Profile names are **case-insensitive**. The server normalizes all profile names to lowercase, so `VOICE`, `voice`, or `Voice` all work identically. Clients default to uppercase (`VOICE`, `VIDEO`) but any case is accepted.
+
+### Profile System Mechanics
+
+**Environment Variable Naming:**
+
+- Profile variables use `<PROFILE>_<VARIABLE>` format
+- Example: `VOICE_APP_ID`, `VIDEO_TTS_VENDOR`, `VIDEO_AVATAR_VENDOR`
+- When clients send a profile parameter, the backend loads all matching prefixed variables
+
+**Client Behavior:**
+
+- Voice client sends `profile=VOICE` by default (can override via "Server Profile" field)
+- Video client sends `profile=VIDEO` by default (can override via "Server Profile" field)
+- Empty "Server Profile" field uses the default for that client type
+- Profile names are case-insensitive (server normalizes to lowercase)
+
+**How It Works:**
+
+1. Client makes request: `http://localhost:8081/start-agent?channel=test&profile=VOICE`
+2. Backend normalizes profile to lowercase: `"VOICE"` → `"voice"`
+3. Backend calls `initialize_constants(profile="voice")` in `core/config.py`
+4. Config system loads all `VOICE_*` prefixed variables from `.env`
+5. Agent starts with voice profile configuration
+
+### Transcript Configuration Differences
+
+**MLLM Mode (Gemini Live):**
 
 ```bash
-cp -r react-voice-client my-voice-app
-cd my-voice-app
-pnpm install
-pnpm dev
+VOICE_ENABLE_MLLM=true
+VOICE_MLLM_VENDOR=vertexai
+VOICE_MLLM_MODEL=gemini-live-2.5-flash-preview-native-audio-09-2025
+# Transcription is built-in, delivered via RTM stream messages
+VOICE_MLLM_TRANSCRIBE_AGENT=true  # Agent speech transcription
+VOICE_MLLM_TRANSCRIBE_USER=true   # User speech transcription
 ```
 
-**Video + Avatar:**
+**TTS+LLM Mode (Traditional):**
 
 ```bash
-cp -r react-video-client-avatar my-video-app
-cd my-video-app
-pnpm install
-pnpm dev
+VIDEO_ENABLE_MLLM=false
+VIDEO_LLM_MODEL=gpt-4o
+VIDEO_TTS_VENDOR=elevenlabs
+VIDEO_AVATAR_VENDOR=heygen
+# Transcription delivered in start-agent API response
+VIDEO_MLLM_TRANSCRIBE_AGENT=true  # Required for agent transcript
+VIDEO_MLLM_TRANSCRIBE_USER=true   # Required for user transcript
 ```
 
-### Approach C: Bare RTC/RTM
+### Profile System Cleanup (2026-01-20)
 
-Best for: Non-React apps, custom integrations
+**Changes Made:**
 
-```bash
-npm install agora-rtc-sdk-ng agora-rtm
-```
+- Voice client now sends `profile=VOICE` by default (previously sent no profile)
+- Video client now sends `profile=VIDEO` by default
+- Both clients use "Server Profile" UI field with appropriate placeholders
+- Server implements case-insensitive profile handling (normalizes to lowercase)
+- Updated all documentation to reference uppercase profile names
+- Curl dump files now include profile name: `agora_curl_<profile>_YYYYMMDD_HHMMSS.sh`
+- `.env` cleaned up to remove legacy profiles (AVATAR, old VIDEO, VOICETTS)
+- Profile name stored in `constants["PROFILE_NAME"]` for debugging/logging
 
-**RTC Setup:**
+**Current Active Profiles in .env:**
 
-```javascript
-import AgoraRTC from "agora-rtc-sdk-ng";
+- `voice` - Default for voice client (MLLM/Gemini Live)
+- `video` - Default for video client (TTS+LLM+HeyGen)
+- `video_anam` - Alternative with Anam avatar
+- `video_heygen` - Alternative HeyGen configuration
+- `video_mllm_heygen` - MLLM mode with HeyGen avatar
 
-const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp9" });
+---
 
-client.on("user-published", async (user, mediaType) => {
+## Root Cause of Original Video Bug
+
+**The Issue:**
+RTCHelper's `user-published` handler at line 143-160 ONLY handled audio:
+
+```typescript
+this.client.on("user-published", async (user, mediaType) => {
   if (mediaType === "audio") {
-    await client.subscribe(user, mediaType);
-    user.audioTrack.play();
+    // ... subscribe and emit event
   }
+  // NO ELSE BLOCK FOR VIDEO - video events were ignored!
 });
-
-await client.join(appId, channel, token || null, parseInt(uid));
-
-const localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
-  encoderConfig: "high_quality_stereo",
-  AEC: true,
-  ANS: true,
-  AGC: true,
-});
-
-await client.publish(localAudioTrack);
 ```
 
-**RTM Setup:**
+**What was happening:**
 
-```javascript
-import AgoraRTM from "agora-rtm";
+1. Agora RTC SDK fires `user-published` for BOTH audio AND video
+2. RTCHelper subscribed to audio automatically
+3. RTCHelper **ignored** video events completely (no else block)
+4. Our app listening to RTCHelper events never received video notifications
+5. No video subscription → no video track → no video display
 
-const rtmClient = AgoraRTM.createInstance(appId);
+**The Fix:**
+Added video handling in RTCHelper so both media types are treated consistently.
 
-rtmClient.on("MessageFromPeer", (message, peerId) => {
-  const data = JSON.parse(message.text);
+---
 
-  if (data.object === "assistant.transcription") {
-    console.log("Agent said:", data.text);
-  }
+## Voice Client Compatibility ✅
 
-  if (data.object === "user.transcription") {
-    console.log("User said:", data.text);
-  }
-});
+**Question:** Will voice client need update for new RTCHelper changes?
 
-await rtmClient.login({ token, uid });
-```
+**Answer:** NO - Voice client is fully compatible and does not need updates.
 
-## SDK API Reference
+**Why:**
 
-### Agora RTC SDK (agora-rtc-sdk-ng)
+1. **Backward compatible defaults**: The new `shouldSubscribeAudio` and `shouldSubscribeVideo` callbacks are **optional** parameters
+2. **Default behavior unchanged**: When omitted, RTCHelper defaults to `true` (subscribe to all audio/video)
+3. **No breaking changes**: Existing voice client code at `react-voice-client/hooks/useAgoraVoiceClient.ts` still calls:
+   ```typescript
+   await rtcHelper.init({
+     appId: config.appId,
+     channel: config.channel,
+     token: config.token,
+     uid: config.uid,
+     // No filter callbacks - defaults to subscribe all
+   });
+   ```
+4. **Video handling is transparent**: Even though RTCHelper now handles video events, voice clients never publish video, so those events never fire
+5. **Event handlers unchanged**: Voice client still listens to `RTCHelperEvents.USER_PUBLISHED` for audio only - video events are ignored in the handler
 
-**Core RTC client:**
+**Verification:** Checked `react-voice-client/hooks/useAgoraVoiceClient.ts` (lines 48-54) - it only handles audio mediaType, ignoring video:
 
 ```typescript
-import AgoraRTC from "agora-rtc-sdk-ng";
-
-const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp9" });
-await client.join(appId, channel, token || null, parseInt(uid));
-
-const localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
-  encoderConfig: "high_quality_stereo",
-  AEC: true, // Echo cancellation
-  ANS: true, // Noise suppression
-  AGC: true, // Auto gain control
-});
-
-await client.publish(localAudioTrack);
-```
-
-### Agora RTM SDK (agora-rtm)
-
-**Message handling:**
-
-```typescript
-import AgoraRTM from "agora-rtm";
-
-const rtmClient = AgoraRTM.createInstance(appId);
-
-rtmClient.on("MessageFromPeer", (message, peerId) => {
-  const data = JSON.parse(message.text);
-  if (data.object === "assistant.transcription") {
-    // Handle agent transcription
+const handleUserPublished = (user: any, mediaType: "audio" | "video") => {
+  if (mediaType === "audio" && user.audioTrack) {
+    // ... handle audio
   }
-  if (data.object === "user.transcription") {
-    // Handle user transcription
-  }
-});
-
-await rtmClient.login({ token, uid });
+  // Video events ignored - no else block needed
+};
 ```
 
-### React Hooks (@agora/conversational-ai)
+**Conclusion:** RTCHelper enhancement is 100% backward compatible. Voice client works unchanged.
 
-**useLocalVideo** - Local camera tracks
+---
 
-```typescript
-import { useLocalVideo } from "@agora/conversational-ai";
+## Next Steps (Not Yet Done)
 
-const { videoTrack, isVideoEnabled, toggleVideo } = useLocalVideo();
-```
+### Priority 1: Fix Local Video Reconnect Issue 🐛
 
-**useRemoteVideo** - Remote video streams
+- **Symptom**: Local video works on first call, disappears on reconnect
+- **Error**: "The play() request was interrupted by a new load request"
+- **Likely cause**: Video track not being properly recreated or MediaStream being reused incorrectly
+- **File to check**: `components/VideoAvatarClient.tsx` (useLocalVideo hook from @agora/conversational-ai)
+- **Debug logs added**: Filter console for `📹 LOCAL_VIDEO_DEBUG` to track:
+  - State changes (track creation/destruction)
+  - Publish/unpublish lifecycle
+  - handleStart, handleStop, toggleVideo actions
 
-```typescript
-import { useRemoteVideo } from "@agora/conversational-ai";
+### Priority 2: Fix Chat Display 🐛
 
-const { remoteVideoUsersArray } = useRemoteVideo({ client });
-```
+- **Symptom**: Only "Agent" label shows, message text hidden
+- **File to check**: Chat/transcript component rendering in `components/VideoAvatarClient.tsx`
+- **Possible cause**: CSS issue or text rendering logic broken
+- **Component**: Uses `@agora/agent-ui-kit` Message/Response components (lines 314-344)
 
-**Custom hook pattern:**
+---
 
-For complete voice AI integration, reference `react-voice-client/hooks/useAgoraVoiceClient.ts`
+## Files Modified
 
-## UI Kit Components
+1. `react-video-client-avatar/node_modules/@agora/conversational-ai/packages/conversational-ai/helper/rtc.ts`
+   - Added video support to RTCHelper class
 
-### Voice Components
+2. `react-video-client-avatar/hooks/useAgoraVideoClient.ts`
+   - Switched from raw RTC client events to RTCHelper events
+   - Simplified video handling
 
-| Component         | Purpose                                                             |
-| ----------------- | ------------------------------------------------------------------- |
-| `MicButton`       | Microphone control with states (idle, listening, processing, error) |
-| `AgentVisualizer` | Animated agent visual (listening, talking, analyzing, ambient)      |
-| `AudioVisualizer` | Real-time audio level visualization                                 |
-| `MicSelector`     | Microphone device selection dropdown                                |
+---
 
-### Chat Components
+## Testing Notes
 
-| Component         | Purpose                                         |
-| ----------------- | ----------------------------------------------- |
-| `Conversation`    | Chat container with scroll management           |
-| `Message`         | Message bubble (user/assistant roles)           |
-| `ConvoTextStream` | Auto-updating transcript display with streaming |
+- Remote video (avatar): ✅ Working
+- Remote audio: ✅ Working
+- Local video (first call): ✅ Working
+- Local video (reconnect): ❌ Broken
+- Chat display: ❌ Broken
 
-### Video Components
+---
 
-| Component            | Purpose                                    |
-| -------------------- | ------------------------------------------ |
-| `LocalVideoPreview`  | Local camera preview with mirror effect    |
-| `AvatarVideoDisplay` | Remote avatar video with connection states |
-| `Avatar`             | Profile avatar image                       |
-
-### Layout Components
-
-| Component    | Purpose                           |
-| ------------ | --------------------------------- |
-| `VideoGrid`  | Desktop 2x2 grid layout for video |
-| `MobileTabs` | Mobile tab switcher (Video/Chat)  |
-
-## Backend Setup
-
-### Token Generation (v007 with RTC+RTM)
-
-```python
-from agora_token_builder import AccessToken, ServiceRtc, ServiceRtm
-
-def build_token_with_rtm(channel, uid, app_id, app_certificate):
-    if not app_certificate:
-        return ""
-
-    token = AccessToken(app_id, app_certificate)
-
-    # RTC Service
-    rtc_service = ServiceRtc(channel, uid)
-    rtc_service.add_privilege(ServiceRtc.kPrivilegeJoinChannel, 3600)
-    rtc_service.add_privilege(ServiceRtc.kPrivilegePublishAudioStream, 3600)
-    token.add_service(rtc_service)
-
-    # RTM Service
-    rtm_service = ServiceRtm(uid)
-    rtm_service.add_privilege(ServiceRtm.kPrivilegeLogin, 3600)
-    token.add_service(rtm_service)
-
-    return token.build()
-```
-
-### Start Agent Endpoint
-
-```python
-@app.route('/start-agent', methods=['GET'])
-def start_agent():
-    channel = request.args.get('channel', f'ch_{int(time.time())}')
-
-    # Generate token with RTC+RTM
-    user_token = build_token_with_rtm(channel, "101", APP_ID, APP_CERTIFICATE)
-
-    # Start agent via REST API
-    agent_response = start_agent(
-        channel=channel,
-        app_id=APP_ID,
-        agent_auth_header=AGENT_AUTH_HEADER,
-        llm_config={...},
-        tts_config={...},
-        asr_config={...}
-    )
-
-    return jsonify({
-        "appid": APP_ID,
-        "token": user_token,
-        "uid": "101",
-        "channel": channel,
-        "agent_response": agent_response
-    })
-```
-
-### Agent Configuration
-
-```python
-# Agent REST API endpoint
-url = f"https://api.agora.io/api/conversational-ai-agent/v2/projects/{app_id}/join"
-
-payload = {
-    "name": channel,
-    "properties": {
-        "channel": channel,
-        "token": token,
-        "agent_rtc_uid": "100",
-        "agent_rtm_uid": f"100-{channel}",
-        "remote_rtc_uids": ["*"],  # Use specific UID for avatar mode
-        "enable_string_uid": False,
-        "advanced_features": {
-            "enable_bhvs": True,
-            "enable_rtm": True,
-            "enable_aivad": False
-        },
-        "idle_timeout": 120,
-        "llm": {...},
-        "tts": {...},
-        "asr": {...}
-    }
-}
-```
-
-### Profile-Based Configuration
-
-The backend supports isolated configurations using profiles. When a client sends `?profile=<name>`, the backend uses ONLY the `<NAME>_*` prefixed environment variables with **no fallback** to base settings.
-
-**Base settings example** (no profile):
+## Commands to Run
 
 ```bash
-# .env file - used when no ?profile= parameter sent
-APP_ID=your_app_id
-AGENT_AUTH_HEADER=your_auth_header
-LLM_API_KEY=your_llm_key
-TTS_VENDOR=rime
-TTS_KEY=your_rime_key
-TTS_VOICE_ID=astra
-AVATAR_VENDOR=heygen     # Optional for avatar support
-AVATAR_API_KEY=your_key
-AVATAR_ID=your_avatar_id
-```
-
-**VIDEO profile example** (used by react-video-client-avatar):
-
-```bash
-# .env file - used when ?profile=video sent
-VIDEO_APP_ID=your_beta_app_id
-VIDEO_AGENT_AUTH_HEADER=your_auth_header
-VIDEO_LLM_API_KEY=your_llm_key
-VIDEO_TTS_VENDOR=elevenlabs
-VIDEO_TTS_KEY=sk_your_key
-VIDEO_TTS_VOICE_ID=cgSgspJ2msm6clMCkdW9
-VIDEO_AVATAR_VENDOR=anam
-VIDEO_AVATAR_API_KEY=your_avatar_key
-VIDEO_AVATAR_ID=your_avatar_id
-```
-
-**Usage:**
-
-```bash
-# Base settings
-curl "http://localhost:8081/start-agent?channel=test"
-
-# VIDEO profile (react-video-client-avatar sends this automatically)
-curl "http://localhost:8081/start-agent?channel=test&profile=video"
-```
-
-**Important:** When using `?profile=video`, you MUST provide all VIDEO\_\* prefixed variables. No fallback to base variables.
-
-**Vendor-specific settings** also need the profile prefix when using a profile:
-
-```bash
-# Base settings (no profile)
-ELEVENLABS_MODEL=eleven_flash_v2_5
-TTS_SAMPLE_RATE=24000
-HEYGEN_QUALITY=high
-
-# VIDEO profile - must prefix vendor-specific settings too
-VIDEO_ELEVENLABS_MODEL=eleven_flash_v2_5
-VIDEO_TTS_SAMPLE_RATE=24000
-VIDEO_HEYGEN_QUALITY=high
-```
-
-See [simple-backend/README.md](./simple-backend/README.md#configuration) for detailed configuration examples and use cases.
-
-### TTS Configuration
-
-All TTS vendors use the same three environment variables:
-
-```bash
-TTS_VENDOR=  # Required: rime, elevenlabs, openai, or cartesia
-TTS_KEY=     # Required: API key for your TTS vendor
-TTS_VOICE_ID=  # Required: Voice/speaker ID for your chosen vendor
-```
-
-**Voice ID examples by vendor:**
-
-- **Rime**: `astra`, `deedee`, `marsh`
-- **ElevenLabs**: Get from [voice library](https://elevenlabs.io/)
-- **OpenAI**: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`
-- **Cartesia**: Get from [voice library](https://cartesia.ai/)
-
-**Using different TTS vendors:**
-
-You can use different TTS vendors for base settings vs VIDEO profile:
-
-```bash
-# Base settings (no profile) - voice clients use Rime
-TTS_VENDOR=rime
-TTS_KEY=rime_api_key
-TTS_VOICE_ID=astra
-
-# VIDEO profile - avatar client uses ElevenLabs
-VIDEO_TTS_VENDOR=elevenlabs
-VIDEO_TTS_KEY=elevenlabs_key
-VIDEO_TTS_VOICE_ID=voice_id_here
-```
-
-### Avatar Configuration
-
-**Base settings with avatar:**
-
-```bash
-AVATAR_VENDOR=heygen  # or anam
-AVATAR_API_KEY=your_avatar_api_key
-AVATAR_ID=your_avatar_id
-```
-
-**VIDEO profile with avatar** (react-video-client-avatar):
-
-```bash
-VIDEO_AVATAR_VENDOR=heygen  # or anam
-VIDEO_AVATAR_API_KEY=your_avatar_api_key
-VIDEO_AVATAR_ID=your_avatar_id
-```
-
-The **react-video-client-avatar** sends `?profile=video` automatically to use VIDEO\_\* settings.
-
-See [simple-backend/README.md#configuration](./simple-backend/README.md#configuration) for complete examples.
-
-### Customizing Agent Behavior
-
-**Greeting and Prompt Settings:**
-
-```bash
-# Base settings
-DEFAULT_PROMPT=You are a helpful assistant. Keep responses concise and friendly.
-DEFAULT_GREETING=hi there
-DEFAULT_FAILURE_MESSAGE=Sorry, something went wrong
-
-# VIDEO profile (optional - different personality for avatar)
-VIDEO_DEFAULT_PROMPT=You are a video avatar assistant. The user can see you as a digital human...
-VIDEO_DEFAULT_GREETING=Hello, I can see you!
-VIDEO_DEFAULT_FAILURE_MESSAGE=Oops, something went wrong
-```
-
-- **DEFAULT_PROMPT** - System prompt that defines the LLM's personality and behavior
-- **DEFAULT_GREETING** - First message sent when agent joins the channel
-- **DEFAULT_FAILURE_MESSAGE** - Message sent when errors occur
-
-These can be customized per profile, allowing different agent personalities for voice vs video clients.
-
-## Installation & Setup
-
-### First Time Setup
-
-1. **Install pnpm:**
-
-   ```bash
-   npm install -g pnpm
-   ```
-
-2. **Install workspace dependencies:**
-
-   ```bash
-   pnpm install
-   ```
-
-3. **Install backend dependencies:**
-
-   The backend requires Python packages. Use a virtual environment to avoid system conflicts:
-
-   ```bash
-   cd simple-backend
-   python3 -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   pip install -r requirements.txt
-   ```
-
-   **Note:** Modern Python installations (especially on macOS via Homebrew) use externally-managed environments. Always use a virtual environment (`venv`) to install packages.
-
-4. **Configure backend:**
-
-   ```bash
-   cp simple-backend/.env.example simple-backend/.env
-   # Edit .env with your credentials
-   ```
-
-### Running Services
-
-**Start backend:**
-
-```bash
-cd simple-backend
-source venv/bin/activate  # Activate virtual environment first
+# Backend
+cd /Users/benweekes/work/convoai/agent-samples/simple-backend
 PORT=8082 python3 local_server.py
+
+# Frontend
+cd /Users/benweekes/work/convoai/agent-samples/react-video-client-avatar
+npm run dev
 ```
 
-**Start frontend:**
+---
+
+## Important Notes
+
+⚠️ **DO NOT commit or push until all issues fixed**
+
+- Local video reconnect broken
+- Chat display broken
+- Need to verify everything works before committing
+
+📝 **Modified node_modules**
+
+- Changes to RTCHelper are in `node_modules/@agora/conversational-ai`
+- This will be lost on `npm install` - need to submit PR to upstream library or use patch-package
+
+---
+
+## Debugging Commands
 
 ```bash
-pnpm dev
+# Filter for video debug logs in console
+# Remote video (avatar): 🎥 VIDEO_DEBUG
+# Local video: 📹 LOCAL_VIDEO_DEBUG
+
+# Check for errors
+# Look for: "play() request was interrupted"
 ```
 
-**Access:**
+## Debug Logs Added (2026-01-20)
 
-- Frontend: http://localhost:8083
-- Backend: http://localhost:8082
+### Local Video Reconnect Debugging
 
-## Common Issues
+Added comprehensive logging in `components/VideoAvatarClient.tsx`:
 
-**"UID_CONFLICT" error**
+1. **State tracking** (lines 95-102): Logs whenever local video state changes
+   - `isLocalVideoActive` status
+   - Track presence and ID
+   - Connection status
 
-- Multiple clients using same UID
-- Ensure cleanup before rejoin: `await client.leave()`
+2. **Publish lifecycle** (lines 108-114, 136-141): Logs publish/unpublish operations
+   - Client availability
+   - Track details
+   - Success/failure states
 
-**"no such stream id" error**
+3. **User actions** (lines 222-230, 250-268): Logs user-triggered events
+   - handleStop flow (disable video → leave channel)
+   - toggleVideo actions (enable/disable)
+   - enableVideo during initial connection
 
-- Agent UID mismatch between backend config and client subscription
-- Verify `agentUID` matches `agent_rtc_uid` in backend
+**Usage:** Filter browser console for `📹 LOCAL_VIDEO_DEBUG` when testing reconnect scenario
 
-**Token errors**
+---
 
-- Pass `null` not empty string when no certificate: `token || null`
-- Use `parseInt(uid)` for RTC client join
+### Chat Display Debugging
 
-**Agent not speaking**
+Added comprehensive logging to track message flow:
 
-- Check TTS vendor API key in backend `.env`
-- Verify backend logs for agent creation errors
+**In `hooks/useAgoraVideoClient.ts`:**
 
-**Can't hear user**
+1. **Transcript updates** (lines 183-192, 210-214): Logs raw transcript events from RTM
+   - Raw message count and content
+   - Message UIDs, text, status
+   - Text lengths
+   - Completed vs in-progress separation
 
-- Check microphone permissions in browser
-- Verify audio track creation with AEC/ANS/AGC enabled
+**In `components/VideoAvatarClient.tsx`:**
 
-**Video not showing (avatar mode)**
+1. **Message list updates** (lines 54-65): Logs whenever messageList state changes
+   - Message count
+   - All messages with turn_id, uid, text, status
+   - Agent vs user classification
 
-- Ensure backend uses specific UID for `remote_rtc_uids`, not wildcard `"*"`
-- Check `useMediaStream={true}` prop for multi-instance video rendering
-- Verify avatar endpoint configured correctly
+2. **In-progress message updates** (lines 67-78): Logs current typing indicator
+   - Whether in-progress message exists
+   - Full message details if present
 
-**Module not found**
+3. **Send message flow** (lines 236-242): Logs user message sending
+   - Message content
+   - Agent UID
+   - Send success/failure
 
-- Run `pnpm install` from repository root
-- Check workspace packages linked correctly
+4. **Agent detection** (lines 273-274): Logs every isAgentMessage check
+   - Input UID
+   - Result (true/false)
 
-## Workspace Architecture
-
-This project uses **pnpm workspace monorepo** where SDK and UI Kit are proper
-packages:
-
-**Benefits:**
-
-- Single source of truth - update once, reflects everywhere
-- Proper package development - can be published to npm
-- External consumption - apps outside repo can use published packages
-- Dependency hoisting - pnpm correctly resolves peer dependencies
-
-**Package linking:**
-
-```json
-{
-  "dependencies": {
-    "@agora/conversational-ai": "workspace:*",
-    "@agora/conversational-ai-react": "workspace:*",
-    "@agora/agent-ui-kit": "workspace:*"
-  }
-}
-```
-
-## Common Implementation Tasks
-
-**Task: Help user build Node.js backend**
-
-1. Read [simple-backend/README.md](./simple-backend/README.md)
-2. Reference `simple-backend/core/tokens.py` for token generation pattern
-3. Reference `simple-backend/core/agent.py` for Agent REST API pattern
-4. Adapt Python patterns to Node.js (Express, environment variables, etc.)
-
-**Task: Help user build Vue.js client**
-
-1. Read [react-voice-client/README.md](./react-voice-client/README.md)
-2. Reference `react-voice-client/hooks/useAgoraVoiceClient.ts` for connection
-   patterns
-3. Study RTC/RTM setup in "Approach C: Bare RTC/RTM" section above
-4. Adapt React patterns to Vue composition API
-
-**Task: Help user add avatar to existing app**
-
-1. Read
-   [react-video-client-avatar/README.md](./react-video-client-avatar/README.md)
-2. Reference `react-video-client-avatar/components/VideoAvatarClient.tsx`
-3. Note: Client passes `profile=video` to backend
-4. Backend uses profile-specific config (see Backend README Profile Support
-   section)
-
-**Task: Help user understand transcription messages**
-
-1. See "Message Types" section above
-2. Reference `agent-toolkit/conversational-ai-api/helper/rtm.ts` for RTM message
-   handling
-3. Study how react-voice-client displays transcriptions
-
-## Documentation Index
-
-**Core Documentation (Read these first):**
-
-- [README.md](./README.md) - Repository overview, system architecture
-- [simple-backend/README.md](./simple-backend/README.md) - Backend reference
-  implementation
-- [react-voice-client/README.md](./react-voice-client/README.md) - Voice client
-  reference
-- [react-video-client-avatar/README.md](./react-video-client-avatar/README.md) -
-  Video client reference
-
-**SDK & Components (For using our packages):**
-
-- [agent-toolkit/README.md](./agent-toolkit/README.md) - Core SDK and React
-  hooks API
-- [agent-ui-kit/README.md](./agent-ui-kit/README.md) - React UI component
-  library
-
-**When to read each:**
-
-| User Need                           | Read This                | Use Pattern From            |
-| ----------------------------------- | ------------------------ | --------------------------- |
-| Run samples quickly                 | Backend + Client README  | N/A - just run it           |
-| Build backend in Python             | Backend README           | simple-backend/ code        |
-| Build backend in Node/Go/etc        | Backend README           | simple-backend/ patterns    |
-| Build React client                  | Client + agent-toolkit   | react-voice-client/ code    |
-| Build Vue/Angular/vanilla JS client | Client + RTC/RTM section | react-voice-client/patterns |
-| Use our React SDK                   | agent-toolkit README     | Import from packages        |
-| Use our UI components               | agent-ui-kit README      | Import from packages        |
-| Build custom UI                     | agent-ui-kit README      | See patterns, build own     |
-
-**Key File References:**
-
-**Backend Implementation:**
-
-- `simple-backend/core/agent.py` - Agent REST API calls
-- `simple-backend/core/tokens.py` - Token generation (v007)
-- `simple-backend/core/config.py` - Environment variable handling
-- `simple-backend/local_server.py` - Flask server example
-
-**Client Implementation:**
-
-- `react-voice-client/hooks/useAgoraVoiceClient.ts` - RTC/RTM connection
-  management
-- `react-voice-client/components/VoiceClient.tsx` - Complete voice client
-- `react-video-client-avatar/components/VideoAvatarClient.tsx` - Complete video
-  client
-- `agent-toolkit/conversational-ai-api/helper/rtc.ts` - RTC helper patterns
-- `agent-toolkit/conversational-ai-api/helper/rtm.ts` - RTM helper patterns
+**Usage:** Filter browser console for `💬 CHAT_DEBUG` to track message flow from RTM → state → render

@@ -46,6 +46,9 @@ def initialize_constants(profile=None):
         Dictionary of constants
     """
     constants = {
+        # Store profile name for debugging/logging
+        "PROFILE_NAME": profile if profile else "default",
+
         # Required Agora settings (no defaults)
         "APP_ID": get_env_var('APP_ID', profile),
         "APP_CERTIFICATE": get_env_var('APP_CERTIFICATE', profile, ''),
@@ -116,6 +119,21 @@ def initialize_constants(profile=None):
 
         # Debug settings
         "ENABLE_CURL_DUMP": get_env_var('ENABLE_CURL_DUMP', profile, "false"),
+
+        # MLLM settings (Gemini Live multimodal LLM)
+        "ENABLE_MLLM": get_env_var('ENABLE_MLLM', profile, "false"),
+        "MLLM_VENDOR": get_env_var('MLLM_VENDOR', profile),
+        "MLLM_STYLE": get_env_var('MLLM_STYLE', profile),
+        "MLLM_URL": get_env_var('MLLM_URL', profile),
+        "MLLM_MODEL": get_env_var('MLLM_MODEL', profile),
+        "MLLM_ADC_CREDENTIALS_STRING": get_env_var('MLLM_ADC_CREDENTIALS_STRING', profile),
+        "MLLM_PROJECT_ID": get_env_var('MLLM_PROJECT_ID', profile),
+        "MLLM_LOCATION": get_env_var('MLLM_LOCATION', profile),
+        "MLLM_VOICE": get_env_var('MLLM_VOICE', profile),
+        "MLLM_TRANSCRIBE_AGENT": get_env_var('MLLM_TRANSCRIBE_AGENT', profile),
+        "MLLM_TRANSCRIBE_USER": get_env_var('MLLM_TRANSCRIBE_USER', profile),
+        "MLLM_HISTORY_CONTENT": get_env_var('MLLM_HISTORY_CONTENT', profile),
+        "TURN_DETECTION_TYPE": get_env_var('TURN_DETECTION_TYPE', profile),
 
         # Avatar settings (vendor-neutral)
         "AVATAR_VENDOR": get_env_var('AVATAR_VENDOR', profile),

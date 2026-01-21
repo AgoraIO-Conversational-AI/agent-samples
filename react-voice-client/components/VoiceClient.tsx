@@ -23,6 +23,7 @@ export function VoiceClient() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [enableAivad, setEnableAivad] = useState(true);
   const [language, setLanguage] = useState("en-US");
+  const [profile, setProfile] = useState("");
   const [prompt, setPrompt] = useState(
     "You are a virtual companion. The user can both talk and type to you and you will be sent text. Say you can hear them if asked. They can also see you as a digital human. Keep responses to around 10 to 20 words or shorter. Be upbeat and try and keep conversation going by learning more about the user.",
   );
@@ -57,6 +58,13 @@ export function VoiceClient() {
         enable_aivad: enableAivad.toString(),
         asr_language: language,
       });
+
+      // Add profile override if provided, otherwise use default "VOICE" profile
+      if (profile.trim()) {
+        params.append("profile", profile.trim());
+      } else {
+        params.append("profile", "VOICE");
+      }
 
       // Add prompt and greeting if provided
       if (prompt.trim()) {
@@ -179,6 +187,26 @@ export function VoiceClient() {
                     placeholder={DEFAULT_BACKEND_URL}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="profile"
+                    className="mb-2 block text-sm font-medium"
+                  >
+                    Server Profile
+                  </label>
+                  <input
+                    id="profile"
+                    type="text"
+                    value={profile}
+                    onChange={(e) => setProfile(e.target.value)}
+                    placeholder="VOICE"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Leave empty for default &ldquo;VOICE&rdquo; profile
+                  </p>
                 </div>
 
                 <button

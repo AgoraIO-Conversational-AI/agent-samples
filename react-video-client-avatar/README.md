@@ -93,19 +93,23 @@ http://localhost:8084
 
 **Backend Configuration:**
 
-This client sends `?profile=video` to use video profile configuration. The backend must be configured with video-specific settings.
+This client sends `?profile=VIDEO` to use the VIDEO profile configuration. The backend must be configured with video-specific settings.
 
 **Required Backend Setup:**
 
-Configure the backend with video profile settings (VIDEO\_\* prefixed variables):
+Configure the backend with VIDEO profile settings (VIDEO\_\* prefixed variables):
 
-- `VIDEO_APP_ID`, `VIDEO_APP_CERTIFICATE`, `VIDEO_AGENT_AUTH_HEADER` (Agora credentials for video)
+- `VIDEO_APP_ID`, `VIDEO_APP_CERTIFICATE`, `VIDEO_AGENT_AUTH_HEADER` (Agora credentials)
 - `VIDEO_LLM_API_KEY` (LLM for video)
 - `VIDEO_TTS_VENDOR`, `VIDEO_TTS_KEY`, `VIDEO_TTS_VOICE_ID` (TTS for video)
 - `VIDEO_AVATAR_VENDOR` (heygen or anam)
 - `VIDEO_AVATAR_API_KEY`, `VIDEO_AVATAR_ID` (avatar provider credentials)
 
-See [Video Avatar Credentials](../AGENT.md#video-avatar-credentials) in AGENT.md for detailed credential gathering instructions, or [../simple-backend/README.md#avatar-mode-profile-example](../simple-backend/README.md#avatar-mode-profile-example) for complete configuration example. You can also reference [../simple-backend/.env.video.example](../simple-backend/.env.video.example) as a template.
+See [../simple-backend/.env.example](../simple-backend/.env.example) for a complete template with all VIDEO profile variables.
+
+**Profile Override:**
+
+You can override the default profile using the "Server Profile" field in the UI. Profile names are case-insensitive (VIDEO, video, or Video all work).
 
 **Start Services:**
 
@@ -127,7 +131,7 @@ See [Video Avatar Credentials](../AGENT.md#video-avatar-credentials) in AGENT.md
    - Enable "Enable Local Video" to show your camera
    - Enable "Enable Avatar" to show avatar video
    - Click "Start Conversation"
-   - Client automatically calls `/start-agent?profile=video` to use
+   - Client automatically calls `/start-agent?profile=VIDEO` to use
      video-specific backend configuration
 
 4. **Interact with Agent**:
@@ -184,7 +188,7 @@ react-video-client-avatar/
 ├── hooks/
 │   ├── use-audio-devices.ts
 │   ├── use-is-mobile.ts
-│   └── useAgoraVoiceClient.ts   # Custom hook for Agora integration
+│   └── useAgoraVideoClient.ts   # Custom hook for Agora integration
 ├── lib/
 │   └── utils.ts                 # Utility functions (cn)
 ├── next.config.ts               # Transpile workspace packages
@@ -241,7 +245,7 @@ switching viewports.
 
 ### Voice Interaction
 
-Full voice AI capabilities using the same `useAgoraVoiceClient` hook:
+Full voice AI capabilities using the `useAgoraVideoClient` hook:
 
 ```typescript
 const {
@@ -252,12 +256,13 @@ const {
   currentInProgressMessage,
   isAgentSpeaking,
   localAudioTrack,
+  remoteVideoTrack,
   joinChannel,
   leaveChannel,
   toggleMute,
   sendMessage,
   rtcHelperRef,
-} = useAgoraVoiceClient();
+} = useAgoraVideoClient();
 ```
 
 ## Building for Production

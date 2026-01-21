@@ -63,17 +63,21 @@ This sample application uses the Agora Conversational AI SDK and UI Kit packages
 
 ## Configuration
 
-This client connects to the backend using **base configuration** (voice-only mode).
+This client connects to the backend using the **VOICE profile** by default.
 
 **Backend Configuration Required:**
 
-See [../simple-backend/README.md#voice-only-mode-base-profile](../simple-backend/README.md#voice-only-mode-base-profile) for required credentials:
+The backend must be configured with `VOICE_*` prefixed environment variables. See [../simple-backend/.env.example](../simple-backend/.env.example) for the complete list of required credentials:
 
-- APP_ID, APP_CERTIFICATE, AGENT_AUTH_HEADER
-- LLM_API_KEY
-- TTS_VENDOR, TTS_KEY, TTS_VOICE_ID
+- VOICE_APP_ID, VOICE_APP_CERTIFICATE, VOICE_AGENT_AUTH_HEADER
+- VOICE_LLM_API_KEY
+- VOICE_TTS_VENDOR, VOICE_TTS_KEY, VOICE_TTS_VOICE_ID
 
 This client runs on port **8083** and connects to the backend on port **8082**.
+
+**Profile Override:**
+
+You can override the default profile using the "Server Profile" field in the UI. Profile names are case-insensitive (VOICE, voice, or Voice all work).
 
 ## Setup and Run
 

@@ -1,13 +1,17 @@
 "use client"
 
 import { useState, useCallback, useEffect, useRef } from "react"
-import { IMicrophoneAudioTrack } from "agora-rtc-sdk-ng"
+import { IMicrophoneAudioTrack, IRemoteAudioTrack } from "agora-rtc-sdk-ng"
 import { RTCHelper } from "@agora/conversational-ai/helper/rtc"
-import { SubRenderController } from "@agora/conversational-ai/utils/sub-render"
 import { ConversationalAIAPI } from "@agora/conversational-ai"
 import type { TranscriptItem, TranscriptHelperMode } from "@agora/conversational-ai/type"
 import { TurnStatus, RTCHelperEvents } from "@agora/conversational-ai/type"
 import { MicButtonState } from "@agora/agent-ui-kit"
+
+interface RemoteUser {
+  uid: string | number
+  audioTrack?: IRemoteAudioTrack
+}
 
 export type VoiceClientConfig = {
   appId: string
@@ -34,7 +38,7 @@ export function useAgoraVoiceClient() {
     null
   )
   const [isAgentSpeaking, setIsAgentSpeaking] = useState(false)
-  const [remoteAudioTrack, setRemoteAudioTrack] = useState<any>(null)
+  const [remoteAudioTrack, setRemoteAudioTrack] = useState<IRemoteAudioTrack | null>(null)
 
   const rtcHelperRef = useRef<RTCHelper | null>(null)
   const apiRef = useRef<ConversationalAIAPI | null>(null)
@@ -45,7 +49,7 @@ export function useAgoraVoiceClient() {
     const rtcHelper = rtcHelperRef.current
     if (!rtcHelper) return
 
-    const handleUserPublished = (user: any, mediaType: "audio" | "video") => {
+    const handleUserPublished = (user: RemoteUser, mediaType: "audio" | "video") => {
       if (mediaType === "audio" && user.audioTrack) {
         user.audioTrack.play()
         setRemoteAudioTrack(user.audioTrack)
@@ -53,14 +57,14 @@ export function useAgoraVoiceClient() {
       }
     }
 
-    const handleUserUnpublished = (user: any, mediaType: "audio" | "video") => {
+    const handleUserUnpublished = (user: RemoteUser, mediaType: "audio" | "video") => {
       if (mediaType === "audio") {
         setIsAgentSpeaking(false)
         setRemoteAudioTrack(null)
       }
     }
 
-    const handleUserLeft = (user: any) => {
+    const handleUserLeft = () => {
       setIsAgentSpeaking(false)
       setRemoteAudioTrack(null)
     }
@@ -74,6 +78,7 @@ export function useAgoraVoiceClient() {
       rtcHelper.off(RTCHelperEvents.USER_UNPUBLISHED, handleUserUnpublished)
       rtcHelper.off(RTCHelperEvents.USER_LEFT, handleUserLeft)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rtcHelperRef.current])
 
   // Monitor remote audio volume levels
@@ -111,6 +116,31 @@ export function useAgoraVoiceClient() {
       }
     }
   }, [remoteAudioTrack, isAgentSpeaking])
+
+  const leaveChannel = useCallback(async () => {
+    try {
+      // Cleanup API
+      if (apiRef.current) {
+        apiRef.current.destroy()
+        apiRef.current = null
+      }
+
+      // Cleanup RTCHelper
+      if (rtcHelperRef.current) {
+        await rtcHelperRef.current.leave()
+        rtcHelperRef.current = null
+      }
+
+      setLocalAudioTrack(null)
+      setIsConnected(false)
+      setMicState("idle")
+      setIsAgentSpeaking(false)
+      setMessageList([])
+      setCurrentInProgressMessage(null)
+    } catch (error) {
+      console.error("Error leaving channel:", error)
+    }
+  }, [])
 
   const joinChannel = useCallback(
     async (config: VoiceClientConfig) => {
@@ -158,7 +188,7 @@ export function useAgoraVoiceClient() {
         })
 
         // Listen to transcript updates
-        api.on("transcript-updated" as any, (messages: TranscriptItem[]) => {
+        api.on("transcript-updated", (messages: TranscriptItem[]) => {
           // Convert to IMessageListItem format
           const convertedMessages = messages.map((m) => ({
             turn_id: m.turn_id,
@@ -173,6 +203,11 @@ export function useAgoraVoiceClient() {
             (msg) => msg.status !== TurnStatus.IN_PROGRESS
           )
 
+          // Log message ordering for debugging
+          completedMessages.forEach((msg) => {
+            console.log(`🔢 MSG_ORDER uid=${msg.uid} turn=${msg.turn_id} ts=${msg.timestamp ?? 'undefined'} text="${msg.text?.substring(0, 30)}..."`)
+          })
+
           const inProgress = convertedMessages.find((msg) => msg.status === TurnStatus.IN_PROGRESS)
 
           setMessageList(completedMessages)
@@ -185,33 +220,8 @@ export function useAgoraVoiceClient() {
         throw error
       }
     },
-    [isConnected]
+    [isConnected, leaveChannel]
   )
-
-  const leaveChannel = useCallback(async () => {
-    try {
-      // Cleanup API
-      if (apiRef.current) {
-        apiRef.current.destroy()
-        apiRef.current = null
-      }
-
-      // Cleanup RTCHelper
-      if (rtcHelperRef.current) {
-        await rtcHelperRef.current.leave()
-        rtcHelperRef.current = null
-      }
-
-      setLocalAudioTrack(null)
-      setIsConnected(false)
-      setMicState("idle")
-      setIsAgentSpeaking(false)
-      setMessageList([])
-      setCurrentInProgressMessage(null)
-    } catch (error) {
-      console.error("Error leaving channel:", error)
-    }
-  }, [])
 
   const toggleMute = useCallback(async () => {
     const rtcHelper = rtcHelperRef.current

@@ -28,125 +28,102 @@ Server runs on http://localhost:8081 (default).
 
 ## Configuration
 
-The backend supports **base settings** and optional **profile settings** for running multiple configurations.
+The backend uses **profiles** to manage client configurations via environment variables.
 
-### Base Settings
+### Default Profiles
 
-**Required settings (no profile prefix):**
+**Voice Client** uses the `voice` profile (`VOICE_*` prefixed variables):
 
 ```bash
 # Agora credentials
-APP_ID=
-APP_CERTIFICATE=
-AGENT_AUTH_HEADER=
+VOICE_APP_ID=
+VOICE_APP_CERTIFICATE=
+VOICE_AGENT_AUTH_HEADER=
+
+# MLLM settings (Gemini Live)
+VOICE_ENABLE_MLLM=true
+VOICE_MLLM_VENDOR=vertexai
+VOICE_MLLM_MODEL=gemini-live-2.5-flash-preview-native-audio-09-2025
+VOICE_MLLM_ADC_CREDENTIALS_STRING={"type":"service_account"...}
+VOICE_MLLM_PROJECT_ID=
+VOICE_MLLM_LOCATION=us-central1
+VOICE_MLLM_VOICE=Charon
+VOICE_MLLM_TRANSCRIBE_AGENT=true
+VOICE_MLLM_TRANSCRIBE_USER=true
+
+# ASR and AIVAD
+VOICE_ASR_VENDOR=ares
+VOICE_ENABLE_AIVAD=false
+
+# Prompts
+VOICE_DEFAULT_GREETING=Hey There Sir
+VOICE_DEFAULT_PROMPT=You are a friendly assistant.
+
+# Debug
+VOICE_ENABLE_CURL_DUMP=true
+```
+
+**Video Client** uses the `video` profile (`VIDEO_*` prefixed variables):
+
+```bash
+# Agora credentials
+VIDEO_APP_ID=
+VIDEO_APP_CERTIFICATE=
+VIDEO_AGENT_AUTH_HEADER=
 
 # LLM settings
-LLM_API_KEY=
-LLM_MODEL=gpt-4o-mini
+VIDEO_ENABLE_MLLM=false
+VIDEO_LLM_API_KEY=
+VIDEO_LLM_MODEL=gpt-4o
 
-# TTS settings - Choose ONE vendor
-TTS_VENDOR=  # rime, elevenlabs, openai, or cartesia
-TTS_KEY=     # API key for your TTS vendor
-TTS_VOICE_ID=  # Voice ID for your TTS vendor
-```
+# TTS settings
+VIDEO_TTS_VENDOR=elevenlabs
+VIDEO_TTS_KEY=
+VIDEO_TTS_VOICE_ID=
+VIDEO_ELEVENLABS_MODEL=eleven_flash_v2_5
+VIDEO_TTS_SAMPLE_RATE=24000
 
-**Optional avatar settings (add to base settings for avatar support):**
+# ASR and AIVAD
+VIDEO_ASR_VENDOR=ares
+VIDEO_ENABLE_AIVAD=true
 
-```bash
-AVATAR_VENDOR=  # heygen or anam
-AVATAR_API_KEY= # API key from avatar provider
-AVATAR_ID=      # Avatar identifier from provider
-```
+# Avatar settings
+VIDEO_AVATAR_VENDOR=heygen
+VIDEO_AVATAR_API_KEY=
+VIDEO_AVATAR_ID=
+VIDEO_HEYGEN_QUALITY=high
 
-**TTS Voice Options:**
+# Prompts
+VIDEO_DEFAULT_GREETING=Hey there, I am Quiz Master Bella...
+VIDEO_DEFAULT_PROMPT=You are Bella, a quiz master...
 
-- **Rime**: `astra`, `deedee`, `marsh`
-- **ElevenLabs**: Get from [voice library](https://elevenlabs.io/)
-- **OpenAI**: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`
-- **Cartesia**: Get from [voice library](https://cartesia.ai/)
-
-**Avatar Vendors:**
-
-- **HeyGen**: Set `AVATAR_VENDOR=heygen`
-- **Anam**: Set `AVATAR_VENDOR=anam` (uses special Agora endpoint automatically)
-
-### Profile Settings
-
-Profiles allow running **completely separate configurations** with different credentials and vendors. When a client sends `?profile=<name>`, the backend uses only the `<NAME>_*` prefixed variables with **no fallback** to base settings.
-
-**Profile format:** `PROFILENAME_VAR_NAME` (profile name is uppercased)
-
-**Example: Video profile** (used by react-video-client-avatar with `?profile=video`):
-
-```bash
-# Video profile - completely separate from base settings
-VIDEO_APP_ID=              # Different Agora app (e.g., beta instance)
-VIDEO_APP_CERTIFICATE=     # Certificate for video app
-VIDEO_AGENT_AUTH_HEADER=   # Auth header for video app
-VIDEO_LLM_API_KEY=         # Different LLM API key
-VIDEO_TTS_VENDOR=          # Different TTS vendor (e.g., elevenlabs)
-VIDEO_TTS_KEY=             # Different TTS API key
-VIDEO_TTS_VOICE_ID=        # Different voice
-VIDEO_AVATAR_VENDOR=       # heygen or anam
-VIDEO_AVATAR_API_KEY=      # Avatar provider API key
-VIDEO_AVATAR_ID=           # Avatar identifier
-```
-
-**How profiles work:**
-
-1. Client sends `?profile=video` (react-video-client-avatar does this automatically)
-2. Backend ONLY uses `VIDEO_*` prefixed variables
-3. No fallback to base variables - profile must have complete set of credentials
-4. If variable missing, uses hardcoded defaults (not base settings)
-
-**Example use cases:**
-
-- **Base settings**: Voice-only client with Rime TTS on production Agora app
-- **VIDEO profile**: Avatar client with ElevenLabs TTS on beta Agora app
-- **STAGING profile**: Test environment with different credentials
-
-This allows running multiple clients with completely isolated configurations.
-
-### Customizing Agent Behavior
-
-**Base settings:**
-
-```bash
-DEFAULT_PROMPT=You are a helpful assistant...
-DEFAULT_GREETING=hi there
-DEFAULT_FAILURE_MESSAGE=Sorry, something went wrong
-```
-
-**Profile-specific prompts:**
-
-```bash
-VIDEO_DEFAULT_PROMPT=You are a video avatar assistant...
-VIDEO_DEFAULT_GREETING=Hello, I can see you!
-VIDEO_DEFAULT_FAILURE_MESSAGE=Oops, something went wrong
-```
-
-The greeting is sent as the first message when the agent joins. The prompt defines the LLM's personality and behavior.
-
-### Debug Settings
-
-**Curl dump for debugging:**
-
-```bash
-# Base settings
-ENABLE_CURL_DUMP=true
-
-# VIDEO profile (requires VIDEO_ prefix - no fallback)
+# Debug
 VIDEO_ENABLE_CURL_DUMP=true
 ```
 
-When enabled, the backend will:
+### Profile Overrides
 
-1. Print the equivalent curl command to console
-2. Write a timestamped shell script to `/tmp/agora_curl_YYYYMMDD_HHMMSS.sh`
+Both clients have a "Server Profile" field to override the default profile. Leave empty to use defaults (`VOICE` for voice client, `VIDEO` for video client).
+
+**Profile names are case-insensitive** - the server normalizes all profile names to lowercase, so `VOICE`, `voice`, or `Voice` all work identically.
+
+### For AI Coding Assistants
+
+When setting up the `.env` file:
+
+- Voice client requires `VOICE_*` prefixed variables
+- Video client requires `VIDEO_*` prefixed variables
+
+Documentation may show simplified variable names for readability, but always use the full prefix.
+
+### Debug Settings
+
+When curl dump is enabled (`VOICE_ENABLE_CURL_DUMP=true` or `VIDEO_ENABLE_CURL_DUMP=true`), the backend writes timestamped shell scripts to `/tmp/`:
+
+- Format: `agora_curl_<profile>_YYYYMMDD_HHMMSS.sh`
+- Examples: `agora_curl_voice_20260120_143022.sh`, `agora_curl_video_20260120_143045.sh`
 
 This is useful for debugging API requests. The curl dump includes full request headers and payload.
-
-**Important:** Due to no fallback behavior, VIDEO profile requires `VIDEO_ENABLE_CURL_DUMP=true` (not `ENABLE_CURL_DUMP`).
 
 ## Usage
 
@@ -159,7 +136,7 @@ curl "http://localhost:8081/start-agent?channel=test"
 **Start agent with profile:**
 
 ```bash
-curl "http://localhost:8081/start-agent?channel=test&profile=video"
+curl "http://localhost:8081/start-agent?channel=test&profile=VIDEO"
 ```
 
 **Stop agent:**
