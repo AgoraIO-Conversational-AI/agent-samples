@@ -14,7 +14,7 @@ import { AgoraLogo } from "@agora/agent-ui-kit";
 import { SettingsDialog } from "@agora/agent-ui-kit";
 import { cn } from "@/lib/utils";
 
-const DEFAULT_BACKEND_URL = "http://localhost:8082";
+const DEFAULT_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8082";
 
 export function VideoAvatarClient() {
   const [backendUrl, setBackendUrl] = useState(DEFAULT_BACKEND_URL);
