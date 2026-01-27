@@ -405,3 +405,240 @@ Added comprehensive logging to track message flow:
    - Result (true/false)
 
 **Usage:** Filter browser console for `💬 CHAT_DEBUG` to track message flow from RTM → state → render
+
+---
+
+## Production Deployment (EC2 + nginx on port 443)
+
+This section documents how to serve all agent-samples behind nginx on port 443 alongside an existing application, using path-based routing.
+
+### Architecture
+
+```
+nginx :443 (convoai-demo.agora.io)
+  /                              → /var/www/palabra/         (existing SPA)
+  /v1/, /query, /oauth, /pstn   → localhost:7080             (existing API)
+  /simple-backend/               → localhost:8081             (Flask API, prefix stripped)
+  /react-voice-client/           → localhost:8083             (Next.js voice client)
+  /react-video-client-avatar/    → localhost:8084             (Next.js video+avatar client)
+  /simple-voice-client/          → static files via alias
+  /complete-voice-client/        → static files via alias
+```
+
+### Source Code Changes (4 lines, backward-compatible)
+
+Two env-var-driven configs were added. When env vars are **not set** (local dev), behavior is identical to the original code.
+
+**`next.config.ts`** (both `react-voice-client` and `react-video-client-avatar`):
+
+```typescript
+const nextConfig: NextConfig = {
+  basePath: process.env.NEXT_PUBLIC_BASE_PATH || "",
+  typescript: { ignoreBuildErrors: true },
+  transpilePackages: ["@agora/conversational-ai", "@agora/agent-ui-kit"],
+};
+```
+
+- `basePath` makes Next.js serve all routes/assets under the specified prefix
+- `typescript.ignoreBuildErrors` bypasses an unused `@ts-expect-error` in `@agora/agent-ui-kit`
+
+**`VoiceClient.tsx` / `VideoAvatarClient.tsx`**:
+
+```typescript
+const DEFAULT_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8082";
+```
+
+- When `NEXT_PUBLIC_BACKEND_URL=/simple-backend` is set at build time, the browser makes relative requests to the same origin
+- When not set, defaults to `http://localhost:8082` for local dev
+
+### Step 1: Python Backend Setup
+
+```bash
+cd simple-backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements-local.txt
+cp .env.example .env
+# Edit .env with real Agora, LLM, TTS, and avatar credentials
+```
+
+Create `simple-backend/start.sh` (PM2 workaround for Python):
+
+```bash
+#!/bin/bash
+cd /home/ubuntu/agent-samples/simple-backend
+source venv/bin/activate
+PORT=8081 exec python3 local_server.py
+```
+
+```bash
+chmod +x start.sh
+```
+
+### Step 2: Build Next.js Apps
+
+```bash
+# Voice client
+cd react-voice-client
+npm install --legacy-peer-deps
+NEXT_PUBLIC_BASE_PATH=/react-voice-client NEXT_PUBLIC_BACKEND_URL=/simple-backend npm run build
+
+# Video avatar client
+cd ../react-video-client-avatar
+npm install --legacy-peer-deps
+NEXT_PUBLIC_BASE_PATH=/react-video-client-avatar NEXT_PUBLIC_BACKEND_URL=/simple-backend npm run build
+```
+
+### Step 3: PM2 Ecosystem Config
+
+Create `ecosystem.config.js` in the repo root:
+
+```javascript
+module.exports = {
+  apps: [
+    {
+      name: "simple-backend",
+      script: "/home/ubuntu/agent-samples/simple-backend/start.sh",
+      interpreter: "bash",
+      watch: false,
+      max_memory_restart: "200M",
+    },
+    {
+      name: "react-voice-client",
+      cwd: "/home/ubuntu/agent-samples/react-voice-client",
+      script: "node_modules/.bin/next",
+      args: "start -p 8083",
+      env: {
+        NODE_ENV: "production",
+        PORT: 8083,
+        NEXT_PUBLIC_BASE_PATH: "/react-voice-client",
+        NEXT_PUBLIC_BACKEND_URL: "/simple-backend",
+      },
+      watch: false,
+      max_memory_restart: "500M",
+    },
+    {
+      name: "react-video-client-avatar",
+      cwd: "/home/ubuntu/agent-samples/react-video-client-avatar",
+      script: "node_modules/.bin/next",
+      args: "start -p 8084",
+      env: {
+        NODE_ENV: "production",
+        PORT: 8084,
+        NEXT_PUBLIC_BASE_PATH: "/react-video-client-avatar",
+        NEXT_PUBLIC_BACKEND_URL: "/simple-backend",
+      },
+      watch: false,
+      max_memory_restart: "500M",
+    },
+  ],
+};
+```
+
+**Critical:** The `NEXT_PUBLIC_BASE_PATH` env var must be set at **both** build time and runtime. `next start` re-reads `next.config.ts` at startup, so the PM2 env must match the build env. Without this, basePath evaluates to `""` at runtime and all pages return 404.
+
+```bash
+pm2 start ecosystem.config.js
+pm2 save
+```
+
+### Step 4: Nginx Configuration
+
+Add these location blocks **before** the catch-all `location /` block:
+
+```nginx
+    # --- Agent Samples ---
+
+    # Flask backend (strip /simple-backend prefix via trailing slash on proxy_pass)
+    location /simple-backend/ {
+        proxy_pass http://localhost:8081/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+    }
+
+    # Next.js voice client (^~ prevents regex cache block from stealing .js/.css)
+    location ^~ /react-voice-client {
+        proxy_pass http://localhost:8083;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    # Next.js video avatar client (^~ prevents regex cache block from stealing .js/.css)
+    location ^~ /react-video-client-avatar {
+        proxy_pass http://localhost:8084;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    # Static HTML clients
+    location ^~ /simple-voice-client/ {
+        alias /home/ubuntu/agent-samples/simple-voice-client/;
+        index index.html;
+    }
+
+    location ^~ /complete-voice-client/ {
+        alias /home/ubuntu/agent-samples/complete-voice-client/;
+        index index.html;
+    }
+```
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### Step 5: File Permissions
+
+```bash
+chmod o+x /home/ubuntu /home/ubuntu/agent-samples
+chmod -R o+r /home/ubuntu/agent-samples/simple-voice-client/
+chmod -R o+r /home/ubuntu/agent-samples/complete-voice-client/
+```
+
+### Verification
+
+```bash
+curl -s https://convoai-demo.agora.io/simple-backend/health
+# {"service":"agora-convoai-backend","status":"ok"}
+
+curl -s -o /dev/null -w "%{http_code}" https://convoai-demo.agora.io/react-voice-client
+# 200
+
+curl -s -o /dev/null -w "%{http_code}" https://convoai-demo.agora.io/react-video-client-avatar
+# 200
+
+curl -s -o /dev/null -w "%{http_code}" https://convoai-demo.agora.io/simple-voice-client/
+# 200
+
+curl -s -o /dev/null -w "%{http_code}" https://convoai-demo.agora.io/complete-voice-client/
+# 200
+
+# Verify static assets load (not intercepted by palabra cache block)
+curl -s -o /dev/null -w "%{http_code}" https://convoai-demo.agora.io/react-voice-client/_next/static/chunks/*.css
+# 200
+```
+
+### Key Gotchas
+
+1. **`^~` on proxy locations is required.** Without it, an existing `location ~* \.(js|css|...)$` regex block for static asset caching will intercept Next.js `_next/static/` requests and look for them in the wrong root directory, returning 404.
+
+2. **PM2 Python interpreter bug.** PM2 (at least some versions) ignores the `interpreter` field for Python scripts and wraps them in its JS `ProcessContainerFork.js`, which Python then tries to parse as Python code. Workaround: use a bash shell script that activates the venv and runs Python directly.
+
+3. **`NEXT_PUBLIC_*` env vars must be set at runtime too.** `next start` re-evaluates `next.config.ts` at startup. If `NEXT_PUBLIC_BASE_PATH` is only set during `npm run build` but not when `next start` runs (e.g., via PM2), basePath evaluates to `""` at runtime and all pages return 404 despite being correctly built.
+
+4. **Trailing slash on `proxy_pass` for Flask.** `location /simple-backend/` paired with `proxy_pass http://localhost:8081/;` (note trailing `/`) strips the `/simple-backend/` prefix. Flask routes are `/start-agent`, not `/simple-backend/start-agent`.
+
+5. **No changes needed for local dev.** When no `NEXT_PUBLIC_*` env vars are set, basePath defaults to `""` and backend URL defaults to `http://localhost:8082` — identical to the original behavior.
