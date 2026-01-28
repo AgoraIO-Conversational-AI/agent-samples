@@ -421,8 +421,8 @@ nginx :443 (convoai-demo.agora.io)
   /simple-backend/               → localhost:8081             (Flask API, prefix stripped)
   /react-voice-client/           → localhost:8083             (Next.js voice client)
   /react-video-client-avatar/    → localhost:8084             (Next.js video+avatar client)
-  /simple-voice-client/          → static files via alias
-  /complete-voice-client/        → static files via alias
+  /simple-voice-client-no-backend/     → static files via alias
+  /simple-voice-client-with-backend/   → static files via alias
 ```
 
 ### Source Code Changes (4 lines, backward-compatible)
@@ -445,7 +445,8 @@ const nextConfig: NextConfig = {
 **`VoiceClient.tsx` / `VideoAvatarClient.tsx`**:
 
 ```typescript
-const DEFAULT_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8082";
+const DEFAULT_BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8082";
 ```
 
 - When `NEXT_PUBLIC_BACKEND_URL=/simple-backend` is set at build time, the browser makes relative requests to the same origin
@@ -585,13 +586,13 @@ Add these location blocks **before** the catch-all `location /` block:
     }
 
     # Static HTML clients
-    location ^~ /simple-voice-client/ {
-        alias /home/ubuntu/agent-samples/simple-voice-client/;
+    location ^~ /simple-voice-client-no-backend/ {
+        alias /home/ubuntu/agent-samples/simple-voice-client-no-backend/;
         index index.html;
     }
 
-    location ^~ /complete-voice-client/ {
-        alias /home/ubuntu/agent-samples/complete-voice-client/;
+    location ^~ /simple-voice-client-with-backend/ {
+        alias /home/ubuntu/agent-samples/simple-voice-client-with-backend/;
         index index.html;
     }
 ```
@@ -604,8 +605,8 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ```bash
 chmod o+x /home/ubuntu /home/ubuntu/agent-samples
-chmod -R o+r /home/ubuntu/agent-samples/simple-voice-client/
-chmod -R o+r /home/ubuntu/agent-samples/complete-voice-client/
+chmod -R o+r /home/ubuntu/agent-samples/simple-voice-client-no-backend/
+chmod -R o+r /home/ubuntu/agent-samples/simple-voice-client-with-backend/
 ```
 
 ### Verification
@@ -620,10 +621,10 @@ curl -s -o /dev/null -w "%{http_code}" https://convoai-demo.agora.io/react-voice
 curl -s -o /dev/null -w "%{http_code}" https://convoai-demo.agora.io/react-video-client-avatar
 # 200
 
-curl -s -o /dev/null -w "%{http_code}" https://convoai-demo.agora.io/simple-voice-client/
+curl -s -o /dev/null -w "%{http_code}" https://convoai-demo.agora.io/simple-voice-client-no-backend/
 # 200
 
-curl -s -o /dev/null -w "%{http_code}" https://convoai-demo.agora.io/complete-voice-client/
+curl -s -o /dev/null -w "%{http_code}" https://convoai-demo.agora.io/simple-voice-client-with-backend/
 # 200
 
 # Verify static assets load (not intercepted by palabra cache block)
