@@ -118,10 +118,10 @@ and multi-stream video rendering.
 
 ### Basic Samples
 
-**[Simple Voice AI Client](./simple-voice-client/)** Standalone HTML/JavaScript
+**[Simple Voice AI Client (No Backend)](./simple-voice-client-no-backend/)** Standalone HTML/JavaScript
 client for testing voice agents. Maintains persistent RTC connection allowing
 agents to join and leave without client reconnection.
 
-**[HTML/JS Voice AI Client](./complete-voice-client/)** Full-featured vanilla
+**[Simple Voice AI Client (With Backend)](./simple-voice-client-with-backend/)** Full-featured vanilla
 JavaScript client demonstrating end-to-end integration with backend for agent
 initialization and voice interaction.

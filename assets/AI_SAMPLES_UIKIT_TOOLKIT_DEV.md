@@ -210,8 +210,8 @@ npm install @agora/agent-ui-kit@latest
 agent-samples/           # Sample applications
 ├── react-voice-client/
 ├── react-video-client-avatar/
-├── simple-voice-client/
-├── complete-voice-client/
+├── simple-voice-client-no-backend/
+├── simple-voice-client-with-backend/
 └── simple-backend/
 
 agent-toolkit/           # Core SDK (@agora/conversational-ai)
