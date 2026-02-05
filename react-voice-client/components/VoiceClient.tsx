@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Mic, MicOff, Settings } from "lucide-react";
 import { useAgoraVoiceClient } from "@/hooks/useAgoraVoiceClient";
 import { useAudioVisualization } from "@/hooks/useAudioVisualization";
@@ -29,6 +29,17 @@ export function VoiceClient() {
   );
   const [greeting, setGreeting] = useState("hi there");
   const conversationRef = useRef<HTMLDivElement>(null);
+
+  // Read URL parameters on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlProfile = params.get('profile');
+      if (urlProfile) {
+        setProfile(urlProfile);
+      }
+    }
+  }, []);
 
   const {
     isConnected,
