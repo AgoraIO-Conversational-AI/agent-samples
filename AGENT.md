@@ -1,5 +1,92 @@
 # Agent Video Avatar - Session Notes
 
+---
+
+## ⚠️ IMPORTANT: Configuration Translation Guide for AI Assistants
+
+### Profile-Based Variable Naming
+
+When users provide environment variables, they are often providing the **base variable names** without the profile prefix. The backend uses a profile-based system where all variables need a `<PROFILE>_` prefix.
+
+**Example: User provides MLLM config for VOICE profile**
+
+```bash
+# ❌ DO NOT use these directly - they need profile prefix
+MLLM_LOCATION=us-central1
+MLLM_VENDOR=vertexai
+ENABLE_MLLM=true
+APP_ID=20b7c51...
+```
+
+**✅ CORRECT translation to .env (with VOICE_ prefix):**
+
+```bash
+VOICE_MLLM_LOCATION=us-central1
+VOICE_MLLM_VENDOR=vertexai
+VOICE_ENABLE_MLLM=true
+VOICE_APP_ID=20b7c51...
+```
+
+### Critical Variable Names
+
+**⚠️ LOCATION vs REGION:**
+- Backend expects: `MLLM_LOCATION`
+- NOT: `MLLM_REGION`
+
+If user provides `MLLM_LOCATION=us-central1`, translate to `VOICE_MLLM_LOCATION=us-central1` (DO NOT change LOCATION to REGION!)
+
+### Variable Naming Pattern
+
+Profile variables follow: `<PROFILE>_<VARIABLE>` format
+
+```bash
+# ✅ CORRECT
+VOICE_MLLM_VENDOR=vertexai
+VOICE_MLLM_MODEL=gemini-live-2.5-flash-preview-native-audio-09-2025
+
+# ❌ WRONG (double MLLM)
+VOICE_MLLM_MLLM_VENDOR=vertexai
+```
+
+### Debugging Agent Creation Failures
+
+**Symptom:** RTM error `-11033: user offline`
+
+**Root cause:** Agent failed to create (400 error from Agora API)
+
+**How to debug:**
+1. Check backend logs for `Response status: 400`
+2. View most recent curl dump: `ls -lt /tmp/agora_curl_*.sh | head -1`
+3. Look for `"location": null` in mllm params (should be `"location": "us-central1"`)
+4. Verify `"enable_mllm": true` in advanced_features
+
+**Common causes:**
+- Missing or null `location` field in MLLM config
+- Invalid GCP credentials
+- Wrong model name or region
+
+### Required MLLM Variables for Gemini Live
+
+When translating user config for VOICE profile:
+
+```bash
+VOICE_ENABLE_MLLM=true
+VOICE_MLLM_VENDOR=vertexai
+VOICE_MLLM_MODEL=gemini-live-2.5-flash-preview-native-audio-09-2025
+VOICE_MLLM_ADC_CREDENTIALS_STRING={...GCP service account JSON...}
+VOICE_MLLM_PROJECT_ID=your-gcp-project-id
+VOICE_MLLM_LOCATION=us-central1  # NOT REGION!
+VOICE_MLLM_VOICE=Charon
+VOICE_MLLM_TRANSCRIBE_AGENT=true
+VOICE_MLLM_TRANSCRIBE_USER=true
+VOICE_ASR_VENDOR=ares
+VOICE_ASR_LANGUAGE=en-US
+VOICE_VAD_SILENCE_DURATION_MS=300
+VOICE_ENABLE_AIVAD=true
+```
+
+---
+
 ## Current Status (2026-01-20)
 
 ### ✅ WORKING
