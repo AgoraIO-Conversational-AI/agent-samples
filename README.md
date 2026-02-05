@@ -12,7 +12,15 @@ up the sample backend and one of the sample clients or ask AI to do it for you.
 
 **Comprehensive implementation guide for AI agents** → [AGENT.md](./AGENT.md)
 
-**Example prompt for Claude Code:**
+**Example prompt for Claude Code (Voice):**
+
+```
+using https://github.com/AgoraIO-Conversational-AI/agent-samples I want to run the
+React Voice AI Agent with sample here on my laptop. Be sure to read the AGENT.md
+before you begin.
+```
+
+**Example prompt for Claude Code (Avatar):**
 
 ```
 using https://github.com/AgoraIO-Conversational-AI/agent-samples I want to run the
