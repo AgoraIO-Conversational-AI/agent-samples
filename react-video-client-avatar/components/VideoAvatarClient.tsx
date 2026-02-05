@@ -34,6 +34,17 @@ export function VideoAvatarClient() {
   const [activeTab, setActiveTab] = useState("video");
   const _conversationRef = useRef<HTMLDivElement>(null);
 
+  // Read URL parameters on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlProfile = params.get('profile');
+      if (urlProfile) {
+        setProfile(urlProfile);
+      }
+    }
+  }, []);
+
   const {
     isConnected,
     isMuted,

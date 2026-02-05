@@ -137,7 +137,7 @@ def build_mllm_config(constants, query_params=None):
     mllm_config = {
         "predefined_tools": ["_publish_message"],
         "vendor": query_params.get('mllm_vendor', constants.get("MLLM_VENDOR", "vertexai")),
-        "url": query_params.get('mllm_url', constants.get("MLLM_URL", "")),
+        "url": query_params.get('mllm_url') or constants.get("MLLM_URL") or "",
         "api_key": "",
         "messages": [
             {
@@ -224,11 +224,11 @@ def build_avatar_config(avatar_vendor, constants, channel, agent_video_token, qu
             "vendor": "anam",
             "enable": True,
             "params": {
+                "api_key": constants["AVATAR_API_KEY"],
+                "agora_uid": constants["AGENT_VIDEO_UID"],
                 "agora_token": agora_token_value,
-                "agora_uid": query_params.get('anam_uid', constants.get("AGENT_VIDEO_UID", "49345")),
-                "anam_api_key": constants["AVATAR_API_KEY"],
-                "anam_base_url": constants["ANAM_BASE_URL"],
-                "anam_avatar_id": constants["AVATAR_ID"]
+                "avatar_id": constants["AVATAR_ID"],
+                "anam_base_url": "https://api.anam.ai/v1"
             }
         }
     else:
@@ -319,11 +319,8 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
     # Get avatar settings early to determine remote_rtc_uids and token
     avatar_vendor = constants.get("AVATAR_VENDOR")
 
-    # Determine token value
-    # Anam uses empty string for token (per working curl from Agora developer)
-    # Regular mode uses APP_ID (since no certificate)
-    is_anam_avatar = avatar_vendor == "anam"
-    app_id_for_token = "" if is_anam_avatar else constants["APP_ID"]
+    # Determine token value (use APP_ID since no certificate)
+    app_id_for_token = constants["APP_ID"]
 
     # When avatar is enabled, can't use wildcard "*" for remote_rtc_uids
     # Must specify exact user UID
@@ -343,7 +340,7 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
     # Build properties
     properties = OrderedDict([
         ("channel", channel),
-        ("token", app_id_for_token),  # Empty string for Anam BETA, regular app_id otherwise
+        ("token", app_id_for_token),
         ("agent_rtc_uid", constants["AGENT_UID"]),
         ("agent_rtm_uid", f"{constants['AGENT_UID']}-{channel}"),
         ("remote_rtc_uids", remote_rtc_uids),
@@ -373,7 +370,7 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
     # Add turn_detection for MLLM mode
     if enable_mllm:
         properties["turn_detection"] = {
-            "type": query_params.get('turn_detection_type', constants.get("TURN_DETECTION_TYPE", "server_vad"))
+            "type": query_params.get('turn_detection_type') or constants.get("TURN_DETECTION_TYPE") or "server_vad"
         }
 
     # Add transcript parameters for TTS+LLM mode
@@ -388,8 +385,6 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
 
     # Add avatar configuration if vendor is set
     if avatar_vendor:
-        # For Anam, we don't need a real token (it uses app_id instead)
-        # So pass agent_video_token even if it's empty string
         avatar_config = build_avatar_config(
             avatar_vendor,
             constants,
@@ -421,20 +416,9 @@ def send_agent_to_channel(channel, agent_payload, constants):
     Returns:
         Dictionary with the status code, response body, and success flag
     """
-    # Check if using Anam avatar to determine endpoint
-    is_anam_avatar = (
-        agent_payload.get("properties", {}).get("avatar", {}).get("vendor") == "anam"
-    )
-
-    if is_anam_avatar:
-        # Use Anam-specific endpoint
-        agent_api_url = f"{constants['ANAM_AGENT_ENDPOINT']}/{constants['APP_ID']}/join"
-        auth_header = constants["AGENT_AUTH_HEADER"]
-        print(f"🎭 Using Anam endpoint: {agent_api_url}")
-    else:
-        # Use regular endpoint
-        agent_api_url = f"{constants['AGENT_ENDPOINT']}/{constants['APP_ID']}/join"
-        auth_header = constants["AGENT_AUTH_HEADER"]
+    # Use regular endpoint
+    agent_api_url = f"{constants['AGENT_ENDPOINT']}/{constants['APP_ID']}/join"
+    auth_header = constants["AGENT_AUTH_HEADER"]
 
     url_parts = urllib.parse.urlparse(agent_api_url)
     host = url_parts.netloc
@@ -446,11 +430,6 @@ def send_agent_to_channel(channel, agent_payload, constants):
         "Content-Type": "application/json",
         "Authorization": auth_header
     }
-
-    # Add X-Request-Id for Anam requests
-    if is_anam_avatar:
-        import uuid
-        headers["X-Request-Id"] = str(uuid.uuid4()).replace('-', '')
 
     payload_json = json.dumps(agent_payload, indent=2)
 
