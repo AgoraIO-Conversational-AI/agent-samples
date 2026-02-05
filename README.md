@@ -15,17 +15,17 @@ up the sample backend and one of the sample clients or ask AI to do it for you.
 **Example prompt for Claude Code (Voice):**
 
 ```
-using https://github.com/AgoraIO-Conversational-AI/agent-samples I want to run the
-React Voice AI Agent with sample here on my laptop. Be sure to read the AGENT.md
-before you begin.
+Clone https://github.com/AgoraIO-Conversational-AI/agent-samples and then I want to run the
+React Voice AI Agent here on my laptop. Be sure to read the AGENT.md
+before you begin building.
 ```
 
 **Example prompt for Claude Code (Avatar):**
 
 ```
-using https://github.com/AgoraIO-Conversational-AI/agent-samples I want to run the
+Clone https://github.com/AgoraIO-Conversational-AI/agent-samples and then I want to run the
 Video AI Agent with Avatar Sample here on my laptop. Be sure to read the AGENT.md
-before you begin.
+before you begin building.
 ```
 
 ## System Architecture
