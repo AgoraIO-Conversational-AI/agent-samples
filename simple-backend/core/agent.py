@@ -224,10 +224,10 @@ def build_avatar_config(avatar_vendor, constants, channel, agent_video_token, qu
             "vendor": "anam",
             "enable": True,
             "params": {
-                "api_key": constants["AVATAR_API_KEY"],
+                "anam_api_key": constants["AVATAR_API_KEY"],
                 "agora_uid": constants["AGENT_VIDEO_UID"],
                 "agora_token": agora_token_value,
-                "avatar_id": constants["AVATAR_ID"],
+                "anam_avatar_id": constants["AVATAR_ID"],
                 "anam_base_url": "https://api.anam.ai/v1"
             }
         }
