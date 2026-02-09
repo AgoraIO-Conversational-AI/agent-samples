@@ -144,11 +144,6 @@ def initialize_constants(profile=None):
         "HEYGEN_QUALITY": get_env_var('HEYGEN_QUALITY', profile, "high"),
         "HEYGEN_ACTIVITY_IDLE_TIMEOUT": get_env_var('HEYGEN_ACTIVITY_IDLE_TIMEOUT', profile, "120"),
 
-        # Anam specific settings (endpoints used automatically when vendor=anam)
-        "ANAM_AGENT_ENDPOINT": get_env_var('ANAM_AGENT_ENDPOINT', profile,
-            "https://api-test.agora.io/api/conversational-ai-agent/v2/projects"),
-        "ANAM_BASE_URL": get_env_var('ANAM_BASE_URL', profile, "https://api.anam.ai/v1"),
-
         # Default prompt and messages
         "DEFAULT_PROMPT": get_env_var('DEFAULT_PROMPT', profile,
             "You are a virtual companion. The user can both talk and type to you and you will be sent text. "
