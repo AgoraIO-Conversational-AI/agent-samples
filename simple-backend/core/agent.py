@@ -168,6 +168,37 @@ def build_mllm_config(constants, query_params=None):
     return mllm_config
 
 
+def build_mcp_servers(constants, query_params=None, channel=None):
+    """
+    Parses MCP_SERVERS JSON config and returns list of MCP server configs.
+
+    Args:
+        constants: Dictionary of constants
+        query_params: Optional query parameters for overrides
+        channel: Channel name used as user_id for per-user MCP endpoints
+
+    Returns:
+        List of MCP server config dicts, or None if not configured
+    """
+    query_params = query_params or {}
+    mcp_json = query_params.get('mcp_servers', constants.get("MCP_SERVERS"))
+    if not mcp_json:
+        return None
+
+    servers = json.loads(mcp_json) if isinstance(mcp_json, str) else mcp_json
+    if not servers:
+        return None
+
+    # Inject user_id (channel name) into endpoint paths for per-user partitioning
+    user_id = query_params.get('mcp_user_id', channel) if query_params else channel
+    if user_id:
+        for server in servers:
+            endpoint = server.get("endpoint", "").rstrip("/")
+            server["endpoint"] = f"{endpoint}/{user_id}"
+
+    return servers
+
+
 def build_avatar_config(avatar_vendor, constants, channel, agent_video_token, query_params=None):
     """
     Builds avatar configuration based on vendor.
@@ -295,6 +326,11 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
         failure_message = query_params.get('failure_message', constants["DEFAULT_FAILURE_MESSAGE"])
         max_history = int(query_params.get('max_history', constants["MAX_HISTORY"]))
 
+        # Get Custom LLM parameters
+        llm_style = query_params.get('llm_style', constants.get("LLM_STYLE", "openai"))
+        llm_vendor = query_params.get('llm_vendor', constants.get("LLM_VENDOR"))
+        greeting_mode = query_params.get('greeting_mode', constants.get("GREETING_MODE"))
+
         # Build LLM configuration
         llm_config = {
             "url": llm_url,
@@ -311,10 +347,24 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
             "params": {
                 "model": llm_model
             },
-            "style": "openai"
+            "style": llm_style
         }
 
+        # Optional: vendor field (e.g., "custom" adds turn_id + timestamp to requests)
+        if llm_vendor:
+            llm_config["vendor"] = llm_vendor
+
+        # Optional: greeting behavior configuration
+        if greeting_mode:
+            llm_config["greeting_configs"] = {"mode": greeting_mode}
+
         mllm_config = None
+
+    # Build MCP servers config (works in standard LLM mode)
+    mcp_servers = build_mcp_servers(constants, query_params, channel=channel)
+    if mcp_servers and llm_config:
+        llm_config["mcp_servers"] = mcp_servers
+        print(f"🔧 MCP: {len(mcp_servers)} server(s) configured: {[s.get('name') for s in mcp_servers]}")
 
     # Get avatar settings early to determine remote_rtc_uids and token
     avatar_vendor = constants.get("AVATAR_VENDOR")
@@ -336,6 +386,8 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
     if enable_mllm:
         advanced_features["enable_mllm"] = True
         advanced_features["enable_tools"] = False
+    elif mcp_servers:
+        advanced_features["enable_tools"] = True
 
     # Build properties
     properties = OrderedDict([

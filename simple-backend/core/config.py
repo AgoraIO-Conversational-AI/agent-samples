@@ -69,6 +69,9 @@ def initialize_constants(profile=None):
         "LLM_URL": get_env_var('LLM_URL', profile, "https://api.openai.com/v1/chat/completions"),
         "LLM_API_KEY": get_env_var('LLM_API_KEY', profile),
         "LLM_MODEL": get_env_var('LLM_MODEL', profile, "gpt-4o-mini"),
+        "LLM_STYLE": get_env_var('LLM_STYLE', profile, "openai"),
+        "LLM_VENDOR": get_env_var('LLM_VENDOR', profile),
+        "GREETING_MODE": get_env_var('GREETING_MODE', profile),
 
         # TTS settings (vendor required, no default)
         "TTS_VENDOR": get_env_var('TTS_VENDOR', profile),
@@ -143,6 +146,9 @@ def initialize_constants(profile=None):
         # HeyGen specific settings (non-credential options)
         "HEYGEN_QUALITY": get_env_var('HEYGEN_QUALITY', profile, "high"),
         "HEYGEN_ACTIVITY_IDLE_TIMEOUT": get_env_var('HEYGEN_ACTIVITY_IDLE_TIMEOUT', profile, "120"),
+
+        # MCP settings (JSON array of MCP server configs)
+        "MCP_SERVERS": get_env_var('MCP_SERVERS', profile),
 
         # Default prompt and messages
         "DEFAULT_PROMPT": get_env_var('DEFAULT_PROMPT', profile,
