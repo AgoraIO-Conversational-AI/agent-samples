@@ -18,7 +18,7 @@ ENABLE_MLLM=true
 APP_ID=20b7c51...
 ```
 
-**✅ CORRECT translation to .env (with VOICE_ prefix):**
+**✅ CORRECT translation to .env (with VOICE\_ prefix):**
 
 ```bash
 VOICE_MLLM_LOCATION=us-central1
@@ -30,6 +30,7 @@ VOICE_APP_ID=20b7c51...
 ### Critical Variable Names
 
 **⚠️ LOCATION vs REGION:**
+
 - Backend expects: `MLLM_LOCATION`
 - NOT: `MLLM_REGION`
 
@@ -55,12 +56,14 @@ VOICE_MLLM_MLLM_VENDOR=vertexai
 **Root cause:** Agent failed to create (400 error from Agora API)
 
 **How to debug:**
+
 1. Check backend logs for `Response status: 400`
 2. View most recent curl dump: `ls -lt /tmp/agora_curl_*.sh | head -1`
 3. Look for `"location": null` in mllm params (should be `"location": "us-central1"`)
 4. Verify `"enable_mllm": true` in advanced_features
 
 **Common causes:**
+
 - Missing or null `location` field in MLLM config
 - Invalid GCP credentials
 - Wrong model name or region
@@ -84,6 +87,39 @@ VOICE_ASR_LANGUAGE=en-US
 VOICE_VAD_SILENCE_DURATION_MS=300
 VOICE_ENABLE_AIVAD=true
 ```
+
+---
+
+## Companion Servers (Optional)
+
+These standalone servers extend simple-backend with advanced capabilities. They are **not required** for basic operation.
+
+- **[server-custom-llm](https://github.com/AgoraIO-Community/server-custom-llm)** — Custom LLM proxy. Intercepts LLM requests for RAG, custom prompts, tool calling, and response formatting. Set `LLM_URL` to your server endpoint, `LLM_VENDOR=custom`.
+- **[server-mcp-memory](https://github.com/AgoraIO-Community/server-mcp-memory)** — MCP Memory Server. Gives agents persistent per-user memory via tool calling. Configure via `MCP_SERVERS` JSON array in `.env`.
+
+### Port Reference
+
+| Server     | Language | Port |
+| ---------- | -------- | ---- |
+| MCP Memory | Python   | 8090 |
+| MCP Memory | Node.js  | 8091 |
+| MCP Memory | Go       | 8092 |
+| Custom LLM | Python   | 8100 |
+| Custom LLM | Node.js  | 8101 |
+| Custom LLM | Go       | 8102 |
+
+### LLM Config Fields Reference
+
+Fields supported in the LLM config block sent to Agora ConvoAI API:
+
+| Field              | Description                                                       |
+| ------------------ | ----------------------------------------------------------------- |
+| `url`              | LLM endpoint URL                                                  |
+| `api_key`          | API key for the LLM provider                                      |
+| `style`            | Protocol style: `openai` (default), `gemini`, `anthropic`, `dify` |
+| `vendor`           | `custom` (adds turn_id + timestamp), `azure` (Azure OpenAI)       |
+| `greeting_configs` | Greeting behavior, e.g. `{"mode": "single_first"}`                |
+| `mcp_servers`      | Array of MCP server configs for tool calling                      |
 
 ---
 

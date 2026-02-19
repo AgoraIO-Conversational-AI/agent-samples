@@ -206,3 +206,34 @@ simple-backend/
 ├── local_server.py   # Flask development server
 └── .env              # Local config (gitignored)
 ```
+
+## Custom LLM Server (Optional)
+
+A Custom LLM server sits between Agora ConvoAI and your LLM provider, giving you full control over prompts, RAG, tool calling, and response formatting.
+
+See: [server-custom-llm](https://github.com/AgoraIO-Community/server-custom-llm)
+
+**Configuration:** Set `LLM_URL` to your custom server endpoint and `LLM_VENDOR=custom` in `.env`:
+
+```bash
+VOICE_LLM_URL=https://your-custom-llm.example.com/chat/completions
+VOICE_LLM_API_KEY=your-openai-key
+VOICE_LLM_VENDOR=custom
+VOICE_LLM_STYLE=openai
+```
+
+The custom server proxies requests to your LLM provider and supports endpoints for basic chat (`/chat/completions`), RAG-enhanced chat (`/rag/chat/completions`), and multimodal audio (`/audio/chat/completions`).
+
+## MCP Memory Server (Optional)
+
+An MCP memory server gives agents persistent per-user memory via tool calling, allowing the agent to remember context across conversations.
+
+See: [server-mcp-memory](https://github.com/AgoraIO-Community/server-mcp-memory)
+
+**Configuration:** Set `MCP_SERVERS` as a JSON array in `.env`:
+
+```bash
+VOICE_MCP_SERVERS=[{"name":"memory","endpoint":"https://your-mcp-server.example.com/mcp","transport":"streamable_http","allowed_tools":["*"]}]
+```
+
+The MCP server must be publicly accessible. For local development, use [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) to expose your local server.
