@@ -22,7 +22,7 @@ The best part? Claude Code does the heavy lifting. You give it a prompt, point i
 
 The companion video walks through every step live, including the moments where Claude Code asks clarifying questions, handles errors, and gets both servers running. If you're a visual learner or want to see exactly what to expect, start here.
 
-_[take1_safekeys.mov](https://drive.google.com/file/d/1COGNNbLUkBFAT2XqLMqHFtOAg5tKisSZ/view?usp=sharing)_
+[![Watch the video](./assets/guide-video-thumbnail.png)](https://drive.google.com/file/d/1COGNNbLUkBFAT2XqLMqHFtOAg5tKisSZ/view?usp=sharing)
 
 ---
 
@@ -97,7 +97,7 @@ That's the extent of the terminal knowledge you need. Once you're in the right f
 
 The Agora Conversational AI system has four main components. Two run on your local machine and two are cloud services managed by Agora.
 
-_[Insert system architecture SVG]_
+![System Architecture](./assets/system.svg)
 
 **Your Backend Server** (local) — A Python server (`simple-backend`) that serves the client app, generates Agora authentication tokens, and calls the Agora REST API to start/stop AI agent instances. When you click "Join," it spins up an agent and connects it to a channel with your LLM and TTS configuration.
 
