@@ -6,6 +6,7 @@ import json
 import http.client
 import urllib.parse
 from collections import OrderedDict
+from core.tokens import build_token_with_rtm
 
 
 def build_tts_config(tts_vendor, constants, query_params=None):
@@ -369,8 +370,12 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
     # Get avatar settings early to determine remote_rtc_uids and token
     avatar_vendor = constants.get("AVATAR_VENDOR")
 
-    # Determine token value (use APP_ID since no certificate)
-    app_id_for_token = constants["APP_ID"]
+    # Determine token value: generate real token if certificate exists, else use APP_ID
+    if constants.get("APP_CERTIFICATE"):
+        agent_token_info = build_token_with_rtm(channel, constants["AGENT_UID"], constants)
+        agent_channel_token = agent_token_info["token"]
+    else:
+        agent_channel_token = constants["APP_ID"]
 
     # When avatar is enabled, can't use wildcard "*" for remote_rtc_uids
     # Must specify exact user UID
@@ -392,7 +397,7 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
     # Build properties
     properties = OrderedDict([
         ("channel", channel),
-        ("token", app_id_for_token),
+        ("token", agent_channel_token),
         ("agent_rtc_uid", constants["AGENT_UID"]),
         ("agent_rtm_uid", f"{constants['AGENT_UID']}-{channel}"),
         ("remote_rtc_uids", remote_rtc_uids),
