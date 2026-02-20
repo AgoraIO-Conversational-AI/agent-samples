@@ -47,3 +47,6 @@ htmlcov/
 # AWS Lambda
 *.zip
 lambda-package/
+
+# SQLite runtime databases
+*.db
