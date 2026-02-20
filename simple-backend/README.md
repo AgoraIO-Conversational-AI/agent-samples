@@ -24,7 +24,7 @@ python3 local_server.py
 PORT=8082 python3 local_server.py
 ```
 
-Server runs on http://localhost:8081 (default).
+Server runs on http://localhost:8082 (default).
 
 ## Configuration
 
@@ -130,25 +130,25 @@ This is useful for debugging API requests. The curl dump includes full request h
 **Start agent:**
 
 ```bash
-curl "http://localhost:8081/start-agent?channel=test"
+curl "http://localhost:8082/start-agent?channel=test"
 ```
 
 **Start agent with profile:**
 
 ```bash
-curl "http://localhost:8081/start-agent?channel=test&profile=VIDEO"
+curl "http://localhost:8082/start-agent?channel=test&profile=VIDEO"
 ```
 
 **Stop agent:**
 
 ```bash
-curl "http://localhost:8081/hangup-agent?agent_id=abc123"
+curl "http://localhost:8082/hangup-agent?agent_id=abc123"
 ```
 
 **Health check:**
 
 ```bash
-curl "http://localhost:8081/health"
+curl "http://localhost:8082/health"
 ```
 
 **API Documentation:**

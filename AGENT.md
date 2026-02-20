@@ -162,7 +162,7 @@ Two profiles are required for the clients to work out of the box:
 
 **How It Works:**
 
-1. Client makes request: `http://localhost:8081/start-agent?channel=test&profile=VOICE`
+1. Client makes request: `http://localhost:8082/start-agent?channel=test&profile=VOICE`
 2. Backend normalizes profile to lowercase: `"VOICE"` -> `"voice"`
 3. Backend calls `initialize_constants(profile="voice")` in `core/config.py`
 4. Config system loads all `VOICE_*` prefixed variables from `.env`
@@ -213,7 +213,7 @@ This section documents how to serve all agent-samples behind nginx on port 443 a
 nginx :443 (convoai-demo.agora.io)
   /                              -> /var/www/palabra/         (existing SPA)
   /v1/, /query, /oauth, /pstn   -> localhost:7080             (existing API)
-  /simple-backend/               -> localhost:8081             (Flask API, prefix stripped)
+  /simple-backend/               -> localhost:8082             (Flask API, prefix stripped)
   /react-voice-client/           -> localhost:8083             (Next.js voice client)
   /react-video-client-avatar/    -> localhost:8084             (Next.js video+avatar client)
   /simple-voice-client-no-backend/     -> static files via alias
@@ -264,7 +264,7 @@ Create `simple-backend/start.sh` (PM2 workaround for Python):
 #!/bin/bash
 cd /home/ubuntu/agent-samples/simple-backend
 source venv/bin/activate
-PORT=8081 exec python3 local_server.py
+PORT=8082 exec python3 local_server.py
 ```
 
 ```bash
@@ -347,7 +347,7 @@ Add these location blocks **before** the catch-all `location /` block:
 
     # Flask backend (strip /simple-backend prefix via trailing slash on proxy_pass)
     location /simple-backend/ {
-        proxy_pass http://localhost:8081/;
+        proxy_pass http://localhost:8082/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -431,6 +431,6 @@ curl -s -o /dev/null -w "%{http_code}" https://convoai-demo.agora.io/simple-voic
 
 3. **`NEXT_PUBLIC_*` env vars must be set at runtime too.** `next start` re-evaluates `next.config.ts` at startup. If `NEXT_PUBLIC_BASE_PATH` is only set during `npm run build` but not when `next start` runs (e.g., via PM2), basePath evaluates to `""` at runtime and all pages return 404 despite being correctly built.
 
-4. **Trailing slash on `proxy_pass` for Flask.** `location /simple-backend/` paired with `proxy_pass http://localhost:8081/;` (note trailing `/`) strips the `/simple-backend/` prefix. Flask routes are `/start-agent`, not `/simple-backend/start-agent`.
+4. **Trailing slash on `proxy_pass` for Flask.** `location /simple-backend/` paired with `proxy_pass http://localhost:8082/;` (note trailing `/`) strips the `/simple-backend/` prefix. Flask routes are `/start-agent`, not `/simple-backend/start-agent`.
 
 5. **No changes needed for local dev.** When no `NEXT_PUBLIC_*` env vars are set, basePath defaults to `""` and backend URL defaults to `http://localhost:8082` — identical to the original behavior.
