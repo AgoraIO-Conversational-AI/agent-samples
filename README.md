@@ -7,6 +7,7 @@ up the sample backend and one of the sample clients or ask AI to do it for you.
 - [System Architecture](#system-architecture)
 - [Backend Sample](#backend-sample)
 - [Client Samples](#client-samples)
+- [Companion Servers](#companion-servers)
 
 ## AI Coding Assistant Guide
 
@@ -123,6 +124,18 @@ client with video avatar and local camera support. Includes responsive layouts
 and multi-stream video rendering.
 
 ![Avatar Client Screenshot](./assets/client-avatar-screenshot.png)
+
+## Companion Servers
+
+Optional standalone servers that extend your agent with advanced capabilities.
+
+**[server-custom-llm](https://github.com/AgoraIO-Conversational-AI/server-custom-llm)** —
+Custom LLM proxy for RAG, tool calling, conversation memory, and response
+formatting. Available in Python, Node.js, and Go.
+
+**[server-mcp-memory](https://github.com/AgoraIO-Conversational-AI/server-mcp-memory)** —
+MCP memory server that gives agents persistent per-user memory via tool calling.
+Stores and retrieves conversation context across sessions.
 
 ### Basic Samples
 
