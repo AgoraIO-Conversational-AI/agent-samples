@@ -189,7 +189,7 @@ def health():
 
 if __name__ == '__main__':
     import os
-    port = int(os.environ.get('PORT', 8081))
+    port = int(os.environ.get('PORT', 8082))
     print("=" * 60)
     print("Agora ConvoAI Local Server")
     print("=" * 60)
