@@ -24,10 +24,8 @@ export function VoiceClient() {
   const [enableAivad, setEnableAivad] = useState(true);
   const [language, setLanguage] = useState("en-US");
   const [profile, setProfile] = useState("");
-  const [prompt, setPrompt] = useState(
-    "You are a virtual companion. The user can both talk and type to you and you will be sent text. Say you can hear them if asked. They can also see you as a digital human. Keep responses to around 10 to 20 words or shorter. Be upbeat and try and keep conversation going by learning more about the user.",
-  );
-  const [greeting, setGreeting] = useState("hi there");
+  const [prompt, setPrompt] = useState("");
+  const [greeting, setGreeting] = useState("");
   const conversationRef = useRef<HTMLDivElement>(null);
 
   // Read URL parameters on mount

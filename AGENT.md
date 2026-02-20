@@ -1,8 +1,8 @@
-# Agent Video Avatar - Session Notes
+# Agent Samples — AI Coding Assistant Guide
 
 ---
 
-## ⚠️ IMPORTANT: Configuration Translation Guide for AI Assistants
+## Configuration Translation Guide
 
 ### Profile-Based Variable Naming
 
@@ -11,14 +11,14 @@ When users provide environment variables, they are often providing the **base va
 **Example: User provides MLLM config for VOICE profile**
 
 ```bash
-# ❌ DO NOT use these directly - they need profile prefix
+# DO NOT use these directly - they need profile prefix
 MLLM_LOCATION=us-central1
 MLLM_VENDOR=vertexai
 ENABLE_MLLM=true
 APP_ID=20b7c51...
 ```
 
-**✅ CORRECT translation to .env (with VOICE\_ prefix):**
+**CORRECT translation to .env (with VOICE\_ prefix):**
 
 ```bash
 VOICE_MLLM_LOCATION=us-central1
@@ -29,7 +29,7 @@ VOICE_APP_ID=20b7c51...
 
 ### Critical Variable Names
 
-**⚠️ LOCATION vs REGION:**
+**LOCATION vs REGION:**
 
 - Backend expects: `MLLM_LOCATION`
 - NOT: `MLLM_REGION`
@@ -41,11 +41,11 @@ If user provides `MLLM_LOCATION=us-central1`, translate to `VOICE_MLLM_LOCATION=
 Profile variables follow: `<PROFILE>_<VARIABLE>` format
 
 ```bash
-# ✅ CORRECT
+# CORRECT
 VOICE_MLLM_VENDOR=vertexai
 VOICE_MLLM_MODEL=gemini-live-2.5-flash-preview-native-audio-09-2025
 
-# ❌ WRONG (double MLLM)
+# WRONG (double MLLM)
 VOICE_MLLM_MLLM_VENDOR=vertexai
 ```
 
@@ -94,8 +94,8 @@ VOICE_ENABLE_AIVAD=true
 
 These standalone servers extend simple-backend with advanced capabilities. They are **not required** for basic operation.
 
-- **[server-custom-llm](https://github.com/AgoraIO-Community/server-custom-llm)** — Custom LLM proxy. Intercepts LLM requests for RAG, custom prompts, tool calling, and response formatting. Set `LLM_URL` to your server endpoint, `LLM_VENDOR=custom`.
-- **[server-mcp-memory](https://github.com/AgoraIO-Community/server-mcp-memory)** — MCP Memory Server. Gives agents persistent per-user memory via tool calling. Configure via `MCP_SERVERS` JSON array in `.env`.
+- **[server-custom-llm](https://github.com/AgoraIO-Conversational-AI/server-custom-llm)** — Custom LLM proxy. Intercepts LLM requests for RAG, custom prompts, tool calling, and response formatting. Set `LLM_URL` to your server endpoint, `LLM_VENDOR=custom`.
+- **[server-mcp-memory](https://github.com/AgoraIO-Conversational-AI/server-mcp-memory)** — MCP Memory Server. Gives agents persistent per-user memory via tool calling. Configure via `MCP_SERVERS` JSON array in `.env`.
 
 ### Port Reference
 
@@ -120,112 +120,6 @@ Fields supported in the LLM config block sent to Agora ConvoAI API:
 | `vendor`           | `custom` (adds turn_id + timestamp), `azure` (Azure OpenAI)       |
 | `greeting_configs` | Greeting behavior, e.g. `{"mode": "single_first"}`                |
 | `mcp_servers`      | Array of MCP server configs for tool calling                      |
-
----
-
-## Current Status (2026-01-20)
-
-### ✅ WORKING
-
-- **Remote video (avatar) displays correctly** - HeyGen avatar video now shows
-- Audio transcription working
-- Voice interaction working
-
-### ✅ All Issues Resolved
-
-All previously reported issues have been fixed:
-
-1. **Local video reconnect** - ✅ Fixed via RTCHelper video track lifecycle management
-2. **Chat display** - ✅ Fixed via proper transcript rendering
-
----
-
-## Changes Made Today
-
-### 1. Enhanced RTCHelper for Video Support
-
-**File:** `react-video-client-avatar/node_modules/@agora/conversational-ai/packages/conversational-ai/helper/rtc.ts`
-
-**Changes:**
-
-- Added optional subscription filter callbacks to `init()`:
-  ```typescript
-  shouldSubscribeAudio?: (uid: number) => boolean
-  shouldSubscribeVideo?: (uid: number) => boolean
-  ```
-- Modified `setupEventListeners()` to handle BOTH audio and video in `user-published` handler
-- Default behavior: Subscribe to all audio and all video
-- Added video event emission via `RTCHelperEvents.USER_PUBLISHED` for video mediaType
-
-**Why:** RTCHelper was originally audio-only for voice clients. It ignored video `user-published` events. This made it inconsistent and forced us to bypass RTCHelper and listen to raw RTC client events directly.
-
-**Result:** Now audio and video are handled consistently through the same event system.
-
----
-
-### 2. Updated useAgoraVideoClient Hook
-
-**File:** `react-video-client-avatar/hooks/useAgoraVideoClient.ts`
-
-**Changes:**
-
-- Changed from listening to raw `rtcHelper.client` events to `RTCHelper` events
-- Removed manual video subscription code
-- Now uses unified event handlers for both audio and video through RTCHelper
-- Events: `USER_PUBLISHED`, `USER_UNPUBLISHED`, `USER_LEFT`
-
-**Before (broken):**
-
-```typescript
-// Had to bypass RTCHelper and listen to raw RTC client
-rtcHelper.client.on("user-published", async (user, mediaType) => {
-  if (mediaType === "video") {
-    await rtcHelper.client.subscribe(user, "video");
-    setRemoteVideoTrack(user.videoTrack);
-  }
-});
-```
-
-**After (clean):**
-
-```typescript
-// RTCHelper handles both audio and video consistently
-rtcHelper.on(RTCHelperEvents.USER_PUBLISHED, (user, mediaType) => {
-  if (mediaType === "video") {
-    setRemoteVideoTrack(user.videoTrack);
-  }
-});
-```
-
----
-
-## Architecture Summary
-
-### RTCHelper Purpose
-
-- **Voice-focused wrapper** around Agora RTC SDK for Conversational AI
-- Provides:
-  - Audio/video subscription automation
-  - Volume monitoring for audio levels
-  - Audio PTS emission for transcript sync
-  - Stream message handling (receives transcript data from AI agent)
-  - Connection state management
-  - Singleton pattern
-
-### Why We Enhanced It (Instead of Bypassing)
-
-1. **Consistency** - Audio and video treated identically
-2. **Simplicity** - One place to control subscriptions (init config)
-3. **Integration** - Still get transcript sync, volume monitoring, AI features
-4. **Flexibility** - Can filter subscriptions by UID if needed
-5. **Maintainability** - All RTC logic in one place
-
-### Current Architecture
-
-- **One RTC SDK client instance**: Created by RTCHelper (`rtcHelper.client`)
-- **One RTCHelper instance**: Singleton pattern
-- **RTCHelper now handles**: Both audio and video subscriptions + events
-- **Hook subscribes to**: RTCHelper events (not raw RTC client events)
 
 ---
 
@@ -269,7 +163,7 @@ Two profiles are required for the clients to work out of the box:
 **How It Works:**
 
 1. Client makes request: `http://localhost:8081/start-agent?channel=test&profile=VOICE`
-2. Backend normalizes profile to lowercase: `"VOICE"` → `"voice"`
+2. Backend normalizes profile to lowercase: `"VOICE"` -> `"voice"`
 3. Backend calls `initialize_constants(profile="voice")` in `core/config.py`
 4. Config system loads all `VOICE_*` prefixed variables from `.env`
 5. Agent starts with voice profile configuration
@@ -299,235 +193,13 @@ VIDEO_MLLM_TRANSCRIBE_AGENT=true  # Required for agent transcript
 VIDEO_MLLM_TRANSCRIBE_USER=true   # Required for user transcript
 ```
 
-### Profile System Cleanup (2026-01-20)
-
-**Changes Made:**
-
-- Voice client now sends `profile=VOICE` by default (previously sent no profile)
-- Video client now sends `profile=VIDEO` by default
-- Both clients use "Server Profile" UI field with appropriate placeholders
-- Server implements case-insensitive profile handling (normalizes to lowercase)
-- Updated all documentation to reference uppercase profile names
-- Curl dump files now include profile name: `agora_curl_<profile>_YYYYMMDD_HHMMSS.sh`
-- `.env` cleaned up to remove legacy profiles (AVATAR, old VIDEO, VOICETTS)
-- Profile name stored in `constants["PROFILE_NAME"]` for debugging/logging
-
-**Current Active Profiles in .env:**
+### Active Profiles
 
 - `voice` - Default for voice client (MLLM/Gemini Live)
 - `video` - Default for video client (TTS+LLM+HeyGen)
 - `video_anam` - Alternative with Anam avatar
 - `video_heygen` - Alternative HeyGen configuration
 - `video_mllm_heygen` - MLLM mode with HeyGen avatar
-
----
-
-## Root Cause of Original Video Bug
-
-**The Issue:**
-RTCHelper's `user-published` handler at line 143-160 ONLY handled audio:
-
-```typescript
-this.client.on("user-published", async (user, mediaType) => {
-  if (mediaType === "audio") {
-    // ... subscribe and emit event
-  }
-  // NO ELSE BLOCK FOR VIDEO - video events were ignored!
-});
-```
-
-**What was happening:**
-
-1. Agora RTC SDK fires `user-published` for BOTH audio AND video
-2. RTCHelper subscribed to audio automatically
-3. RTCHelper **ignored** video events completely (no else block)
-4. Our app listening to RTCHelper events never received video notifications
-5. No video subscription → no video track → no video display
-
-**The Fix:**
-Added video handling in RTCHelper so both media types are treated consistently.
-
----
-
-## Voice Client Compatibility ✅
-
-**Question:** Will voice client need update for new RTCHelper changes?
-
-**Answer:** NO - Voice client is fully compatible and does not need updates.
-
-**Why:**
-
-1. **Backward compatible defaults**: The new `shouldSubscribeAudio` and `shouldSubscribeVideo` callbacks are **optional** parameters
-2. **Default behavior unchanged**: When omitted, RTCHelper defaults to `true` (subscribe to all audio/video)
-3. **No breaking changes**: Existing voice client code at `react-voice-client/hooks/useAgoraVoiceClient.ts` still calls:
-   ```typescript
-   await rtcHelper.init({
-     appId: config.appId,
-     channel: config.channel,
-     token: config.token,
-     uid: config.uid,
-     // No filter callbacks - defaults to subscribe all
-   });
-   ```
-4. **Video handling is transparent**: Even though RTCHelper now handles video events, voice clients never publish video, so those events never fire
-5. **Event handlers unchanged**: Voice client still listens to `RTCHelperEvents.USER_PUBLISHED` for audio only - video events are ignored in the handler
-
-**Verification:** Checked `react-voice-client/hooks/useAgoraVoiceClient.ts` (lines 48-54) - it only handles audio mediaType, ignoring video:
-
-```typescript
-const handleUserPublished = (user: any, mediaType: "audio" | "video") => {
-  if (mediaType === "audio" && user.audioTrack) {
-    // ... handle audio
-  }
-  // Video events ignored - no else block needed
-};
-```
-
-**Conclusion:** RTCHelper enhancement is 100% backward compatible. Voice client works unchanged.
-
----
-
-## Next Steps (Not Yet Done)
-
-### Priority 1: Fix Local Video Reconnect Issue 🐛
-
-- **Symptom**: Local video works on first call, disappears on reconnect
-- **Error**: "The play() request was interrupted by a new load request"
-- **Likely cause**: Video track not being properly recreated or MediaStream being reused incorrectly
-- **File to check**: `components/VideoAvatarClient.tsx` (useLocalVideo hook from @agora/conversational-ai)
-- **Debug logs added**: Filter console for `📹 LOCAL_VIDEO_DEBUG` to track:
-  - State changes (track creation/destruction)
-  - Publish/unpublish lifecycle
-  - handleStart, handleStop, toggleVideo actions
-
-### Priority 2: Fix Chat Display 🐛
-
-- **Symptom**: Only "Agent" label shows, message text hidden
-- **File to check**: Chat/transcript component rendering in `components/VideoAvatarClient.tsx`
-- **Possible cause**: CSS issue or text rendering logic broken
-- **Component**: Uses `@agora/agent-ui-kit` Message/Response components (lines 314-344)
-
----
-
-## Files Modified
-
-1. `react-video-client-avatar/node_modules/@agora/conversational-ai/packages/conversational-ai/helper/rtc.ts`
-   - Added video support to RTCHelper class
-
-2. `react-video-client-avatar/hooks/useAgoraVideoClient.ts`
-   - Switched from raw RTC client events to RTCHelper events
-   - Simplified video handling
-
----
-
-## Testing Notes
-
-- Remote video (avatar): ✅ Working
-- Remote audio: ✅ Working
-- Local video (first call): ✅ Working
-- Local video (reconnect): ✅ Working
-- Chat display: ✅ Working
-
----
-
-## Commands to Run
-
-```bash
-# Backend
-cd /Users/benweekes/work/convoai/agent-samples/simple-backend
-PORT=8082 python3 local_server.py
-
-# Frontend
-cd /Users/benweekes/work/convoai/agent-samples/react-video-client-avatar
-npm run dev
-```
-
----
-
-## Important Notes
-
-✅ **All fixes have been committed and pushed**
-
-- Local video reconnect: Fixed in agent-toolkit (commit 5dd526a)
-- Chat display: Fixed
-- Video client: Refactored in agent-samples (commit 4f74ff3)
-
-📝 **Package Management**
-
-- RTCHelper changes are in agent-toolkit and published to GitHub
-- Fresh `npm install` will pull latest fixes from `github:AgoraIO-Conversational-AI/agent-toolkit#main`
-
----
-
-## Debugging Commands
-
-```bash
-# Filter for video debug logs in console
-# Remote video (avatar): 🎥 VIDEO_DEBUG
-# Local video: 📹 LOCAL_VIDEO_DEBUG
-
-# Check for errors
-# Look for: "play() request was interrupted"
-```
-
-## Debug Logs Added (2026-01-20)
-
-### Local Video Reconnect Debugging
-
-Added comprehensive logging in `components/VideoAvatarClient.tsx`:
-
-1. **State tracking** (lines 95-102): Logs whenever local video state changes
-   - `isLocalVideoActive` status
-   - Track presence and ID
-   - Connection status
-
-2. **Publish lifecycle** (lines 108-114, 136-141): Logs publish/unpublish operations
-   - Client availability
-   - Track details
-   - Success/failure states
-
-3. **User actions** (lines 222-230, 250-268): Logs user-triggered events
-   - handleStop flow (disable video → leave channel)
-   - toggleVideo actions (enable/disable)
-   - enableVideo during initial connection
-
-**Usage:** Filter browser console for `📹 LOCAL_VIDEO_DEBUG` when testing reconnect scenario
-
----
-
-### Chat Display Debugging
-
-Added comprehensive logging to track message flow:
-
-**In `hooks/useAgoraVideoClient.ts`:**
-
-1. **Transcript updates** (lines 183-192, 210-214): Logs raw transcript events from RTM
-   - Raw message count and content
-   - Message UIDs, text, status
-   - Text lengths
-   - Completed vs in-progress separation
-
-**In `components/VideoAvatarClient.tsx`:**
-
-1. **Message list updates** (lines 54-65): Logs whenever messageList state changes
-   - Message count
-   - All messages with turn_id, uid, text, status
-   - Agent vs user classification
-
-2. **In-progress message updates** (lines 67-78): Logs current typing indicator
-   - Whether in-progress message exists
-   - Full message details if present
-
-3. **Send message flow** (lines 236-242): Logs user message sending
-   - Message content
-   - Agent UID
-   - Send success/failure
-
-4. **Agent detection** (lines 273-274): Logs every isAgentMessage check
-   - Input UID
-   - Result (true/false)
-
-**Usage:** Filter browser console for `💬 CHAT_DEBUG` to track message flow from RTM → state → render
 
 ---
 
@@ -539,16 +211,16 @@ This section documents how to serve all agent-samples behind nginx on port 443 a
 
 ```
 nginx :443 (convoai-demo.agora.io)
-  /                              → /var/www/palabra/         (existing SPA)
-  /v1/, /query, /oauth, /pstn   → localhost:7080             (existing API)
-  /simple-backend/               → localhost:8081             (Flask API, prefix stripped)
-  /react-voice-client/           → localhost:8083             (Next.js voice client)
-  /react-video-client-avatar/    → localhost:8084             (Next.js video+avatar client)
-  /simple-voice-client-no-backend/     → static files via alias
-  /simple-voice-client-with-backend/   → static files via alias
+  /                              -> /var/www/palabra/         (existing SPA)
+  /v1/, /query, /oauth, /pstn   -> localhost:7080             (existing API)
+  /simple-backend/               -> localhost:8081             (Flask API, prefix stripped)
+  /react-voice-client/           -> localhost:8083             (Next.js voice client)
+  /react-video-client-avatar/    -> localhost:8084             (Next.js video+avatar client)
+  /simple-voice-client-no-backend/     -> static files via alias
+  /simple-voice-client-with-backend/   -> static files via alias
 ```
 
-### Source Code Changes (4 lines, backward-compatible)
+### Source Code Changes (backward-compatible)
 
 Two env-var-driven configs were added. When env vars are **not set** (local dev), behavior is identical to the original code.
 
@@ -749,17 +421,13 @@ curl -s -o /dev/null -w "%{http_code}" https://convoai-demo.agora.io/simple-voic
 
 curl -s -o /dev/null -w "%{http_code}" https://convoai-demo.agora.io/simple-voice-client-with-backend/
 # 200
-
-# Verify static assets load (not intercepted by palabra cache block)
-curl -s -o /dev/null -w "%{http_code}" https://convoai-demo.agora.io/react-voice-client/_next/static/chunks/*.css
-# 200
 ```
 
 ### Key Gotchas
 
 1. **`^~` on proxy locations is required.** Without it, an existing `location ~* \.(js|css|...)$` regex block for static asset caching will intercept Next.js `_next/static/` requests and look for them in the wrong root directory, returning 404.
 
-2. **PM2 Python interpreter bug.** PM2 (at least some versions) ignores the `interpreter` field for Python scripts and wraps them in its JS `ProcessContainerFork.js`, which Python then tries to parse as Python code. Workaround: use a bash shell script that activates the venv and runs Python directly.
+2. **PM2 Python interpreter bug.** PM2 ignores the `interpreter` field for Python scripts and wraps them in its JS `ProcessContainerFork.js`, which Python then tries to parse as Python code. Workaround: use a bash shell script that activates the venv and runs Python directly.
 
 3. **`NEXT_PUBLIC_*` env vars must be set at runtime too.** `next start` re-evaluates `next.config.ts` at startup. If `NEXT_PUBLIC_BASE_PATH` is only set during `npm run build` but not when `next start` runs (e.g., via PM2), basePath evaluates to `""` at runtime and all pages return 404 despite being correctly built.
 
