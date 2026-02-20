@@ -133,7 +133,7 @@ Optional standalone servers that extend your agent with advanced capabilities.
 Custom LLM proxy for RAG, tool calling, conversation memory, and response
 formatting. Available in Python, Node.js, and Go.
 
-**[server-mcp-memory](https://github.com/AgoraIO-Conversational-AI/server-mcp-memory)** —
+**[server-mcp](https://github.com/AgoraIO-Conversational-AI/server-mcp)** —
 MCP memory server that gives agents persistent per-user memory via tool calling.
 Stores and retrieves conversation context across sessions.
 

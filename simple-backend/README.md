@@ -211,7 +211,7 @@ simple-backend/
 
 A Custom LLM server sits between Agora ConvoAI and your LLM provider, giving you full control over prompts, RAG, tool calling, and response formatting.
 
-See: [server-custom-llm](https://github.com/AgoraIO-Community/server-custom-llm)
+See: [server-custom-llm](https://github.com/AgoraIO-Conversational-AI/server-custom-llm)
 
 **Configuration:** Set `LLM_URL` to your custom server endpoint and `LLM_VENDOR=custom` in `.env`:
 
@@ -228,7 +228,7 @@ The custom server proxies requests to your LLM provider and supports endpoints f
 
 An MCP memory server gives agents persistent per-user memory via tool calling, allowing the agent to remember context across conversations.
 
-See: [server-mcp-memory](https://github.com/AgoraIO-Community/server-mcp-memory)
+See: [server-mcp](https://github.com/AgoraIO-Conversational-AI/server-mcp)
 
 **Configuration:** Set `MCP_SERVERS` as a JSON array in `.env`:
 

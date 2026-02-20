@@ -95,7 +95,7 @@ VOICE_ENABLE_AIVAD=true
 These standalone servers extend simple-backend with advanced capabilities. They are **not required** for basic operation.
 
 - **[server-custom-llm](https://github.com/AgoraIO-Conversational-AI/server-custom-llm)** — Custom LLM proxy. Intercepts LLM requests for RAG, custom prompts, tool calling, and response formatting. Set `LLM_URL` to your server endpoint, `LLM_VENDOR=custom`.
-- **[server-mcp-memory](https://github.com/AgoraIO-Conversational-AI/server-mcp-memory)** — MCP Memory Server. Gives agents persistent per-user memory via tool calling. Configure via `MCP_SERVERS` JSON array in `.env`.
+- **[server-mcp](https://github.com/AgoraIO-Conversational-AI/server-mcp)** — MCP Memory Server. Gives agents persistent per-user memory via tool calling. Configure via `MCP_SERVERS` JSON array in `.env`.
 
 ### Port Reference
 
