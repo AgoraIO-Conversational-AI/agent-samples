@@ -135,6 +135,8 @@ npm run dev  # Test with latest toolkit/ui-kit from GitHub
 
 For changes that only affect sample apps (not toolkit/ui-kit):
 
+**Package manager:** Use **npm** only (no pnpm or yarn). Always use `--legacy-peer-deps` flag due to agora-rtm peer dependency requirements. Do not commit pnpm-lock.yaml or yarn.lock files.
+
 ### 1. Edit and Test
 
 ```bash
