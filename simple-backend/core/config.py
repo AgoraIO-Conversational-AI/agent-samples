@@ -127,6 +127,7 @@ def initialize_constants(profile=None):
         "ENABLE_MLLM": get_env_var('ENABLE_MLLM', profile, "false"),
         "MLLM_VENDOR": get_env_var('MLLM_VENDOR', profile),
         "MLLM_STYLE": get_env_var('MLLM_STYLE', profile),
+        "MLLM_API_KEY": get_env_var('MLLM_API_KEY', profile),
         "MLLM_URL": get_env_var('MLLM_URL', profile),
         "MLLM_MODEL": get_env_var('MLLM_MODEL', profile),
         "MLLM_ADC_CREDENTIALS_STRING": get_env_var('MLLM_ADC_CREDENTIALS_STRING', profile),
