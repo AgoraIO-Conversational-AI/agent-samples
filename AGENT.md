@@ -203,6 +203,46 @@ VIDEO_MLLM_TRANSCRIBE_USER=true   # Required for user transcript
 
 ---
 
+## Local Development Quick Start
+
+### Prerequisites
+
+- Node.js >= 20.9.0 (required by Next.js 16)
+- Python 3.x
+
+### Step 1: Start the backend
+
+```bash
+cd simple-backend
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements-local.txt
+cp .env.example .env
+# Edit .env — fill in credentials (see Backend Configuration section above)
+python3 local_server.py
+```
+
+### Step 2: Start a frontend client
+
+**Voice client:**
+
+```bash
+cd react-voice-client
+npm install --legacy-peer-deps
+npm run dev
+# Open http://localhost:8083
+```
+
+**Video avatar client:**
+
+```bash
+cd react-video-client-avatar
+npm install --legacy-peer-deps
+npm run dev
+# Open http://localhost:8084
+```
+
+---
+
 ## Production Deployment (EC2 + nginx on port 443)
 
 This section documents how to serve all agent-samples behind nginx on port 443 alongside an existing application, using path-based routing.

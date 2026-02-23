@@ -2,7 +2,7 @@
 
 **Location**: `agent-samples/assets/AI_SAMPLES_UIKIT_TOOLKIT_DEV.md`
 
-This guide explains how to develop across the three Agora Conversational AI repositories. Read this file at the start of development sessions for context on the workflow, git hooks, and package management.
+This guide explains how to develop across the five Agora Conversational AI repositories. Read this file at the start of development sessions for context on the workflow, git hooks, and package management.
 
 ## Repository Overview
 
@@ -11,6 +11,8 @@ This guide explains how to develop across the three Agora Conversational AI repo
 - `agent-samples/` - Sample applications (GitHub: AgoraIO-Conversational-AI/agent-samples)
 - `agent-toolkit/` - Core SDK (GitHub: AgoraIO-Conversational-AI/agent-toolkit)
 - `agent-ui-kit/` - UI components (GitHub: AgoraIO-Conversational-AI/agent-ui-kit)
+- `server-custom-llm/` - Custom LLM server, Python/Node.js/Go (GitHub: AgoraIO-Conversational-AI/server-custom-llm)
+- `server-mcp-memory/` - MCP memory server, Python/Node.js/Go (GitHub: AgoraIO-Conversational-AI/server-mcp)
 
 **Package Installation**: Samples install toolkit and ui-kit from GitHub:
 
@@ -42,6 +44,20 @@ This guide explains how to develop across the three Agora Conversational AI repo
 - Fixing bugs in sample apps (VoiceClient, VideoAvatarClient)
 - Adding new sample applications
 - Updating documentation or configuration
+
+**server-custom-llm** - Edit when:
+
+- Changing the LLM proxy pipeline (tool execution, conversation memory, RAG)
+- Adding new endpoints or modifying streaming behavior
+- Adding custom tools to `tools.{py,js,go}`
+- Changes should be made in all three languages (Python, Node.js, Go) to keep parity
+
+**server-mcp-memory** - Edit when:
+
+- Changing MCP tool behavior (save, search, list, delete, compact, log)
+- Modifying SQLite schema or FTS5 search logic
+- Changing the MCP JSON-RPC protocol handling
+- Changes should be made in all three languages (Python, Node.js, Go) to keep parity
 
 ---
 
@@ -150,6 +166,96 @@ git push origin main
 
 ---
 
+## Making Changes to Server Repos
+
+The two server repos (`server-custom-llm` and `server-mcp-memory`) each have implementations in Python, Node.js, and Go. All three languages provide the same endpoints and behavior — keep them in parity.
+
+### Language-Specific Notes
+
+**Python**: No build step. Just run the server directly.
+
+**Node.js**: Requires Node 18+ (system default may be 16). Use `nvm use 20` before running. Run `npm install` in the `node/` directory before first use.
+
+**Go (server-mcp-memory only)**: Requires `CGO_ENABLED=1` and the `-tags sqlite_fts5` build flag for FTS5 support. Always use:
+
+```bash
+CGO_ENABLED=1 go run -tags sqlite_fts5 .
+```
+
+### Running Servers Locally
+
+```bash
+# Custom LLM Server
+cd server-custom-llm/python && LLM_API_KEY=sk-... python3 custom_llm.py     # port 8100
+cd server-custom-llm/node   && LLM_API_KEY=sk-... node custom_llm.js        # port 8101
+cd server-custom-llm/go     && LLM_API_KEY=sk-... go run .                   # port 8102
+
+# MCP Memory Server
+cd server-mcp-memory/python && python3 mcp_server.py                         # port 8090
+cd server-mcp-memory/node   && node mcp_server.js                            # port 8091
+cd server-mcp-memory/go     && CGO_ENABLED=1 go run -tags sqlite_fts5 .      # port 8092
+```
+
+### Testing Server Repos
+
+Both repos have automated test scripts in `test/` that cover happy paths and failure paths. Tests validate server structure and error handling without requiring external services.
+
+```bash
+# Run all languages
+cd server-custom-llm && bash test/run_all.sh
+cd server-mcp-memory && bash test/run_all.sh
+
+# Run a single language
+bash test/run_all.sh python
+bash test/run_all.sh node
+bash test/run_all.sh go
+```
+
+The test runner starts the server, runs curl-based tests, and cleans up automatically.
+
+### Exposing to the Internet
+
+Both servers need a tunnel for the Agora ConvoAI Engine to reach them:
+
+```bash
+# Install cloudflared (macOS)
+brew install cloudflare/cloudflare/cloudflared
+
+# Tunnel to Custom LLM Server
+cloudflared tunnel --url http://localhost:8100
+
+# Tunnel to MCP Memory Server
+cloudflared tunnel --url http://localhost:8090
+```
+
+### Environment Variables
+
+**server-custom-llm**:
+
+| Variable       | Description              | Default                     |
+| -------------- | ------------------------ | --------------------------- |
+| `LLM_API_KEY`  | API key for LLM provider | _(required)_                |
+| `LLM_BASE_URL` | LLM API base URL         | `https://api.openai.com/v1` |
+| `LLM_MODEL`    | Default model name       | `gpt-4o-mini`               |
+
+**server-mcp-memory**: No API keys required. Uses CLI flags or env vars for port, host, and DB path:
+
+| Option  | Env Var   | CLI Flag    | Default              |
+| ------- | --------- | ----------- | -------------------- |
+| Port    | `PORT`    | `--port`    | `8090`/`8091`/`8092` |
+| Host    | `HOST`    | `--host`    | `0.0.0.0`            |
+| DB path | `DB_PATH` | `--db-path` | `mcp_memory.db`      |
+
+### Adding Features to Server Repos
+
+1. Implement in one language first, get it working and tested
+2. Port to the other two languages with identical behavior
+3. Update the language-specific README (`python/`, `node/`, `go/`) if needed
+4. Update the top-level README only for features common to all languages
+5. Run `bash test/run_all.sh` to verify all three languages pass
+
+---
+
 ## Package Version Management
 
 ### Current Strategy: Git-Based Installation
@@ -222,6 +328,18 @@ agent-toolkit/           # Core SDK (@agora/conversational-ai)
 agent-ui-kit/            # UI components (@agora/agent-ui-kit)
 └── packages/
     └── agent-ui-kit/
+
+server-custom-llm/       # Custom LLM proxy (OpenAI-compatible)
+├── python/              # FastAPI + uvicorn (port 8100)
+├── node/                # Express (port 8101)
+├── go/                  # Gin (port 8102)
+└── test/                # Automated test scripts
+
+server-mcp-memory/       # MCP memory server (SQLite + FTS5)
+├── python/              # Starlette + uvicorn (port 8090)
+├── node/                # Express + better-sqlite3 (port 8091)
+├── go/                  # Gin + go-sqlite3 (port 8092)
+└── test/                # Automated test scripts
 ```
 
 ---
@@ -289,7 +407,7 @@ await rtcHelper.leave(); // Stops and closes all tracks
 
 ## Git Hooks
 
-All three repositories use git hooks to enforce code quality:
+The three front-end repositories (agent-samples, agent-toolkit, agent-ui-kit) use git hooks to enforce code quality:
 
 ### Pre-commit Hook
 
@@ -403,6 +521,8 @@ pytest tests/test_agent.py   # Specific file
 
 ### Dev Servers
 
+**Note:** The React clients require Node.js >= 20.9.0 (Next.js 16 requirement). Server repos only need Node 18+.
+
 ```bash
 # Backend (port 8082)
 cd agent-samples/simple-backend
@@ -417,6 +537,38 @@ cd agent-samples/react-video-client-avatar
 npm run dev
 ```
 
+### Run Server Tests
+
+```bash
+# Custom LLM — all languages
+cd server-custom-llm && bash test/run_all.sh
+
+# MCP Memory — all languages
+cd server-mcp-memory && bash test/run_all.sh
+
+# Single language
+bash test/run_all.sh python   # or node, go
+```
+
+### Pull All Repos
+
+```bash
+cd /Users/benweekes/work/convoai
+for dir in agent-samples agent-toolkit agent-ui-kit server-custom-llm server-mcp-memory; do
+  echo "--- $dir ---" && (cd "$dir" && git pull)
+done
+```
+
+### Port Reference
+
+| Service            | Python | Node.js | Go   |
+| ------------------ | ------ | ------- | ---- |
+| MCP Memory Server  | 8090   | 8091    | 8092 |
+| Custom LLM Server  | 8100   | 8101    | 8102 |
+| Sample Backend     | 8082   | --      | --   |
+| Voice Client (dev) | --     | 8083    | --   |
+| Video Client (dev) | --     | 8084    | --   |
+
 ---
 
-**Last Updated**: 2026-01-28
+**Last Updated**: 2026-02-23
