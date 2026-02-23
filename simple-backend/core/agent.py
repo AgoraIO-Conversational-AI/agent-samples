@@ -112,7 +112,7 @@ def build_asr_config(asr_vendor, constants, query_params=None):
 
 def build_mllm_config(constants, query_params=None):
     """
-    Builds MLLM (Multimodal LLM) configuration for Gemini Live.
+    Builds MLLM (Multimodal LLM) configuration for Gemini Live or OpenAI Realtime.
 
     Args:
         constants: Dictionary of constants
@@ -135,36 +135,56 @@ def build_mllm_config(constants, query_params=None):
             # If base64 decode fails, use as-is
             pass
 
+    vendor = query_params.get('mllm_vendor', constants.get("MLLM_VENDOR", "vertexai"))
+    prompt = query_params.get('prompt', constants.get("DEFAULT_PROMPT", "You are a friendly assistant."))
+
+    # Build vendor-specific params
+    params = {
+        "model": query_params.get('mllm_model', constants.get("MLLM_MODEL", "gemini-live-2.5-flash-preview-native-audio-09-2025")),
+        "voice": query_params.get('mllm_voice', constants.get("MLLM_VOICE", "Charon")),
+        "instructions": prompt,
+    }
+
+    if vendor == "openai":
+        # OpenAI Realtime specific params
+        params["input_audio_transcription"] = {
+            "language": constants.get("ASR_LANGUAGE", "en-US")[:2],
+            "model": "gpt-4o-mini-transcribe",
+        }
+    else:
+        # VertexAI/Gemini specific params
+        params["temperature"] = 0.9
+        params["max_tokens"] = 3000
+        params["affective_dialog"] = False
+        params["proactive_audio"] = False
+        params["adc_credentials_string"] = adc_credentials
+        params["project_id"] = query_params.get('mllm_project_id', constants.get("MLLM_PROJECT_ID", ""))
+        params["location"] = query_params.get('mllm_location', constants.get("MLLM_LOCATION", "us-central1"))
+        params["transcribe_agent"] = query_params.get('mllm_transcribe_agent', constants.get("MLLM_TRANSCRIBE_AGENT", "true")).lower() == "true"
+        params["transcribe_user"] = query_params.get('mllm_transcribe_user', constants.get("MLLM_TRANSCRIBE_USER", "true")).lower() == "true"
+
     mllm_config = {
         "predefined_tools": ["_publish_message"],
-        "vendor": query_params.get('mllm_vendor', constants.get("MLLM_VENDOR", "vertexai")),
+        "vendor": vendor,
         "url": query_params.get('mllm_url') or constants.get("MLLM_URL") or "",
-        "api_key": "",
+        "api_key": constants.get("MLLM_API_KEY") or "",
         "messages": [
             {
                 "role": "system",
-                "content": query_params.get('prompt', constants.get("DEFAULT_PROMPT", "You are a friendly assistant."))
+                "content": prompt
             }
         ],
-        "params": {
-            "model": query_params.get('mllm_model', constants.get("MLLM_MODEL", "gemini-live-2.5-flash-preview-native-audio-09-2025")),
-            "temperature": 0.9,
-            "instructions": query_params.get('prompt', constants.get("DEFAULT_PROMPT", "You are a friendly assistant.")),
-            "voice": query_params.get('mllm_voice', constants.get("MLLM_VOICE", "Charon")),
-            "max_tokens": 3000,
-            "affective_dialog": False,
-            "proactive_audio": False,
-            "adc_credentials_string": adc_credentials,
-            "project_id": query_params.get('mllm_project_id', constants.get("MLLM_PROJECT_ID", "")),
-            "location": query_params.get('mllm_location', constants.get("MLLM_LOCATION", "us-central1")),
-            "transcribe_agent": query_params.get('mllm_transcribe_agent', constants.get("MLLM_TRANSCRIBE_AGENT", "true")).lower() == "true",
-            "transcribe_user": query_params.get('mllm_transcribe_user', constants.get("MLLM_TRANSCRIBE_USER", "true")).lower() == "true"
-        },
-        "output_modalities": ["audio"],
+        "params": params,
+        "output_modalities": ["text", "audio"] if vendor == "openai" else ["audio"],
         "max_history": 20,
         "greeting_message": query_params.get('greeting', constants.get("DEFAULT_GREETING", "Hey There Sir")),
         "failure_message": query_params.get('failure_message', constants.get("DEFAULT_FAILURE_MESSAGE", "Something went wrong"))
     }
+
+    # Add style only when set (OpenAI requires it)
+    style = constants.get("MLLM_STYLE")
+    if style:
+        mllm_config["style"] = style
 
     return mllm_config
 
