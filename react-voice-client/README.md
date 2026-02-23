@@ -58,7 +58,7 @@ This sample application uses the Agora Conversational AI SDK and UI Kit packages
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js >= 20.9.0 (required by Next.js 16)
 - Python backend running on port 8082 (see `../simple-backend/`)
 
 ## Configuration
