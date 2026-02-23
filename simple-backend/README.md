@@ -81,10 +81,15 @@ VIDEO_APP_ID=
 VIDEO_APP_CERTIFICATE=
 VIDEO_AGENT_AUTH_HEADER=
 
-# LLM settings
+# LLM settings (direct OpenAI)
 VIDEO_ENABLE_MLLM=false
 VIDEO_LLM_API_KEY=
 VIDEO_LLM_MODEL=gpt-4o
+
+# LLM settings (custom LLM server — config only, no code changes needed)
+# VIDEO_LLM_URL=https://<tunnel>.trycloudflare.com/chat/completions
+# VIDEO_LLM_VENDOR=custom
+# VIDEO_LLM_STYLE=openai
 
 # TTS settings
 VIDEO_TTS_VENDOR=elevenlabs
