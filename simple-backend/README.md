@@ -40,7 +40,9 @@ VOICE_APP_ID=
 VOICE_APP_CERTIFICATE=
 VOICE_AGENT_AUTH_HEADER=
 
-# MLLM settings (Gemini Live)
+# MLLM settings — choose one vendor:
+
+# Option A: Gemini Live (VertexAI)
 VOICE_ENABLE_MLLM=true
 VOICE_MLLM_VENDOR=vertexai
 VOICE_MLLM_MODEL=gemini-live-2.5-flash-preview-native-audio-09-2025
@@ -50,6 +52,14 @@ VOICE_MLLM_LOCATION=us-central1
 VOICE_MLLM_VOICE=Charon
 VOICE_MLLM_TRANSCRIBE_AGENT=true
 VOICE_MLLM_TRANSCRIBE_USER=true
+
+# Option B: OpenAI Realtime
+# VOICE_ENABLE_MLLM=true
+# VOICE_MLLM_VENDOR=openai
+# VOICE_MLLM_MODEL=gpt-4o-realtime-preview
+# VOICE_MLLM_API_KEY=sk-...
+# VOICE_MLLM_STYLE=openai
+# VOICE_MLLM_VOICE=alloy
 
 # ASR and AIVAD
 VOICE_ASR_VENDOR=ares
