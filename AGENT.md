@@ -207,7 +207,7 @@ VIDEO_MLLM_TRANSCRIBE_USER=true   # Required for user transcript
 
 ### Prerequisites
 
-- Node.js >= 20.9.0 (required by Next.js 16)
+- Node.js >= 20.9.0 (required by Next.js 16). Run `nvm use` in the repo root — the `.nvmrc` file selects the correct version automatically.
 - Python 3.x
 
 ### Step 1: Start the backend
