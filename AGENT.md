@@ -68,9 +68,11 @@ VOICE_MLLM_MLLM_VENDOR=vertexai
 - Invalid GCP credentials
 - Wrong model name or region
 
-### Required MLLM Variables for Gemini Live
+### Required MLLM Variables
 
-When translating user config for VOICE profile:
+MLLM mode supports two vendors: **Gemini Live** (VertexAI) and **OpenAI Realtime**. The backend builds vendor-specific payloads — no null fields leak across vendors.
+
+**Gemini Live (VertexAI):**
 
 ```bash
 VOICE_ENABLE_MLLM=true
@@ -82,6 +84,21 @@ VOICE_MLLM_LOCATION=us-central1  # NOT REGION!
 VOICE_MLLM_VOICE=Charon
 VOICE_MLLM_TRANSCRIBE_AGENT=true
 VOICE_MLLM_TRANSCRIBE_USER=true
+VOICE_ASR_VENDOR=ares
+VOICE_ASR_LANGUAGE=en-US
+VOICE_VAD_SILENCE_DURATION_MS=300
+VOICE_ENABLE_AIVAD=true
+```
+
+**OpenAI Realtime:**
+
+```bash
+VOICE_ENABLE_MLLM=true
+VOICE_MLLM_VENDOR=openai
+VOICE_MLLM_MODEL=gpt-4o-realtime-preview
+VOICE_MLLM_API_KEY=sk-...
+VOICE_MLLM_STYLE=openai
+VOICE_MLLM_VOICE=alloy
 VOICE_ASR_VENDOR=ares
 VOICE_ASR_LANGUAGE=en-US
 VOICE_VAD_SILENCE_DURATION_MS=300
@@ -170,15 +187,22 @@ Two profiles are required for the clients to work out of the box:
 
 ### Transcript Configuration Differences
 
-**MLLM Mode (Gemini Live):**
+**MLLM Mode (Gemini Live or OpenAI Realtime):**
 
 ```bash
+# Gemini Live
 VOICE_ENABLE_MLLM=true
 VOICE_MLLM_VENDOR=vertexai
 VOICE_MLLM_MODEL=gemini-live-2.5-flash-preview-native-audio-09-2025
 # Transcription is built-in, delivered via RTM stream messages
 VOICE_MLLM_TRANSCRIBE_AGENT=true  # Agent speech transcription
 VOICE_MLLM_TRANSCRIBE_USER=true   # User speech transcription
+
+# OpenAI Realtime (alternative)
+# VOICE_MLLM_VENDOR=openai
+# VOICE_MLLM_MODEL=gpt-4o-realtime-preview
+# VOICE_MLLM_API_KEY=sk-...
+# VOICE_MLLM_STYLE=openai
 ```
 
 **TTS+LLM Mode (Traditional):**
@@ -195,7 +219,7 @@ VIDEO_MLLM_TRANSCRIBE_USER=true   # Required for user transcript
 
 ### Active Profiles
 
-- `voice` - Default for voice client (MLLM/Gemini Live)
+- `voice` - Default for voice client (MLLM — Gemini Live or OpenAI Realtime)
 - `video` - Default for video client (TTS+LLM+HeyGen)
 - `video_anam` - Alternative with Anam avatar
 - `video_heygen` - Alternative HeyGen configuration
