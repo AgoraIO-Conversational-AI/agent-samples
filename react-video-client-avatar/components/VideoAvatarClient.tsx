@@ -93,6 +93,7 @@ export function VideoAvatarClient() {
   } = useThymia(rtmSource, THYMIA_ENABLED && isConnected);
 
   // Local video state - managed by RTCHelper
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [localVideoTrack, setLocalVideoTrack] = useState<any>(null);
   const [isLocalVideoActive, setIsLocalVideoActive] = useState(false);
 
@@ -295,7 +296,7 @@ export function VideoAvatarClient() {
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Leave empty for default "VIDEO" profile
+                    Leave empty for default &ldquo;VIDEO&rdquo; profile
                   </p>
                 </div>
 
