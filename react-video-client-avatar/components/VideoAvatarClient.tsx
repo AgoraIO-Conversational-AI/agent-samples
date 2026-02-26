@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Mic, MicOff, Video, VideoOff, Settings } from "lucide-react";
 import { useAgoraVideoClient } from "@/hooks/useAgoraVideoClient";
 import { useAudioVisualization } from "@/hooks/useAudioVisualization";
@@ -12,9 +12,14 @@ import { AvatarVideoDisplay, LocalVideoPreview } from "@agora/agent-ui-kit";
 import { VideoGrid, MobileTabs } from "@agora/agent-ui-kit";
 import { AgoraLogo } from "@agora/agent-ui-kit";
 import { SettingsDialog } from "@agora/agent-ui-kit";
+import { ThymiaPanel, useThymia } from "@agora/agent-ui-kit";
+import type { RTMEventSource } from "@agora/agent-ui-kit";
+import { RTMHelper } from "@agora/conversational-ai/helper/rtm";
 import { cn } from "@/lib/utils";
 
-const DEFAULT_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8082";
+const DEFAULT_BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8082";
+const THYMIA_ENABLED = process.env.NEXT_PUBLIC_ENABLE_THYMIA === "true";
 
 export function VideoAvatarClient() {
   const [backendUrl, setBackendUrl] = useState(DEFAULT_BACKEND_URL);
@@ -36,9 +41,9 @@ export function VideoAvatarClient() {
 
   // Read URL parameters on mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      const urlProfile = params.get('profile');
+      const urlProfile = params.get("profile");
       if (urlProfile) {
         setProfile(urlProfile);
       }
@@ -68,6 +73,24 @@ export function VideoAvatarClient() {
     localAudioTrack,
     isConnected && !isMuted,
   );
+
+  // RTM event source adapter for Thymia hooks
+  const rtmSource = useMemo<RTMEventSource>(
+    () => ({
+      on: (e, fn) => RTMHelper.getInstance().on(e, fn),
+      off: (e, fn) => RTMHelper.getInstance().off(e, fn),
+    }),
+    [],
+  );
+
+  // Thymia voice biomarker data (opt-in via NEXT_PUBLIC_ENABLE_THYMIA)
+  const {
+    biomarkers,
+    wellness,
+    clinical,
+    progress: thymiaProgress,
+    safety: thymiaSafety,
+  } = useThymia(rtmSource, THYMIA_ENABLED && isConnected);
 
   // Local video state - managed by RTCHelper
   const [localVideoTrack, setLocalVideoTrack] = useState<any>(null);
@@ -396,15 +419,54 @@ export function VideoAvatarClient() {
               }
               avatar={
                 <div className="flex flex-col h-full">
-                  {/* Avatar Video */}
-                  <div className="flex-1 flex items-center justify-center bg-muted/20 p-2">
-                    <AvatarVideoDisplay
-                      videoTrack={avatarVideoTrack}
-                      state={avatarVideoTrack ? "connected" : "disconnected"}
-                      className="h-full w-full"
-                      useMediaStream={true}
+                  {/* Avatar Video + optional Thymia tab */}
+                  {THYMIA_ENABLED ? (
+                    <MobileTabs
+                      tabs={[
+                        {
+                          id: "avatar",
+                          label: "Avatar",
+                          content: (
+                            <div className="flex-1 flex items-center justify-center bg-muted/20 p-2 h-full">
+                              <AvatarVideoDisplay
+                                videoTrack={avatarVideoTrack}
+                                state={
+                                  avatarVideoTrack
+                                    ? "connected"
+                                    : "disconnected"
+                                }
+                                className="h-full w-full"
+                                useMediaStream={true}
+                              />
+                            </div>
+                          ),
+                        },
+                        {
+                          id: "thymia",
+                          label: "Thymia",
+                          content: (
+                            <ThymiaPanel
+                              biomarkers={biomarkers}
+                              wellness={wellness}
+                              clinical={clinical}
+                              progress={thymiaProgress}
+                              safety={thymiaSafety}
+                              isConnected={isConnected}
+                            />
+                          ),
+                        },
+                      ]}
                     />
-                  </div>
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center bg-muted/20 p-2">
+                      <AvatarVideoDisplay
+                        videoTrack={avatarVideoTrack}
+                        state={avatarVideoTrack ? "connected" : "disconnected"}
+                        className="h-full w-full"
+                        useMediaStream={true}
+                      />
+                    </div>
+                  )}
 
                   {/* Controls below avatar */}
                   <div className="border-t p-4 flex-shrink-0">
@@ -485,7 +547,9 @@ export function VideoAvatarClient() {
                         {/* Local Video - 50% */}
                         <div className="flex-1 rounded-lg border bg-card shadow-lg overflow-hidden">
                           <LocalVideoPreview
-                            videoTrack={isLocalVideoActive ? localVideoTrack : null}
+                            videoTrack={
+                              isLocalVideoActive ? localVideoTrack : null
+                            }
                             className="h-full w-full"
                             useMediaStream={true}
                           />
@@ -592,6 +656,24 @@ export function VideoAvatarClient() {
                       </div>
                     ),
                   },
+                  ...(THYMIA_ENABLED
+                    ? [
+                        {
+                          id: "thymia",
+                          label: "Thymia",
+                          content: (
+                            <ThymiaPanel
+                              biomarkers={biomarkers}
+                              wellness={wellness}
+                              clinical={clinical}
+                              progress={thymiaProgress}
+                              safety={thymiaSafety}
+                              isConnected={isConnected}
+                            />
+                          ),
+                        },
+                      ]
+                    : []),
                 ]}
               />
 
