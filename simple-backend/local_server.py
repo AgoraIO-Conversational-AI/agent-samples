@@ -11,6 +11,10 @@ This is a thin wrapper that:
 from dotenv import load_dotenv
 load_dotenv(override=True)  # Load .env file before importing core modules, override existing env vars
 
+import json
+import threading
+import urllib.request
+
 from flask import Flask, request, jsonify
 from core.config import initialize_constants
 from core.tokens import build_token_with_rtm
@@ -116,6 +120,44 @@ def start_agent():
     # Send agent to channel
     agent_response = send_agent_to_channel(channel, agent_payload, constants)
 
+    # Register agent_id with custom LLM (non-blocking)
+    if agent_response.get("success"):
+        try:
+            resp_body = json.loads(agent_response.get("response", "{}"))
+            agent_id = resp_body.get("agent_id")
+            if agent_id:
+                llm_url = constants.get("LLM_URL", "")
+                # Derive base URL from LLM_URL (strip /chat/completions path)
+                if "/chat/completions" in llm_url:
+                    llm_base = llm_url.rsplit("/chat/completions", 1)[0]
+                else:
+                    llm_base = llm_url.rstrip("/")
+                register_url = f"{llm_base}/register-agent"
+                register_payload = {
+                    "app_id": app_id_to_use,
+                    "channel": channel,
+                    "agent_id": agent_id,
+                    "auth_header": constants.get("AGENT_AUTH_HEADER", ""),
+                    "agent_endpoint": constants.get("AGENT_ENDPOINT",
+                        "https://api.agora.io/api/conversational-ai-agent/v2/projects"),
+                    "prompt": constants.get("DEFAULT_PROMPT", ""),
+                }
+                def _register():
+                    try:
+                        req_data = json.dumps(register_payload).encode('utf-8')
+                        req_obj = urllib.request.Request(
+                            register_url, data=req_data,
+                            headers={'Content-Type': 'application/json'},
+                            method='POST'
+                        )
+                        with urllib.request.urlopen(req_obj, timeout=5) as resp:
+                            print(f"[RegisterAgent] POST {register_url} → {resp.status} agent_id={agent_id}")
+                    except Exception as e:
+                        print(f"[RegisterAgent] FAILED POST {register_url}: {e}")
+                threading.Thread(target=_register, daemon=True).start()
+        except Exception as e:
+            print(f"[RegisterAgent] Error parsing agent response: {e}")
+
     # Build response
     response_data = {
         "audio_scenario": "10",
@@ -175,6 +217,33 @@ def hangup_agent_route():
 
     agent_id = query_params['agent_id']
     hangup_response = hangup_agent(agent_id, constants)
+
+    # Unregister agent from custom LLM (non-blocking) to clean up audio subscriber + Thymia
+    try:
+        llm_url = constants.get("LLM_URL", "")
+        if "/chat/completions" in llm_url:
+            llm_base = llm_url.rsplit("/chat/completions", 1)[0]
+        else:
+            llm_base = llm_url.rstrip("/")
+        unregister_url = f"{llm_base}/unregister-agent"
+        channel = query_params.get('channel', '')
+        app_id = constants["APP_ID"]
+        unregister_payload = {"app_id": app_id, "channel": channel, "agent_id": agent_id}
+        def _unregister():
+            try:
+                req_data = json.dumps(unregister_payload).encode('utf-8')
+                req_obj = urllib.request.Request(
+                    unregister_url, data=req_data,
+                    headers={'Content-Type': 'application/json'},
+                    method='POST'
+                )
+                with urllib.request.urlopen(req_obj, timeout=5) as resp:
+                    print(f"[UnregisterAgent] POST {unregister_url} → {resp.status} agent_id={agent_id}")
+            except Exception as e:
+                print(f"[UnregisterAgent] FAILED POST {unregister_url}: {e}")
+        threading.Thread(target=_unregister, daemon=True).start()
+    except Exception as e:
+        print(f"[UnregisterAgent] Error: {e}")
 
     return jsonify({
         "agent_response": hangup_response

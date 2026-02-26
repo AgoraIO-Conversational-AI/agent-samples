@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Mic, MicOff, Settings } from "lucide-react";
 import { useAgoraVoiceClient } from "@/hooks/useAgoraVoiceClient";
 import { useAudioVisualization } from "@/hooks/useAudioVisualization";
@@ -12,12 +12,19 @@ import { Response } from "@agora/agent-ui-kit";
 import { AgoraLogo } from "@agora/agent-ui-kit";
 import { SettingsDialog } from "@agora/agent-ui-kit";
 import { cn } from "@/lib/utils";
+import { MobileTabs, ThymiaPanel, useThymia } from "@agora/agent-ui-kit";
+import type { RTMEventSource } from "@agora/agent-ui-kit";
+import { RTMHelper } from "@agora/conversational-ai/helper/rtm";
 
-const DEFAULT_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8082";
+const DEFAULT_BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8082";
+const THYMIA_ENABLED = process.env.NEXT_PUBLIC_ENABLE_THYMIA === "true";
 
 export function VoiceClient() {
   const [backendUrl, setBackendUrl] = useState(DEFAULT_BACKEND_URL);
   const [agentUID, setAgentUID] = useState<string | undefined>(undefined);
+  const [agentId, setAgentId] = useState<string | undefined>(undefined);
+  const [channelName, setChannelName] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -30,9 +37,9 @@ export function VoiceClient() {
 
   // Read URL parameters on mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      const urlProfile = params.get('profile');
+      const urlProfile = params.get("profile");
       if (urlProfile) {
         setProfile(urlProfile);
       }
@@ -52,6 +59,26 @@ export function VoiceClient() {
     toggleMute,
     sendMessage,
   } = useAgoraVoiceClient();
+
+  // RTM event source adapter for Thymia hooks
+  // Not memoized — RTMHelper.getInstance() must be called fresh each time
+  // because destroy() nullifies the singleton between calls
+  const rtmSource = useMemo<RTMEventSource>(
+    () => ({
+      on: (e, fn) => RTMHelper.getInstance().on(e, fn),
+      off: (e, fn) => RTMHelper.getInstance().off(e, fn),
+    }),
+    [],
+  );
+
+  // Thymia voice biomarker data (opt-in via NEXT_PUBLIC_ENABLE_THYMIA)
+  const {
+    biomarkers,
+    wellness,
+    clinical,
+    progress: thymiaProgress,
+    safety: thymiaSafety,
+  } = useThymia(rtmSource, THYMIA_ENABLED && isConnected);
 
   // Get audio visualization data (restart on mute/unmute to fix Web Audio API connection)
   const frequencyData = useAudioVisualization(
@@ -96,6 +123,20 @@ export function VoiceClient() {
         setAgentUID(data.agent.uid);
       }
 
+      // Store agent_id and channel for hangup
+      setChannelName(data.channel);
+      try {
+        const respBody =
+          typeof data.agent_response?.response === "string"
+            ? JSON.parse(data.agent_response.response)
+            : data.agent_response?.response;
+        if (respBody?.agent_id) {
+          setAgentId(respBody.agent_id);
+        }
+      } catch (e) {
+        // agent_response may not have agent_id
+      }
+
       await joinChannel({
         appId: data.appid,
         channel: data.channel,
@@ -113,6 +154,19 @@ export function VoiceClient() {
   };
 
   const handleStop = async () => {
+    // Call hangup-agent on backend to clean up server-side resources
+    if (agentId) {
+      try {
+        const params = new URLSearchParams({ agent_id: agentId });
+        if (channelName) params.append("channel", channelName);
+        if (profile.trim()) params.append("profile", profile.trim());
+        await fetch(`${backendUrl}/hangup-agent?${params}`);
+      } catch (e) {
+        console.error("Hangup failed:", e);
+      }
+    }
+    setAgentId(undefined);
+    setChannelName(undefined);
     await leaveChannel();
   };
 
@@ -302,83 +356,115 @@ export function VoiceClient() {
               </div>
             </div>
 
-            {/* Right Column - Conversation */}
+            {/* Right Column - Conversation + optional Thymia tab */}
             <div
               ref={conversationRef}
               className="flex flex-1 flex-col rounded-lg border bg-card shadow-lg min-h-0 overflow-hidden"
             >
-              {/* Conversation Header */}
-              <div className="border-b p-4 flex-shrink-0">
-                <h2 className="font-semibold">Conversation</h2>
-                <p className="text-sm text-muted-foreground">
-                  {messageList.length} message
-                  {messageList.length !== 1 ? "s" : ""}
-                </p>
-              </div>
+              <MobileTabs
+                tabs={[
+                  {
+                    id: "chat",
+                    label: "Chat",
+                    content: (
+                      <div className="flex flex-1 flex-col min-h-0 overflow-hidden h-full">
+                        {/* Conversation Header */}
+                        <div className="border-b p-4 flex-shrink-0">
+                          <h2 className="font-semibold">Conversation</h2>
+                          <p className="text-sm text-muted-foreground">
+                            {messageList.length} message
+                            {messageList.length !== 1 ? "s" : ""}
+                          </p>
+                        </div>
 
-              {/* Messages */}
-              <Conversation
-                height=""
-                className="flex-1 min-h-0"
-                style={{ overflow: "scroll" }}
-              >
-                <ConversationContent>
-                  {messageList.map((msg, idx) => {
-                    const isAgent = isAgentMessage(msg.uid);
-                    return (
-                      <Message
-                        key={`${msg.turn_id}-${msg.uid}-${idx}`}
-                        from={isAgent ? "assistant" : "user"}
-                        name={isAgent ? "Agent" : "User"}
-                      >
-                        <MessageContent>
-                          <Response>{msg.text}</Response>
-                        </MessageContent>
-                      </Message>
-                    );
-                  })}
-
-                  {/* In-progress message */}
-                  {currentInProgressMessage &&
-                    (() => {
-                      const isAgent = isAgentMessage(
-                        currentInProgressMessage.uid,
-                      );
-                      return (
-                        <Message
-                          from={isAgent ? "assistant" : "user"}
-                          name={isAgent ? "Agent" : "User"}
+                        {/* Messages */}
+                        <Conversation
+                          height=""
+                          className="flex-1 min-h-0"
+                          style={{ overflow: "scroll" }}
                         >
-                          <MessageContent className="animate-pulse">
-                            <Response>{currentInProgressMessage.text}</Response>
-                          </MessageContent>
-                        </Message>
-                      );
-                    })()}
-                </ConversationContent>
-              </Conversation>
+                          <ConversationContent>
+                            {messageList.map((msg, idx) => {
+                              const isAgent = isAgentMessage(msg.uid);
+                              return (
+                                <Message
+                                  key={`${msg.turn_id}-${msg.uid}-${idx}`}
+                                  from={isAgent ? "assistant" : "user"}
+                                  name={isAgent ? "Agent" : "User"}
+                                >
+                                  <MessageContent>
+                                    <Response>{msg.text}</Response>
+                                  </MessageContent>
+                                </Message>
+                              );
+                            })}
 
-              {/* Input Box */}
-              <div className="border-t p-3 md:p-4 flex-shrink-0">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={chatMessage}
-                    onChange={(e) => setChatMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Type a message..."
-                    disabled={!isConnected}
-                    className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-                  />
-                  <button
-                    onClick={handleSendMessage}
-                    disabled={!isConnected || !chatMessage.trim()}
-                    className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                  >
-                    Send
-                  </button>
-                </div>
-              </div>
+                            {/* In-progress message */}
+                            {currentInProgressMessage &&
+                              (() => {
+                                const isAgent = isAgentMessage(
+                                  currentInProgressMessage.uid,
+                                );
+                                return (
+                                  <Message
+                                    from={isAgent ? "assistant" : "user"}
+                                    name={isAgent ? "Agent" : "User"}
+                                  >
+                                    <MessageContent className="animate-pulse">
+                                      <Response>
+                                        {currentInProgressMessage.text}
+                                      </Response>
+                                    </MessageContent>
+                                  </Message>
+                                );
+                              })()}
+                          </ConversationContent>
+                        </Conversation>
+
+                        {/* Input Box */}
+                        <div className="border-t p-3 md:p-4 flex-shrink-0">
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={chatMessage}
+                              onChange={(e) => setChatMessage(e.target.value)}
+                              onKeyPress={handleKeyPress}
+                              placeholder="Type a message..."
+                              disabled={!isConnected}
+                              className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                            />
+                            <button
+                              onClick={handleSendMessage}
+                              disabled={!isConnected || !chatMessage.trim()}
+                              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                            >
+                              Send
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ),
+                  },
+                  ...(THYMIA_ENABLED
+                    ? [
+                        {
+                          id: "thymia",
+                          label: "Thymia",
+                          content: (
+                            <ThymiaPanel
+                              biomarkers={biomarkers}
+                              wellness={wellness}
+                              clinical={clinical}
+                              progress={thymiaProgress}
+                              safety={thymiaSafety}
+                              isConnected={isConnected}
+                            />
+                          ),
+                        },
+                      ]
+                    : []),
+                ]}
+              />
             </div>
 
             {/* Mobile: Fixed Bottom Controls */}
