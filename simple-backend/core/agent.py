@@ -72,6 +72,12 @@ def build_tts_config(tts_vendor, constants, query_params=None):
     else:
         raise ValueError(f"Unsupported TTS vendor: {tts_vendor}")
 
+    # Optional: skip_patterns — tells TTS to skip bracketed content
+    # Value is comma-separated ints: 1=（）  2=【】  3=()  4=[]  5={}
+    skip_patterns_str = query_params.get('tts_skip_patterns') or constants.get("TTS_SKIP_PATTERNS")
+    if skip_patterns_str:
+        tts_config["skip_patterns"] = [int(x.strip()) for x in skip_patterns_str.split(",") if x.strip()]
+
     return tts_config
 
 
@@ -378,6 +384,11 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
         # Optional: greeting behavior configuration
         if greeting_mode:
             llm_config["greeting_configs"] = {"mode": greeting_mode}
+
+        # Optional: input modalities (e.g., ["text", "image"] for vision-capable LLMs)
+        input_modalities = constants.get("LLM_INPUT_MODALITIES")
+        if input_modalities:
+            llm_config["input_modalities"] = [m.strip() for m in input_modalities.split(",")]
 
         mllm_config = None
 

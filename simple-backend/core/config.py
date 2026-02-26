@@ -86,6 +86,9 @@ def initialize_constants(profile=None):
         ),
         "TTS_SAMPLE_RATE": get_env_var('TTS_SAMPLE_RATE', profile, "24000"),
         "TTS_SPEED": get_env_var('TTS_SPEED', profile, "1.0"),
+        # TTS skip_patterns — comma-separated bracket type IDs to skip in TTS output
+        # 1=（）  2=【】  3=()  4=[]  5={}
+        "TTS_SKIP_PATTERNS": get_env_var('TTS_SKIP_PATTERNS', profile),
 
         # ElevenLabs specific defaults
         "ELEVENLABS_MODEL": get_env_var('ELEVENLABS_MODEL', profile, "eleven_flash_v2_5"),
