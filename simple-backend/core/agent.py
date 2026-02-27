@@ -9,6 +9,23 @@ from collections import OrderedDict
 from core.tokens import build_token_with_rtm
 
 
+def build_auth_header(constants):
+    """
+    Builds the Authorization header for Agora ConvoAI API calls.
+
+    If AGENT_AUTH_HEADER is set, uses it directly (Basic auth).
+    Otherwise generates a v007 token using APP_ID + APP_CERTIFICATE
+    and returns 'agora token=<token>' format.
+    """
+    auth_header = constants.get("AGENT_AUTH_HEADER", "").strip()
+    if auth_header:
+        return auth_header
+
+    # Generate v007 token for auth (use empty channel for API-level auth)
+    token_data = build_token_with_rtm("", constants["APP_ID"], constants)
+    return f"agora token={token_data['token']}"
+
+
 def build_tts_config(tts_vendor, constants, query_params=None):
     """
     Builds TTS configuration based on vendor.
@@ -412,9 +429,12 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
     # Get avatar settings early to determine remote_rtc_uids and token
     avatar_vendor = constants.get("AVATAR_VENDOR")
 
-    # Determine token value: generate real token if certificate exists, else use APP_ID
+    # Generate agent token with RTC UID for channel join and RTM UID for messaging
+    agent_rtm_uid = f"{constants['AGENT_UID']}-{channel}"
     if constants.get("APP_CERTIFICATE"):
-        agent_token_info = build_token_with_rtm(channel, constants["AGENT_UID"], constants)
+        agent_token_info = build_token_with_rtm(
+            channel, constants["AGENT_UID"], constants, rtm_uid=agent_rtm_uid
+        )
         agent_channel_token = agent_token_info["token"]
     else:
         agent_channel_token = constants["APP_ID"]
@@ -428,7 +448,7 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
         "enable_bhvs": True,
         "enable_rtm": True,
         "enable_aivad": enable_aivad,
-        "enable_sal": False
+        "enable_sal": constants.get("ENABLE_SAL", "true").lower() != "false"
     }
     if enable_mllm:
         advanced_features["enable_mllm"] = True
@@ -517,7 +537,7 @@ def send_agent_to_channel(channel, agent_payload, constants):
     """
     # Use regular endpoint
     agent_api_url = f"{constants['AGENT_ENDPOINT']}/{constants['APP_ID']}/join"
-    auth_header = constants["AGENT_AUTH_HEADER"]
+    auth_header = build_auth_header(constants)
 
     url_parts = urllib.parse.urlparse(agent_api_url)
     host = url_parts.netloc
@@ -614,7 +634,7 @@ def hangup_agent(agent_id, constants):
 
     headers = {
         "Content-Type": "application/json",
-        "Authorization": constants.get("AGENT_AUTH_HEADER") or ""
+        "Authorization": build_auth_header(constants)
     }
 
     conn.request("POST", path, "", headers)
