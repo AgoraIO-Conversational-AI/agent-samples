@@ -11,7 +11,7 @@ import { Response } from "@agora/agent-ui-kit";
 import { AvatarVideoDisplay, LocalVideoPreview } from "@agora/agent-ui-kit";
 import { VideoGrid, MobileTabs } from "@agora/agent-ui-kit";
 import { AgoraLogo } from "@agora/agent-ui-kit";
-import { SettingsDialog } from "@agora/agent-ui-kit";
+import { SettingsDialog, SessionPanel } from "@agora/agent-ui-kit";
 import { ThymiaPanel, useThymia } from "@agora/agent-ui-kit";
 import type { RTMEventSource } from "@agora/agent-ui-kit";
 import { RTMHelper } from "@agora/conversational-ai/helper/rtm";
@@ -21,6 +21,26 @@ const DEFAULT_BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8082";
 const DEFAULT_PROFILE = process.env.NEXT_PUBLIC_DEFAULT_PROFILE || "VIDEO";
 const THYMIA_ENABLED = process.env.NEXT_PUBLIC_ENABLE_THYMIA === "true";
+
+const SENSITIVE_KEYS = [
+  "api_key", "key", "token", "adc_credentials_string",
+  "subscriber_token", "rtm_token", "ticket", "anam_api_key",
+];
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function redactSensitiveFields(obj: any): any {
+  if (typeof obj !== "object" || obj === null) return obj;
+  if (Array.isArray(obj)) return obj.map(redactSensitiveFields);
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (SENSITIVE_KEYS.includes(k) && typeof v === "string" && v.length > 6) {
+      out[k] = v.slice(0, 6) + "***";
+    } else {
+      out[k] = redactSensitiveFields(v);
+    }
+  }
+  return out;
+}
 
 export function VideoAvatarClient() {
   const [backendUrl, setBackendUrl] = useState(DEFAULT_BACKEND_URL);
@@ -33,12 +53,13 @@ export function VideoAvatarClient() {
   const [enableAivad, setEnableAivad] = useState(true);
   const [language, setLanguage] = useState("en-US");
   const [profile, setProfile] = useState("");
-  const [prompt, setPrompt] = useState(
-    "You are a virtual companion. The user can both talk and type to you and you will be sent text. Say you can hear them if asked. They can also see you as a digital human. Keep responses to around 10 to 20 words or shorter. Be upbeat and try and keep conversation going by learning more about the user.",
-  );
-  const [greeting, setGreeting] = useState("hi there");
+  const [prompt, setPrompt] = useState("");
+  const [greeting, setGreeting] = useState("");
   const [activeTab, setActiveTab] = useState("video");
   const _conversationRef = useRef<HTMLDivElement>(null);
+  const [autoConnect, setAutoConnect] = useState(false);
+  const [sessionAgentId, setSessionAgentId] = useState<string | null>(null);
+  const [sessionPayload, setSessionPayload] = useState<object | null>(null);
 
   // Read URL parameters on mount
   useEffect(() => {
@@ -47,6 +68,9 @@ export function VideoAvatarClient() {
       const urlProfile = params.get("profile");
       if (urlProfile) {
         setProfile(urlProfile);
+      }
+      if (params.get("autoconnect") === "true") {
+        setAutoConnect(true);
       }
     }
   }, []);
@@ -144,22 +168,22 @@ export function VideoAvatarClient() {
         params.append("greeting", greeting.trim());
       }
 
-      const url = params.toString()
-        ? `${backendUrl}/start-agent?${params.toString()}`
-        : `${backendUrl}/start-agent`;
+      // Phase 1: Get tokens only (don't start agent yet)
+      params.append("connect", "false");
+      const tokenUrl = `${backendUrl}/start-agent?${params.toString()}`;
+      const tokenResponse = await fetch(tokenUrl);
 
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error(`Backend error: ${response.statusText}`);
+      if (!tokenResponse.ok) {
+        throw new Error(`Backend error: ${tokenResponse.statusText}`);
       }
 
-      const data = await response.json();
+      const data = await tokenResponse.json();
 
       if (data.agent?.uid) {
         setAgentUID(data.agent.uid);
       }
 
+      // Phase 2: Join channel first so RTM is ready for greeting
       await joinChannel({
         appId: data.appid,
         channel: data.channel,
@@ -183,6 +207,39 @@ export function VideoAvatarClient() {
         setLocalVideoTrack(rtcHelper.localVideoTrack);
         setIsLocalVideoActive(true);
       }
+
+      // Phase 3: Now start the agent (client is listening for greeting)
+      params.delete("connect");
+      params.append("channel", data.channel);
+      params.append("debug", "true");
+      const agentUrl = `${backendUrl}/start-agent?${params.toString()}`;
+      const agentResponse = await fetch(agentUrl);
+
+      if (!agentResponse.ok) {
+        throw new Error(`Agent start error: ${agentResponse.statusText}`);
+      }
+
+      const agentData = await agentResponse.json();
+
+      // Store agent_id from the actual agent response
+      if (agentData.agent_response?.response) {
+        try {
+          const resp = typeof agentData.agent_response.response === "string"
+            ? JSON.parse(agentData.agent_response.response)
+            : agentData.agent_response.response;
+          if (resp.agent_id) {
+            setAgentUID(resp.agent_id);
+            setSessionAgentId(resp.agent_id);
+          }
+        } catch {
+          // ignore parse errors
+        }
+      }
+
+      // Store redacted payload for session panel
+      if (agentData.debug?.agent_payload) {
+        setSessionPayload(redactSensitiveFields(agentData.debug.agent_payload));
+      }
     } catch (error) {
       console.error("Failed to start:", error);
       alert(
@@ -193,9 +250,19 @@ export function VideoAvatarClient() {
     }
   };
 
+  // Auto-connect after state is committed
+  useEffect(() => {
+    if (autoConnect) {
+      setAutoConnect(false);
+      handleStart();
+    }
+  }, [autoConnect]);
+
   const handleStop = async () => {
     // RTCHelper.leave() will cleanup video track automatically
     await leaveChannel();
+    setSessionAgentId(null);
+    setSessionPayload(null);
   };
 
   const handleSendMessage = async () => {
@@ -261,6 +328,9 @@ export function VideoAvatarClient() {
         {!isConnected ? (
           /* Connection Form - Centered */
           <div className="flex flex-1 items-center justify-center">
+            {(autoConnect || isLoading) ? (
+              <p className="text-lg text-muted-foreground animate-pulse">Connecting...</p>
+            ) : (
             <div className="w-full max-w-md rounded-lg border bg-card p-6 shadow-lg">
               <h2 className="mb-4 text-lg font-semibold">Connect to Agent</h2>
               <div className="space-y-4">
@@ -334,6 +404,7 @@ export function VideoAvatarClient() {
                 </button>
               </div>
             </div>
+            )}
           </div>
         ) : (
           /* Responsive Layout: Desktop (VideoGrid) / Mobile (Tabs) */
@@ -735,7 +806,11 @@ export function VideoAvatarClient() {
         greeting={greeting}
         onGreetingChange={setGreeting}
         disabled={isConnected}
-      />
+      >
+        {isConnected && (
+          <SessionPanel agentId={sessionAgentId} payload={sessionPayload} />
+        )}
+      </SettingsDialog>
     </div>
   );
 }
