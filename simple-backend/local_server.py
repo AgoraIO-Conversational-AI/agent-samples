@@ -80,8 +80,8 @@ def start_agent():
         user_token_data = build_token_with_rtm(channel, constants["USER_UID"], constants)
         agent_video_token_data = build_token_with_rtm(channel, constants["AGENT_VIDEO_UID"], constants)
     else:
-        user_token_data = {"token": "", "uid": constants["USER_UID"]}
-        agent_video_token_data = {"token": "", "uid": constants["AGENT_VIDEO_UID"]}
+        user_token_data = {"token": constants["APP_ID"], "uid": constants["USER_UID"]}
+        agent_video_token_data = {"token": constants["APP_ID"], "uid": constants["AGENT_VIDEO_UID"]}
 
     # Token-only mode response
     if token_only_mode:
