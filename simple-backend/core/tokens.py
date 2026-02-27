@@ -147,14 +147,15 @@ class AccessToken:
         return get_version() + base64.b64encode(zlib.compress(pack_string(signature) + signing_info)).decode('utf-8')
 
 
-def build_token_with_rtm(channel_name, account, constants):
+def build_token_with_rtm(channel_name, account, constants, rtm_uid=None):
     """
     Builds a token with both RTC and RTM privileges using v007 token system.
 
     Args:
         channel_name: The channel name
-        account: The user's account/UID
+        account: The user's account/UID (used for RTC service)
         constants: Dictionary of constants
+        rtm_uid: Optional separate UID for RTM service (defaults to account)
 
     Returns:
         Dictionary containing token and uid
@@ -165,7 +166,7 @@ def build_token_with_rtm(channel_name, account, constants):
 
     token = AccessToken(constants["APP_ID"], constants["APP_CERTIFICATE"])
 
-    # RTC Service
+    # RTC Service — uses account (e.g. "100" for agent, "101" for user)
     rtc_service = ServiceRtc(channel_name, account)
     rtc_service.add_privilege(ServiceRtc.kPrivilegeJoinChannel, constants["PRIVILEGE_EXPIRE"])
     rtc_service.add_privilege(ServiceRtc.kPrivilegePublishAudioStream, constants["PRIVILEGE_EXPIRE"])
@@ -173,8 +174,8 @@ def build_token_with_rtm(channel_name, account, constants):
     rtc_service.add_privilege(ServiceRtc.kPrivilegePublishDataStream, constants["PRIVILEGE_EXPIRE"])
     token.add_service(rtc_service)
 
-    # RTM Service
-    rtm_service = ServiceRtm(account)
+    # RTM Service — uses rtm_uid if provided (e.g. "100-channel" for agent)
+    rtm_service = ServiceRtm(rtm_uid if rtm_uid else account)
     rtm_service.add_privilege(ServiceRtm.kPrivilegeLogin, constants["TOKEN_EXPIRE"])
     token.add_service(rtm_service)
 
