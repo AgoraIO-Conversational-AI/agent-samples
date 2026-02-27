@@ -377,21 +377,20 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
             "style": llm_style
         }
 
-        # RTC params — always sent so any LLM server can spawn audio subscribers
-        llm_config["params"]["channel"] = channel
-        llm_config["params"]["app_id"] = constants["APP_ID"]
-        llm_config["params"]["user_uid"] = constants["USER_UID"]
-        llm_config["params"]["agent_uid"] = constants["AGENT_UID"]
-        # Token generator returns APP_ID when no certificate, real token otherwise
-        sub_token_info = build_token_with_rtm(channel, "5000", constants)
-        llm_config["params"]["subscriber_token"] = sub_token_info["token"]
-        rtm_token_info = build_token_with_rtm(channel, "5001", constants)
-        llm_config["params"]["rtm_token"] = rtm_token_info["token"]
-        llm_config["params"]["rtm_uid"] = "5001"
-
         # Optional: vendor field (e.g., "custom" adds turn_id + timestamp to requests)
         if llm_vendor:
             llm_config["vendor"] = llm_vendor
+            # RTC params for custom LLM servers (audio subscribers, etc.)
+            if llm_vendor == "custom":
+                llm_config["params"]["channel"] = channel
+                llm_config["params"]["app_id"] = constants["APP_ID"]
+                llm_config["params"]["user_uid"] = constants["USER_UID"]
+                llm_config["params"]["agent_uid"] = constants["AGENT_UID"]
+                sub_token_info = build_token_with_rtm(channel, "5000", constants)
+                llm_config["params"]["subscriber_token"] = sub_token_info["token"]
+                rtm_token_info = build_token_with_rtm(channel, "5001", constants)
+                llm_config["params"]["rtm_token"] = rtm_token_info["token"]
+                llm_config["params"]["rtm_uid"] = "5001"
 
         # Optional: greeting behavior configuration
         if greeting_mode:
