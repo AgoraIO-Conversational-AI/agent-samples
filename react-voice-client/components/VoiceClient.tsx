@@ -18,6 +18,7 @@ import { RTMHelper } from "@agora/conversational-ai/helper/rtm";
 
 const DEFAULT_BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8082";
+const DEFAULT_PROFILE = process.env.NEXT_PUBLIC_DEFAULT_PROFILE || "VOICE";
 const THYMIA_ENABLED = process.env.NEXT_PUBLIC_ENABLE_THYMIA === "true";
 
 export function VoiceClient() {
@@ -99,7 +100,7 @@ export function VoiceClient() {
       if (profile.trim()) {
         params.append("profile", profile.trim());
       } else {
-        params.append("profile", "VOICE");
+        params.append("profile", DEFAULT_PROFILE);
       }
 
       // Add prompt and greeting if provided
@@ -264,11 +265,11 @@ export function VoiceClient() {
                     type="text"
                     value={profile}
                     onChange={(e) => setProfile(e.target.value)}
-                    placeholder="VOICE"
+                    placeholder={DEFAULT_PROFILE}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Leave empty for default &ldquo;VOICE&rdquo; profile
+                    Leave empty for default &ldquo;{DEFAULT_PROFILE}&rdquo; profile
                   </p>
                 </div>
 

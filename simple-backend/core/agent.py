@@ -17,7 +17,7 @@ def build_auth_header(constants):
     Otherwise generates a v007 token using APP_ID + APP_CERTIFICATE
     and returns 'agora token=<token>' format.
     """
-    auth_header = constants.get("AGENT_AUTH_HEADER", "").strip()
+    auth_header = (constants.get("AGENT_AUTH_HEADER") or "").strip()
     if auth_header:
         return auth_header
 
