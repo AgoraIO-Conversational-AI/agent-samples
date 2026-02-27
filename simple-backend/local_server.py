@@ -180,7 +180,7 @@ def start_agent():
         response_data["debug"] = {
             "agent_payload": agent_payload,
             "channel": channel,
-            "api_url": f"{constants['AGENT_API_BASE_URL']}/{constants['APP_ID']}/join",
+            "api_url": f"{constants.get('AGENT_ENDPOINT', 'https://api.agora.io/api/conversational-ai-agent/v2/projects')}/{constants['APP_ID']}/join",
             "token_generation_method": "v007 tokens with RTC+RTM services" if has_certificate else "APP_ID only (no APP_CERTIFICATE)",
             "has_app_certificate": has_certificate
         }

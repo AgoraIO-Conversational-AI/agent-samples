@@ -10,7 +10,7 @@ import { Conversation, ConversationContent } from "@agora/agent-ui-kit";
 import { Message, MessageContent } from "@agora/agent-ui-kit";
 import { Response } from "@agora/agent-ui-kit";
 import { AgoraLogo } from "@agora/agent-ui-kit";
-import { SettingsDialog } from "@agora/agent-ui-kit";
+import { SettingsDialog, SessionPanel } from "@agora/agent-ui-kit";
 import { cn } from "@/lib/utils";
 import { MobileTabs, ThymiaPanel, useThymia } from "@agora/agent-ui-kit";
 import type { RTMEventSource } from "@agora/agent-ui-kit";
@@ -20,6 +20,26 @@ const DEFAULT_BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8082";
 const DEFAULT_PROFILE = process.env.NEXT_PUBLIC_DEFAULT_PROFILE || "VOICE";
 const THYMIA_ENABLED = process.env.NEXT_PUBLIC_ENABLE_THYMIA === "true";
+
+const SENSITIVE_KEYS = [
+  "api_key", "key", "token", "adc_credentials_string",
+  "subscriber_token", "rtm_token", "ticket", "anam_api_key",
+];
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function redactSensitiveFields(obj: any): any {
+  if (typeof obj !== "object" || obj === null) return obj;
+  if (Array.isArray(obj)) return obj.map(redactSensitiveFields);
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (SENSITIVE_KEYS.includes(k) && typeof v === "string" && v.length > 6) {
+      out[k] = v.slice(0, 6) + "***";
+    } else {
+      out[k] = redactSensitiveFields(v);
+    }
+  }
+  return out;
+}
 
 export function VoiceClient() {
   const [backendUrl, setBackendUrl] = useState(DEFAULT_BACKEND_URL);
@@ -34,6 +54,8 @@ export function VoiceClient() {
   const [profile, setProfile] = useState("");
   const [prompt, setPrompt] = useState("");
   const [greeting, setGreeting] = useState("");
+  const [sessionAgentId, setSessionAgentId] = useState<string | null>(null);
+  const [sessionPayload, setSessionPayload] = useState<object | null>(null);
   const conversationRef = useRef<HTMLDivElement>(null);
 
   // Read URL parameters on mount
@@ -111,39 +133,63 @@ export function VoiceClient() {
         params.append("greeting", greeting.trim());
       }
 
-      // Backend will auto-generate random channel if not provided
-      const response = await fetch(`${backendUrl}/start-agent?${params}`);
+      // Phase 1: Get tokens only (don't start agent yet)
+      params.append("connect", "false");
+      const tokenUrl = `${backendUrl}/start-agent?${params.toString()}`;
+      const tokenResponse = await fetch(tokenUrl);
 
-      if (!response.ok) {
-        throw new Error(`Backend error: ${response.statusText}`);
+      if (!tokenResponse.ok) {
+        throw new Error(`Backend error: ${tokenResponse.statusText}`);
       }
 
-      const data = await response.json();
+      const data = await tokenResponse.json();
 
       if (data.agent?.uid) {
         setAgentUID(data.agent.uid);
       }
 
-      // Store agent_id and channel for hangup
       setChannelName(data.channel);
-      try {
-        const respBody =
-          typeof data.agent_response?.response === "string"
-            ? JSON.parse(data.agent_response.response)
-            : data.agent_response?.response;
-        if (respBody?.agent_id) {
-          setAgentId(respBody.agent_id);
-        }
-      } catch (e) {
-        // agent_response may not have agent_id
-      }
 
+      // Phase 2: Join channel first so RTM is ready for greeting
       await joinChannel({
         appId: data.appid,
         channel: data.channel,
         token: data.token || null,
         uid: parseInt(data.uid),
       });
+
+      // Phase 3: Now start the agent (client is listening for greeting)
+      params.delete("connect");
+      params.append("channel", data.channel);
+      params.append("debug", "true");
+      const agentUrl = `${backendUrl}/start-agent?${params.toString()}`;
+      const agentResponse = await fetch(agentUrl);
+
+      if (!agentResponse.ok) {
+        throw new Error(`Agent start error: ${agentResponse.statusText}`);
+      }
+
+      const agentData = await agentResponse.json();
+
+      // Store agent_id from the actual agent response
+      if (agentData.agent_response?.response) {
+        try {
+          const resp = typeof agentData.agent_response.response === "string"
+            ? JSON.parse(agentData.agent_response.response)
+            : agentData.agent_response.response;
+          if (resp.agent_id) {
+            setAgentId(resp.agent_id);
+            setSessionAgentId(resp.agent_id);
+          }
+        } catch {
+          // ignore parse errors
+        }
+      }
+
+      // Store redacted payload for session panel
+      if (agentData.debug?.agent_payload) {
+        setSessionPayload(redactSensitiveFields(agentData.debug.agent_payload));
+      }
     } catch (error) {
       console.error("Failed to start:", error);
       alert(
@@ -168,6 +214,8 @@ export function VoiceClient() {
     }
     setAgentId(undefined);
     setChannelName(undefined);
+    setSessionAgentId(null);
+    setSessionPayload(null);
     await leaveChannel();
   };
 
@@ -507,7 +555,11 @@ export function VoiceClient() {
         greeting={greeting}
         onGreetingChange={setGreeting}
         disabled={isConnected}
-      />
+      >
+        {isConnected && (
+          <SessionPanel agentId={sessionAgentId} payload={sessionPayload} />
+        )}
+      </SettingsDialog>
     </div>
   );
 }
