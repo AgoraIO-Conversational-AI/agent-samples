@@ -1,20 +1,21 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
-import { Mic, MicOff, Settings } from "lucide-react";
+import { Mic, MicOff, Settings, Phone, PhoneOff, Send } from "lucide-react";
 import { useAgoraVoiceClient } from "@/hooks/useAgoraVoiceClient";
 import { useAudioVisualization } from "@/hooks/useAudioVisualization";
-import { MicButton } from "@agora/agent-ui-kit";
+import { IconButton } from "@agora/agent-ui-kit";
 import { AgentVisualizer, AgentVisualizerState } from "@agora/agent-ui-kit";
 import { Conversation, ConversationContent } from "@agora/agent-ui-kit";
 import { Message, MessageContent } from "@agora/agent-ui-kit";
 import { Response } from "@agora/agent-ui-kit";
 import { AgoraLogo } from "@agora/agent-ui-kit";
-import { SettingsDialog, SessionPanel } from "@agora/agent-ui-kit";
+import { SettingsDialog } from "@agora/agent-ui-kit";
 import { cn } from "@/lib/utils";
 import { MobileTabs, ThymiaPanel, useThymia } from "@agora/agent-ui-kit";
 import type { RTMEventSource } from "@agora/agent-ui-kit";
 import { RTMHelper } from "@agora/conversational-ai/helper/rtm";
+import { ThemeToggle } from "./ThemeToggle";
 
 const DEFAULT_BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8082";
@@ -251,20 +252,21 @@ export function VoiceClient() {
   };
 
   return (
-    <div className="flex h-screen flex-col bg-gradient-to-b from-background to-muted overflow-hidden">
-      {/* Header - Responsive */}
-      <header className="border-b bg-card/50 backdrop-blur-sm flex-shrink-0">
-        <div className="container mx-auto px-4 py-3 md:py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-lg md:text-2xl font-bold flex items-center gap-2">
-                <AgoraLogo size={24} />
-                Voice AI Client
-              </h1>
-              <p className="text-xs md:text-sm text-muted-foreground hidden md:block">
-                React with Agora AI UIKit
-              </p>
-            </div>
+    <div className="flex h-screen flex-col bg-background overflow-hidden">
+      {/* Header */}
+      <header className="flex-shrink-0 px-4 py-3 md:py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg md:text-xl font-bold flex items-center gap-2">
+              <AgoraLogo size={28} />
+              Agora Convo AI Voice Agent
+            </h1>
+            <p className="text-xs md:text-sm text-muted-foreground ml-10">
+              React with Agora AI UIKit
+            </p>
+          </div>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
             <button
               onClick={() => setIsSettingsOpen(!isSettingsOpen)}
               className="rounded-full p-2 hover:bg-accent transition-colors"
@@ -277,9 +279,9 @@ export function VoiceClient() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto flex flex-1 px-4 py-6 min-h-0 overflow-hidden">
+      <main className="flex flex-1 px-4 py-6 min-h-0 overflow-hidden min-w-0">
         {!isConnected ? (
-          /* Connection Form - Centered */
+          /* Connection Form - Centered (same as original) */
           <div className="flex flex-1 items-center justify-center">
             <div className="w-full max-w-md rounded-lg border bg-card p-6 shadow-lg">
               <h2 className="mb-4 text-lg font-semibold">Connect to Agent</h2>
@@ -332,9 +334,9 @@ export function VoiceClient() {
             </div>
           </div>
         ) : (
-          /* Responsive Layout: Mobile (column) / Desktop (two-column) */
+          /* Connected: two-panel layout */
           <div className="flex flex-1 flex-col gap-4 min-h-0 overflow-hidden md:flex-row md:gap-6">
-            {/* Mobile: Compact Agent Status Bar (shown on top) */}
+            {/* Mobile: Compact Agent Status Bar */}
             <div className="flex items-center justify-center rounded-lg border bg-card p-3 shadow-lg md:hidden">
               <div className="flex items-center gap-3">
                 <div
@@ -351,36 +353,32 @@ export function VoiceClient() {
               </div>
             </div>
 
-            {/* Desktop: Left Column (visualizer, controls, status) */}
+            {/* Desktop: Left Column (visualizer + controls) */}
             <div className="hidden md:flex md:w-96 flex-col gap-6 self-stretch">
               {/* Agent Visualizer */}
               <div className="rounded-lg border bg-card p-6 shadow-lg flex-shrink">
                 <AgentVisualizer state={getAgentState()} size="sm" />
                 <p className="mt-2 text-xs text-center text-muted-foreground">
-                  State: {getAgentState()}
+                  {isAgentSpeaking ? "Agent Speaking" : "Agent Listening"}
                 </p>
               </div>
 
               {/* Controls */}
               <div className="rounded-lg border bg-card p-6 shadow-lg">
-                <div className="flex gap-3">
-                  <MicButton
-                    state={micState}
-                    icon={
-                      isMuted ? (
-                        <MicOff className="h-4 w-4" />
-                      ) : (
-                        <Mic className="h-4 w-4" />
-                      )
-                    }
-                    audioData={frequencyData}
+                <div className="flex gap-3 justify-center">
+                  <IconButton
+                    shape="round"
+                    variant={isMuted ? "outlined" : "filled"}
+                    size="md"
                     onClick={toggleMute}
-                    className="flex-1"
-                  />
+                  >
+                    {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                  </IconButton>
                   <button
                     onClick={handleStop}
-                    className="flex-1 rounded-lg border border-destructive bg-destructive/10 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/20"
+                    className="flex items-center gap-2 rounded-full bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
                   >
+                    <PhoneOff className="h-4 w-4" />
                     End Call
                   </button>
                 </div>
@@ -485,9 +483,9 @@ export function VoiceClient() {
                             <button
                               onClick={handleSendMessage}
                               disabled={!isConnected || !chatMessage.trim()}
-                              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                              className="rounded-md bg-primary p-2 text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                             >
-                              Send
+                              <Send className="h-4 w-4" />
                             </button>
                           </div>
                         </div>
@@ -517,24 +515,20 @@ export function VoiceClient() {
             </div>
 
             {/* Mobile: Fixed Bottom Controls */}
-            <div className="flex md:hidden gap-3 p-4 border-t bg-card">
-              <MicButton
-                state={micState}
-                icon={
-                  isMuted ? (
-                    <MicOff className="h-4 w-4" />
-                  ) : (
-                    <Mic className="h-4 w-4" />
-                  )
-                }
-                audioData={frequencyData}
+            <div className="flex md:hidden gap-3 p-4 border-t bg-card justify-center">
+              <IconButton
+                shape="round"
+                variant={isMuted ? "outlined" : "filled"}
+                size="md"
                 onClick={toggleMute}
-                className="flex-1 min-h-[48px]"
-              />
+              >
+                {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+              </IconButton>
               <button
                 onClick={handleStop}
-                className="flex-1 rounded-lg border border-destructive bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive hover:bg-destructive/20 min-h-[48px]"
+                className="flex items-center gap-2 rounded-full bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/20 min-h-[48px]"
               >
+                <PhoneOff className="h-4 w-4" />
                 End Call
               </button>
             </div>
@@ -555,11 +549,7 @@ export function VoiceClient() {
         greeting={greeting}
         onGreetingChange={setGreeting}
         disabled={isConnected}
-      >
-        {isConnected && (
-          <SessionPanel agentId={sessionAgentId} payload={sessionPayload} />
-        )}
-      </SettingsDialog>
+      />
     </div>
   );
 }

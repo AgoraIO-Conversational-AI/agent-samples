@@ -1,21 +1,22 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
-import { Mic, MicOff, Video, VideoOff, Settings } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, Settings, Phone, PhoneOff, Send } from "lucide-react";
 import { useAgoraVideoClient } from "@/hooks/useAgoraVideoClient";
 import { useAudioVisualization } from "@/hooks/useAudioVisualization";
-import { MicButton } from "@agora/agent-ui-kit";
+import { IconButton } from "@agora/agent-ui-kit";
 import { Conversation, ConversationContent } from "@agora/agent-ui-kit";
 import { Message, MessageContent } from "@agora/agent-ui-kit";
 import { Response } from "@agora/agent-ui-kit";
 import { AvatarVideoDisplay, LocalVideoPreview } from "@agora/agent-ui-kit";
 import { VideoGrid, MobileTabs } from "@agora/agent-ui-kit";
 import { AgoraLogo } from "@agora/agent-ui-kit";
-import { SettingsDialog, SessionPanel } from "@agora/agent-ui-kit";
+import { SettingsDialog } from "@agora/agent-ui-kit";
 import { ThymiaPanel, useThymia } from "@agora/agent-ui-kit";
 import type { RTMEventSource } from "@agora/agent-ui-kit";
 import { RTMHelper } from "@agora/conversational-ai/helper/rtm";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "./ThemeToggle";
 
 const DEFAULT_BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8082";
@@ -298,20 +299,21 @@ export function VideoAvatarClient() {
   };
 
   return (
-    <div className="flex h-screen flex-col bg-gradient-to-b from-background to-muted overflow-hidden">
-      {/* Header - Responsive */}
-      <header className="border-b bg-card/50 backdrop-blur-sm flex-shrink-0">
-        <div className="container mx-auto px-4 py-3 md:py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-lg md:text-2xl font-bold flex items-center gap-2">
-                <AgoraLogo size={24} />
-                Video Avatar AI Client
-              </h1>
-              <p className="text-xs md:text-sm text-muted-foreground hidden md:block">
-                React with Agora AI UIKit - Video + Avatar
-              </p>
-            </div>
+    <div className="flex h-screen flex-col bg-background overflow-hidden">
+      {/* Header */}
+      <header className="flex-shrink-0 px-4 py-3 md:py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg md:text-xl font-bold flex items-center gap-2">
+              <AgoraLogo size={28} />
+              Agora Convo AI Video Agent
+            </h1>
+            <p className="text-xs md:text-sm text-muted-foreground ml-10">
+              React with Agora AI UIKit - Video + Avatar
+            </p>
+          </div>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
             <button
               onClick={() => setIsSettingsOpen(!isSettingsOpen)}
               className="rounded-full p-2 hover:bg-accent transition-colors"
@@ -324,9 +326,9 @@ export function VideoAvatarClient() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto flex flex-1 px-4 py-1 md:py-6 min-h-0 overflow-hidden">
+      <main className="flex flex-1 px-4 py-1 md:py-6 min-h-0 overflow-hidden min-w-0">
         {!isConnected ? (
-          /* Connection Form - Centered */
+          /* Connection Form - Centered (same as original) */
           <div className="flex flex-1 items-center justify-center">
             {(autoConnect || isLoading) ? (
               <p className="text-lg text-muted-foreground animate-pulse">Connecting...</p>
@@ -407,11 +409,12 @@ export function VideoAvatarClient() {
             )}
           </div>
         ) : (
-          /* Responsive Layout: Desktop (VideoGrid) / Mobile (Tabs) */
+          /* Connected: Responsive Layout */
           <>
             {/* Desktop Layout - Hidden on mobile */}
             <VideoGrid
-              className="hidden md:grid flex-1"
+              className="hidden md:grid flex-1 min-w-0"
+              style={{ gridTemplateColumns: "2fr 3fr", gridTemplateRows: "1fr 1fr", gap: "1rem" }}
               chat={
                 <div className="flex flex-col h-full">
                   {/* Conversation Header */}
@@ -482,9 +485,9 @@ export function VideoAvatarClient() {
                       <button
                         onClick={handleSendMessage}
                         disabled={!isConnected || !chatMessage.trim()}
-                        className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                        className="rounded-md bg-primary p-2 text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                       >
-                        Send
+                        <Send className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
@@ -543,40 +546,28 @@ export function VideoAvatarClient() {
 
                   {/* Controls below avatar */}
                   <div className="border-t p-4 flex-shrink-0">
-                    <div className="flex gap-3">
-                      <MicButton
-                        state={micState}
-                        icon={
-                          isMuted ? (
-                            <MicOff className="h-4 w-4" />
-                          ) : (
-                            <Mic className="h-4 w-4" />
-                          )
-                        }
-                        audioData={frequencyData}
+                    <div className="flex gap-3 justify-center">
+                      <IconButton
+                        shape="round"
+                        variant={isMuted ? "outlined" : "filled"}
+                        size="md"
                         onClick={toggleMute}
-                        className="flex-1"
-                      />
-                      <button
-                        onClick={toggleVideo}
-                        className={cn(
-                          "flex-1 rounded-lg border px-4 py-2 text-sm font-medium transition-colors",
-                          isLocalVideoActive
-                            ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
-                            : "border-input bg-background hover:bg-accent hover:text-accent-foreground",
-                        )}
                       >
-                        {isLocalVideoActive ? (
-                          <Video className="h-4 w-4 inline mr-2" />
-                        ) : (
-                          <VideoOff className="h-4 w-4 inline mr-2" />
-                        )}
-                        Camera
-                      </button>
+                        {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                      </IconButton>
+                      <IconButton
+                        shape="round"
+                        variant={isLocalVideoActive ? "filled" : "outlined"}
+                        size="md"
+                        onClick={toggleVideo}
+                      >
+                        {isLocalVideoActive ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+                      </IconButton>
                       <button
                         onClick={handleStop}
-                        className="flex-1 rounded-lg border border-destructive bg-destructive/10 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/20"
+                        className="flex items-center gap-2 rounded-full bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
                       >
+                        <PhoneOff className="h-4 w-4" />
                         End Call
                       </button>
                     </div>
@@ -719,9 +710,9 @@ export function VideoAvatarClient() {
                               <button
                                 onClick={handleSendMessage}
                                 disabled={!isConnected || !chatMessage.trim()}
-                                className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                                className="rounded-md bg-primary p-1.5 text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                               >
-                                Send
+                                <Send className="h-4 w-4" />
                               </button>
                             </div>
                           </div>
@@ -751,40 +742,28 @@ export function VideoAvatarClient() {
               />
 
               {/* Mobile: Fixed Bottom Controls */}
-              <div className="flex gap-2 p-2 border-t bg-card flex-shrink-0">
-                <MicButton
-                  state={micState}
-                  icon={
-                    isMuted ? (
-                      <MicOff className="h-4 w-4" />
-                    ) : (
-                      <Mic className="h-4 w-4" />
-                    )
-                  }
-                  audioData={frequencyData}
+              <div className="flex gap-3 p-2 border-t bg-card flex-shrink-0 justify-center">
+                <IconButton
+                  shape="round"
+                  variant={isMuted ? "outlined" : "filled"}
+                  size="md"
                   onClick={toggleMute}
-                  className="flex-1 min-h-[44px]"
-                />
-                <button
-                  onClick={toggleVideo}
-                  className={cn(
-                    "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors min-h-[44px]",
-                    isLocalVideoActive
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-input bg-background",
-                  )}
                 >
-                  {isLocalVideoActive ? (
-                    <Video className="h-4 w-4 inline mr-2" />
-                  ) : (
-                    <VideoOff className="h-4 w-4 inline mr-2" />
-                  )}
-                  Camera
-                </button>
+                  {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                </IconButton>
+                <IconButton
+                  shape="round"
+                  variant={isLocalVideoActive ? "filled" : "outlined"}
+                  size="md"
+                  onClick={toggleVideo}
+                >
+                  {isLocalVideoActive ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+                </IconButton>
                 <button
                   onClick={handleStop}
-                  className="flex-1 rounded-lg border border-destructive bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/20 min-h-[44px]"
+                  className="flex items-center gap-2 rounded-full bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 min-h-[44px]"
                 >
+                  <PhoneOff className="h-4 w-4" />
                   End Call
                 </button>
               </div>
@@ -806,11 +785,7 @@ export function VideoAvatarClient() {
         greeting={greeting}
         onGreetingChange={setGreeting}
         disabled={isConnected}
-      >
-        {isConnected && (
-          <SessionPanel agentId={sessionAgentId} payload={sessionPayload} />
-        )}
-      </SettingsDialog>
+      />
     </div>
   );
 }
