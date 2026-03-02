@@ -251,6 +251,12 @@ export function VoiceClient() {
     return uid === 0;
   };
 
+  const formatTime = (ts?: number) => {
+    if (!ts) return "";
+    const d = new Date(ts);
+    return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+  };
+
   return (
     <div className="flex h-screen flex-col bg-background overflow-hidden">
       {/* Header */}
@@ -407,7 +413,7 @@ export function VoiceClient() {
             {/* Right Column - Conversation + optional Thymia tab */}
             <div
               ref={conversationRef}
-              className="flex flex-1 flex-col rounded-lg border bg-card shadow-lg min-h-0 overflow-hidden"
+              className="flex flex-1 flex-col min-h-0 overflow-hidden"
             >
               <MobileTabs
                 tabs={[
@@ -429,18 +435,20 @@ export function VoiceClient() {
                         <Conversation
                           height=""
                           className="flex-1 min-h-0"
-                          style={{ overflow: "scroll" }}
+                          style={{ overflow: "auto" }}
                         >
-                          <ConversationContent>
+                          <ConversationContent className="gap-3">
                             {messageList.map((msg, idx) => {
                               const isAgent = isAgentMessage(msg.uid);
+                              const label = isAgent ? "Agent" : "You";
+                              const time = formatTime(msg.timestamp);
                               return (
                                 <Message
                                   key={`${msg.turn_id}-${msg.uid}-${idx}`}
                                   from={isAgent ? "assistant" : "user"}
-                                  name={isAgent ? "Agent" : "User"}
+                                  name={time ? `${label}  ${time}` : label}
                                 >
-                                  <MessageContent>
+                                  <MessageContent className={isAgent ? "px-3 py-2" : "px-3 py-2 bg-foreground text-background"}>
                                     <Response>{msg.text}</Response>
                                   </MessageContent>
                                 </Message>
@@ -453,12 +461,14 @@ export function VoiceClient() {
                                 const isAgent = isAgentMessage(
                                   currentInProgressMessage.uid,
                                 );
+                                const label = isAgent ? "Agent" : "You";
+                                const time = formatTime(currentInProgressMessage.timestamp);
                                 return (
                                   <Message
                                     from={isAgent ? "assistant" : "user"}
-                                    name={isAgent ? "Agent" : "User"}
+                                    name={time ? `${label}  ${time}` : label}
                                   >
-                                    <MessageContent className="animate-pulse">
+                                    <MessageContent className={`animate-pulse px-3 py-2 ${isAgent ? "" : "bg-foreground text-background"}`}>
                                       <Response>
                                         {currentInProgressMessage.text}
                                       </Response>
