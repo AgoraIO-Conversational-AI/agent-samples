@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
-import { Mic, MicOff, Settings, Phone, PhoneOff, Send } from "lucide-react";
+import { Mic, MicOff, Settings, Phone, PhoneOff, SendHorizontal } from "lucide-react";
 import { useAgoraVoiceClient } from "@/hooks/useAgoraVoiceClient";
 import { useAudioVisualization } from "@/hooks/useAudioVisualization";
 import { IconButton } from "@agora/agent-ui-kit";
@@ -367,16 +367,17 @@ export function VoiceClient() {
               <div className="rounded-lg border bg-card p-6 shadow-lg">
                 <div className="flex gap-3 justify-center">
                   <IconButton
-                    shape="round"
-                    variant={isMuted ? "outlined" : "filled"}
+                    shape="square"
+                    variant={isMuted ? "standard" : "filled"}
                     size="md"
                     onClick={toggleMute}
+                    className={isMuted ? "rounded-lg bg-muted text-destructive hover:bg-muted/80" : "rounded-lg"}
                   >
-                    {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                    {isMuted ? <MicOff className="size-4" /> : <Mic className="size-4" />}
                   </IconButton>
                   <button
                     onClick={handleStop}
-                    className="flex items-center gap-2 rounded-full bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
+                    className="flex items-center gap-2 rounded-lg bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
                   >
                     <PhoneOff className="h-4 w-4" />
                     End Call
@@ -476,16 +477,16 @@ export function VoiceClient() {
                               value={chatMessage}
                               onChange={(e) => setChatMessage(e.target.value)}
                               onKeyPress={handleKeyPress}
-                              placeholder="Type a message..."
+                              placeholder="Type a message"
                               disabled={!isConnected}
                               className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
                             />
                             <button
                               onClick={handleSendMessage}
                               disabled={!isConnected || !chatMessage.trim()}
-                              className="rounded-md bg-primary p-2 text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                              className="h-10 w-10 flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                             >
-                              <Send className="h-4 w-4" />
+                              <SendHorizontal className="h-4 w-4" />
                             </button>
                           </div>
                         </div>
@@ -517,16 +518,17 @@ export function VoiceClient() {
             {/* Mobile: Fixed Bottom Controls */}
             <div className="flex md:hidden gap-3 p-4 border-t bg-card justify-center">
               <IconButton
-                shape="round"
-                variant={isMuted ? "outlined" : "filled"}
+                shape="square"
+                variant={isMuted ? "standard" : "filled"}
                 size="md"
                 onClick={toggleMute}
+                className={isMuted ? "rounded-lg bg-muted text-destructive hover:bg-muted/80" : "rounded-lg"}
               >
-                {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                {isMuted ? <MicOff className="size-4" /> : <Mic className="size-4" />}
               </IconButton>
               <button
                 onClick={handleStop}
-                className="flex items-center gap-2 rounded-full bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/20 min-h-[48px]"
+                className="flex items-center gap-2 rounded-lg bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 min-h-[48px]"
               >
                 <PhoneOff className="h-4 w-4" />
                 End Call
