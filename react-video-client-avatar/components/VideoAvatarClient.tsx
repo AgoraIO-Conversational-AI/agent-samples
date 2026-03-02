@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
-import { Mic, MicOff, Video, VideoOff, Settings, Phone, PhoneOff, Send } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, Settings, Phone, PhoneOff, SendHorizontal } from "lucide-react";
 import { useAgoraVideoClient } from "@/hooks/useAgoraVideoClient";
 import { useAudioVisualization } from "@/hooks/useAudioVisualization";
 import { IconButton } from "@agora/agent-ui-kit";
@@ -478,16 +478,16 @@ export function VideoAvatarClient() {
                         value={chatMessage}
                         onChange={(e) => setChatMessage(e.target.value)}
                         onKeyPress={handleKeyPress}
-                        placeholder="Type a message..."
+                        placeholder="Type a message"
                         disabled={!isConnected}
                         className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
                       />
                       <button
                         onClick={handleSendMessage}
                         disabled={!isConnected || !chatMessage.trim()}
-                        className="rounded-md bg-primary p-2 text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                        className="h-10 w-10 flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                       >
-                        <Send className="h-4 w-4" />
+                        <SendHorizontal className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
@@ -548,24 +548,26 @@ export function VideoAvatarClient() {
                   <div className="border-t p-4 flex-shrink-0">
                     <div className="flex gap-3 justify-center">
                       <IconButton
-                        shape="round"
-                        variant={isMuted ? "outlined" : "filled"}
+                        shape="square"
+                        variant={isMuted ? "standard" : "filled"}
                         size="md"
                         onClick={toggleMute}
+                        className={isMuted ? "rounded-lg bg-muted text-destructive hover:bg-muted/80" : "rounded-lg"}
                       >
-                        {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                        {isMuted ? <MicOff className="size-4" /> : <Mic className="size-4" />}
                       </IconButton>
                       <IconButton
-                        shape="round"
-                        variant={isLocalVideoActive ? "filled" : "outlined"}
+                        shape="square"
+                        variant={isLocalVideoActive ? "filled" : "standard"}
                         size="md"
                         onClick={toggleVideo}
+                        className={!isLocalVideoActive ? "rounded-lg bg-muted text-destructive hover:bg-muted/80" : "rounded-lg"}
                       >
-                        {isLocalVideoActive ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+                        {isLocalVideoActive ? <Video className="size-4" /> : <VideoOff className="size-4" />}
                       </IconButton>
                       <button
                         onClick={handleStop}
-                        className="flex items-center gap-2 rounded-full bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
+                        className="flex items-center gap-2 rounded-lg bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
                       >
                         <PhoneOff className="h-4 w-4" />
                         End Call
@@ -703,16 +705,16 @@ export function VideoAvatarClient() {
                                 value={chatMessage}
                                 onChange={(e) => setChatMessage(e.target.value)}
                                 onKeyPress={handleKeyPress}
-                                placeholder="Type a message..."
+                                placeholder="Type a message"
                                 disabled={!isConnected}
                                 className="flex-1 rounded-md border border-input bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
                               />
                               <button
                                 onClick={handleSendMessage}
                                 disabled={!isConnected || !chatMessage.trim()}
-                                className="rounded-md bg-primary p-1.5 text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                                className="h-10 w-10 flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                               >
-                                <Send className="h-4 w-4" />
+                                <SendHorizontal className="h-4 w-4" />
                               </button>
                             </div>
                           </div>
@@ -744,24 +746,26 @@ export function VideoAvatarClient() {
               {/* Mobile: Fixed Bottom Controls */}
               <div className="flex gap-3 p-2 border-t bg-card flex-shrink-0 justify-center">
                 <IconButton
-                  shape="round"
-                  variant={isMuted ? "outlined" : "filled"}
+                  shape="square"
+                  variant={isMuted ? "standard" : "filled"}
                   size="md"
                   onClick={toggleMute}
+                  className={isMuted ? "rounded-lg bg-muted text-destructive hover:bg-muted/80" : "rounded-lg"}
                 >
-                  {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                  {isMuted ? <MicOff className="size-4" /> : <Mic className="size-4" />}
                 </IconButton>
                 <IconButton
-                  shape="round"
-                  variant={isLocalVideoActive ? "filled" : "outlined"}
+                  shape="square"
+                  variant={isLocalVideoActive ? "filled" : "standard"}
                   size="md"
                   onClick={toggleVideo}
+                  className={!isLocalVideoActive ? "rounded-lg bg-muted text-destructive hover:bg-muted/80" : "rounded-lg"}
                 >
-                  {isLocalVideoActive ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+                  {isLocalVideoActive ? <Video className="size-4" /> : <VideoOff className="size-4" />}
                 </IconButton>
                 <button
                   onClick={handleStop}
-                  className="flex items-center gap-2 rounded-full bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 min-h-[44px]"
+                  className="flex items-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 min-h-[44px]"
                 >
                   <PhoneOff className="h-4 w-4" />
                   End Call
