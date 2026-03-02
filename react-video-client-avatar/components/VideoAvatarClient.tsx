@@ -11,7 +11,7 @@ import { Response } from "@agora/agent-ui-kit";
 import { AvatarVideoDisplay, LocalVideoPreview } from "@agora/agent-ui-kit";
 import { VideoGrid, MobileTabs } from "@agora/agent-ui-kit";
 import { AgoraLogo } from "@agora/agent-ui-kit";
-import { SettingsDialog } from "@agora/agent-ui-kit";
+import { SettingsDialog, SessionPanel } from "@agora/agent-ui-kit";
 import { ThymiaPanel, useThymia } from "@agora/agent-ui-kit";
 import type { RTMEventSource } from "@agora/agent-ui-kit";
 import { RTMHelper } from "@agora/conversational-ai/helper/rtm";
@@ -46,6 +46,7 @@ function redactSensitiveFields(obj: any): any {
 export function VideoAvatarClient() {
   const [backendUrl, setBackendUrl] = useState(DEFAULT_BACKEND_URL);
   const [agentUID, setAgentUID] = useState<string | undefined>(undefined);
+  const [agentId, setAgentId] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
   const [enableLocalVideo, setEnableLocalVideo] = useState(true);
@@ -229,7 +230,7 @@ export function VideoAvatarClient() {
             ? JSON.parse(agentData.agent_response.response)
             : agentData.agent_response.response;
           if (resp.agent_id) {
-            setAgentUID(resp.agent_id);
+            setAgentId(resp.agent_id);
             setSessionAgentId(resp.agent_id);
           }
         } catch {
@@ -408,7 +409,7 @@ export function VideoAvatarClient() {
                   disabled={isLoading}
                   className="w-full rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                 >
-                  {isLoading ? "Connecting..." : "Start Conversation"}
+                  {isLoading ? "Connecting..." : "Start Call"}
                 </button>
               </div>
             </div>
@@ -803,7 +804,11 @@ export function VideoAvatarClient() {
         greeting={greeting}
         onGreetingChange={setGreeting}
         disabled={isConnected}
-      />
+      >
+        {isConnected && (
+          <SessionPanel agentId={sessionAgentId} payload={sessionPayload} />
+        )}
+      </SettingsDialog>
     </div>
   );
 }

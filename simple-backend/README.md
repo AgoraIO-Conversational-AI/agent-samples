@@ -35,10 +35,10 @@ The backend uses **profiles** to manage client configurations via environment va
 **Voice Client** uses the `voice` profile (`VOICE_*` prefixed variables):
 
 ```bash
-# Agora credentials
+# Agora credentials (required)
 VOICE_APP_ID=
 VOICE_APP_CERTIFICATE=
-VOICE_AGENT_AUTH_HEADER=
+# VOICE_AGENT_AUTH_HEADER=  # Not needed when APP_CERTIFICATE is set
 
 # MLLM settings — choose one vendor:
 
@@ -76,10 +76,10 @@ VOICE_ENABLE_CURL_DUMP=true
 **Video Client** uses the `video` profile (`VIDEO_*` prefixed variables):
 
 ```bash
-# Agora credentials
+# Agora credentials (required)
 VIDEO_APP_ID=
 VIDEO_APP_CERTIFICATE=
-VIDEO_AGENT_AUTH_HEADER=
+# VIDEO_AGENT_AUTH_HEADER=  # Not needed when APP_CERTIFICATE is set
 
 # LLM settings (direct OpenAI)
 VIDEO_ENABLE_MLLM=false

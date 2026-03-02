@@ -10,7 +10,7 @@ import { Conversation, ConversationContent } from "@agora/agent-ui-kit";
 import { Message, MessageContent } from "@agora/agent-ui-kit";
 import { Response } from "@agora/agent-ui-kit";
 import { AgoraLogo } from "@agora/agent-ui-kit";
-import { SettingsDialog } from "@agora/agent-ui-kit";
+import { SettingsDialog, SessionPanel } from "@agora/agent-ui-kit";
 import { cn } from "@/lib/utils";
 import { MobileTabs, ThymiaPanel, useThymia } from "@agora/agent-ui-kit";
 import type { RTMEventSource } from "@agora/agent-ui-kit";
@@ -334,7 +334,7 @@ export function VoiceClient() {
                   disabled={isLoading}
                   className="w-full rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                 >
-                  {isLoading ? "Connecting..." : "Start Conversation"}
+                  {isLoading ? "Connecting..." : "Start Call"}
                 </button>
               </div>
             </div>
@@ -561,7 +561,11 @@ export function VoiceClient() {
         greeting={greeting}
         onGreetingChange={setGreeting}
         disabled={isConnected}
-      />
+      >
+        {isConnected && (
+          <SessionPanel agentId={sessionAgentId} payload={sessionPayload} />
+        )}
+      </SettingsDialog>
     </div>
   );
 }
