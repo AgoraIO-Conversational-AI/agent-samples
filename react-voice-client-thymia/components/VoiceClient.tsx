@@ -56,6 +56,7 @@ export function VoiceClient() {
   const [greeting, setGreeting] = useState("");
   const [sessionAgentId, setSessionAgentId] = useState<string | null>(null);
   const [sessionPayload, setSessionPayload] = useState<object | null>(null);
+  const [autoConnect, setAutoConnect] = useState(false);
   const conversationRef = useRef<HTMLDivElement>(null);
 
   // Read URL parameters on mount
@@ -65,6 +66,9 @@ export function VoiceClient() {
       const urlProfile = params.get("profile");
       if (urlProfile) {
         setProfile(urlProfile);
+      }
+      if (params.get("autoconnect") === "true") {
+        setAutoConnect(true);
       }
     }
   }, []);
@@ -200,6 +204,14 @@ export function VoiceClient() {
     }
   };
 
+  // Auto-connect after state is committed
+  useEffect(() => {
+    if (autoConnect) {
+      setAutoConnect(false);
+      handleStart();
+    }
+  }, [autoConnect]);
+
   const handleStop = async () => {
     // Call hangup-agent on backend to clean up server-side resources
     if (agentId) {
@@ -281,6 +293,9 @@ export function VoiceClient() {
         {!isConnected ? (
           /* Connection Form - Centered */
           <div className="flex flex-1 items-center justify-center">
+            {(autoConnect || isLoading) && !isConnected ? (
+              <p className="text-lg text-muted-foreground animate-pulse">Connecting...</p>
+            ) : (
             <div className="w-full max-w-md rounded-lg border bg-card p-6 shadow-lg">
               <h2 className="mb-4 text-lg font-semibold">Connect to Agent</h2>
               <div className="space-y-4">
@@ -330,6 +345,7 @@ export function VoiceClient() {
                 </button>
               </div>
             </div>
+            )}
           </div>
         ) : (
           /* Responsive Layout: Mobile (column) / Desktop (two-column) */
@@ -355,7 +371,7 @@ export function VoiceClient() {
             <div className="hidden md:flex md:w-96 flex-col gap-6 self-stretch">
               {/* Agent Visualizer */}
               <div className="rounded-lg border bg-card p-6 shadow-lg flex-shrink">
-                <AgentVisualizer state={getAgentState()} size="sm" />
+                <AgentVisualizer state={getAgentState()} size="sm" lottieBasePath={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/agora-uikit/lottie`} />
                 <p className="mt-2 text-xs text-center text-muted-foreground">
                   State: {getAgentState()}
                 </p>
