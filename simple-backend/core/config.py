@@ -116,7 +116,7 @@ def initialize_constants(profile=None):
         "DEEPGRAM_LANGUAGE": get_env_var('DEEPGRAM_LANGUAGE', profile, "en"),
 
         # VAD settings
-        "VAD_SILENCE_DURATION_MS": get_env_var('VAD_SILENCE_DURATION_MS', profile, "300"),
+        "VAD_SILENCE_DURATION_MS": get_env_var('VAD_SILENCE_DURATION_MS', profile, ""),
         "ENABLE_AIVAD": get_env_var('ENABLE_AIVAD', profile, "true"),
 
         # Agent settings

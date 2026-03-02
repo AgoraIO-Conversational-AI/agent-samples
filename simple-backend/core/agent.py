@@ -332,7 +332,8 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
 
     # Get other settings
     idle_timeout = int(query_params.get('idle_timeout', constants["IDLE_TIMEOUT"]))
-    vad_silence_duration = int(query_params.get('vad_silence_duration_ms', constants["VAD_SILENCE_DURATION_MS"]))
+    vad_silence_duration_raw = constants.get("VAD_SILENCE_DURATION_MS", "").strip()
+    vad_silence_duration = int(vad_silence_duration_raw) if vad_silence_duration_raw else None
     enable_aivad = query_params.get('enable_aivad', constants["ENABLE_AIVAD"]).lower() == "true"
 
     # MLLM mode: Build mllm config, skip TTS/LLM
@@ -474,10 +475,11 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
     else:
         properties["llm"] = llm_config
 
-    # Add VAD configuration
-    properties["vad"] = {
-        "silence_duration_ms": vad_silence_duration
-    }
+    # Add VAD configuration only if explicitly set in profile .env
+    if vad_silence_duration is not None:
+        properties["vad"] = {
+            "silence_duration_ms": vad_silence_duration
+        }
 
     # Add ASR configuration
     properties["asr"] = asr_config
