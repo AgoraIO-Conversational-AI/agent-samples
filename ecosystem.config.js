@@ -37,7 +37,7 @@ module.exports = {
     },
     {
       name: "react-voice-client-thymia",
-      cwd: "/home/ubuntu/agent-samples/react-voice-client-thymia",
+      cwd: "/home/ubuntu/agent-samples/react-voice-client",
       script: "node_modules/.bin/next",
       args: "start -p 8085",
       env: {
@@ -53,7 +53,7 @@ module.exports = {
     },
     {
       name: "react-video-client-avatar-thymia",
-      cwd: "/home/ubuntu/agent-samples/react-video-client-avatar-thymia",
+      cwd: "/home/ubuntu/agent-samples/react-video-client-avatar",
       script: "node_modules/.bin/next",
       args: "start -p 8086",
       env: {
