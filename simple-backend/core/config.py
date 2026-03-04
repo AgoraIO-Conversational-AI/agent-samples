@@ -124,7 +124,7 @@ def initialize_constants(profile=None):
         "MAX_HISTORY": get_env_var('MAX_HISTORY', profile, "32"),
 
         # SAL (Selective Attention Locking) — beta, off by default
-        "ENABLE_SAL": get_env_var('ENABLE_SAL', profile, "true"),
+        "ENABLE_SAL": get_env_var('ENABLE_SAL', profile, "false"),
 
         # Audio scenario
         "ENABLE_AUDIO_CHORUS": get_env_var('ENABLE_AUDIO_CHORUS', profile, "false"),
