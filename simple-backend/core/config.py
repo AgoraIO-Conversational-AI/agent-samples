@@ -123,6 +123,12 @@ def initialize_constants(profile=None):
         "IDLE_TIMEOUT": get_env_var('IDLE_TIMEOUT', profile, "120"),
         "MAX_HISTORY": get_env_var('MAX_HISTORY', profile, "32"),
 
+        # SAL (Selective Attention Locking) — beta, off by default
+        "ENABLE_SAL": get_env_var('ENABLE_SAL', profile, "true"),
+
+        # Audio scenario
+        "ENABLE_AUDIO_CHORUS": get_env_var('ENABLE_AUDIO_CHORUS', profile, "false"),
+
         # Debug settings
         "ENABLE_CURL_DUMP": get_env_var('ENABLE_CURL_DUMP', profile, "false"),
 

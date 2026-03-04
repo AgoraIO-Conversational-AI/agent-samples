@@ -445,12 +445,12 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
     remote_rtc_uids = [constants["USER_UID"]] if avatar_vendor else ["*"]
 
     # Build advanced_features
+    enable_sal = query_params.get('enable_sal', constants.get("ENABLE_SAL", "false")).lower() == "true"
     advanced_features = {
-        "enable_bhvs": True,
         "enable_rtm": True,
-        "enable_aivad": enable_aivad,
-        "enable_sal": constants.get("ENABLE_SAL", "true").lower() != "false"
     }
+    if enable_sal:
+        advanced_features["enable_sal"] = True
     if enable_mllm:
         advanced_features["enable_mllm"] = True
         advanced_features["enable_tools"] = False
@@ -475,12 +475,6 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
     else:
         properties["llm"] = llm_config
 
-    # Add VAD configuration only if explicitly set in profile .env
-    if vad_silence_duration is not None:
-        properties["vad"] = {
-            "silence_duration_ms": vad_silence_duration
-        }
-
     # Add ASR configuration
     properties["asr"] = asr_config
 
@@ -488,21 +482,48 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
     if not enable_mllm:
         properties["tts"] = tts_config
 
-    # Add turn_detection for MLLM mode
-    if enable_mllm:
-        properties["turn_detection"] = {
-            "type": query_params.get('turn_detection_type') or constants.get("TURN_DETECTION_TYPE") or "server_vad"
+    # Build turn_detection config
+    # Use semantic end-of-speech when AIVAD was enabled (replaces deprecated enable_aivad)
+    end_of_speech_mode = "semantic" if enable_aivad else "vad"
+    turn_detection_config = {
+        "end_of_speech": {
+            "mode": end_of_speech_mode
+        }
+    }
+    # Add VAD silence_duration_ms only if explicitly set in profile .env
+    if vad_silence_duration is not None:
+        turn_detection_config["end_of_speech"]["vad_config"] = {
+            "silence_duration_ms": vad_silence_duration
         }
 
-    # Add transcript parameters for TTS+LLM mode
+    if enable_mllm:
+        properties["turn_detection"] = {
+            "mode": query_params.get('turn_detection_type') or constants.get("TURN_DETECTION_TYPE") or "server_vad",
+            "config": turn_detection_config
+        }
+    else:
+        properties["turn_detection"] = {
+            "config": turn_detection_config
+        }
+
+    # Build parameters
+    enable_audio_chorus = constants.get("ENABLE_AUDIO_CHORUS", "false").lower() == "true"
     if not enable_mllm:
-        properties["parameters"] = {
+        parameters = {
             "transcript": {
                 "enable": True,
                 "protocol_version": "v2",
                 "enable_words": False
-            }
+            },
+            "enable_dump": True,
         }
+    else:
+        parameters = {
+            "enable_dump": True,
+        }
+    if enable_audio_chorus:
+        parameters["audio_scenario"] = "chorus"
+    properties["parameters"] = parameters
 
     # Add avatar configuration if vendor is set
     if avatar_vendor:
@@ -557,7 +578,6 @@ def send_agent_to_channel(channel, agent_payload, constants):
     print(f"Sending agent to Agora ConvoAI:")
     print(f"URL: {agent_api_url}")
     print(f"🔧 enable_rtm: {agent_payload['properties']['advanced_features']['enable_rtm']}")
-    print(f"🔧 enable_bhvs: {agent_payload['properties']['advanced_features']['enable_bhvs']}")
 
     # Optional curl dump (disabled by default to avoid exposing API keys)
     enable_curl_dump = constants.get("ENABLE_CURL_DUMP", "false").lower() == "true"
