@@ -207,7 +207,7 @@ The backend builds the Agora ConvoAI agent payload in `core/agent.py`. Key secti
 | Feature | Default | Description |
 |---------|---------|-------------|
 | `enable_rtm` | `true` | Always enabled. Required for RTM messaging between client and agent. |
-| `enable_sal` | `true` | Selective Attention Locking (beta). Blocks ~95% of ambient voices so the agent focuses on the primary speaker. Set `ENABLE_SAL=false` to disable. |
+| `enable_sal` | `false` | Selective Attention Locking (beta). Blocks ~95% of ambient voices so the agent focuses on the primary speaker. Set `ENABLE_SAL=true` to enable. |
 | `enable_mllm` | `false` | Enables multimodal LLM mode (Gemini Live or OpenAI Realtime). Set `ENABLE_MLLM=true` to enable. |
 | `enable_tools` | conditional | Automatically enabled when MCP servers are configured. |
 
