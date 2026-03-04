@@ -63,7 +63,7 @@ VOICE_MLLM_TRANSCRIBE_USER=true
 
 # ASR and AIVAD
 VOICE_ASR_VENDOR=ares
-VOICE_ENABLE_AIVAD=false
+VOICE_ENABLE_AIVAD=true
 
 # Prompts
 VOICE_DEFAULT_GREETING=Hey There Sir
@@ -197,6 +197,62 @@ zip -r lambda.zip lambda_handler.py core/
 **3. Set environment variables** (same as `.env` format above)
 
 **4. Configure API Gateway trigger**
+
+## Agent Payload Behavior
+
+The backend builds the Agora ConvoAI agent payload in `core/agent.py`. Key sections:
+
+### Advanced Features
+
+| Feature | Default | Description |
+|---------|---------|-------------|
+| `enable_rtm` | `true` | Always enabled. Required for RTM messaging between client and agent. |
+| `enable_sal` | `true` | Selective Attention Locking (beta). Blocks ~95% of ambient voices so the agent focuses on the primary speaker. Set `ENABLE_SAL=false` to disable. |
+| `enable_mllm` | `false` | Enables multimodal LLM mode (Gemini Live or OpenAI Realtime). Set `ENABLE_MLLM=true` to enable. |
+| `enable_tools` | conditional | Automatically enabled when MCP servers are configured. |
+
+### Turn Detection
+
+Turn detection controls how the agent detects when the user has finished speaking.
+
+```json
+"turn_detection": {
+  "config": {
+    "end_of_speech": {
+      "mode": "semantic"
+    }
+  }
+}
+```
+
+| Setting | Env Var | Default | Description |
+|---------|---------|---------|-------------|
+| End-of-speech mode | `ENABLE_AIVAD` | `true` → `"semantic"` | `"semantic"` uses AI-based end-of-speech detection. Set `ENABLE_AIVAD=false` for basic `"vad"` mode. |
+| Silence duration | `VAD_SILENCE_DURATION_MS` | *(omitted)* | Only included when explicitly set in `.env`. Controls ms of silence before end-of-speech triggers. Omit to use server defaults. |
+
+In MLLM mode, `turn_detection` also includes a top-level `mode` field (defaults to `"server_vad"`, configurable via `TURN_DETECTION_TYPE`).
+
+### Parameters
+
+```json
+"parameters": {
+  "transcript": { "enable": true, "protocol_version": "v2", "enable_words": false },
+  "enable_dump": true
+}
+```
+
+| Setting | Env Var | Default | Description |
+|---------|---------|---------|-------------|
+| `transcript` | — | enabled (non-MLLM only) | Enables transcript protocol v2 for real-time captions. Only included in standard TTS+LLM mode. |
+| `enable_dump` | — | `true` | Always enabled. Enables server-side request logging. |
+| `audio_scenario` | `ENABLE_AUDIO_CHORUS` | *(omitted)* | Set `ENABLE_AUDIO_CHORUS=true` to add `"audio_scenario": "chorus"` for multi-speaker scenarios. |
+
+### Authentication
+
+The backend supports two authentication methods for the Agora ConvoAI API:
+
+1. **v007 token (recommended):** Set `APP_ID` and `APP_CERTIFICATE`. The backend auto-generates a v007 token and sends `Authorization: agora token=<token>`.
+2. **REST API key:** Set `AGENT_AUTH_HEADER` to `Basic <base64(customer_id:customer_secret)>` from the [Agora Console](https://console.agora.io) REST API key page. Only needed when `APP_CERTIFICATE` is not available.
 
 ## Advanced Configuration
 
