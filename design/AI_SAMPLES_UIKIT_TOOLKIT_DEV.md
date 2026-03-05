@@ -351,62 +351,17 @@ server-mcp-memory/       # MCP memory server (SQLite + FTS5)
 
 ## Architecture Notes
 
-### RTCHelper (Singleton Pattern)
+For the full design rationale (singleton pattern, dual transport, PTS synchronization, framework-agnostic core), see [`AI_SAMPLES_DESIGN.md`](./AI_SAMPLES_DESIGN.md).
 
-**Audio Methods**:
+### RTCHelper Quick Reference
 
-- `createAudioTrack()` - Create microphone track
-- `setMuted(boolean)` - Mute/unmute audio
-- `getMuted()` - Get mute state
+| Category | Methods |
+|----------|---------|
+| **Audio** | `createAudioTrack()`, `setMuted(bool)`, `getMuted()` |
+| **Video** | `createVideoTrack()`, `setVideoEnabled(bool)`, `getVideoEnabled()` |
+| **Lifecycle** | `init(config)`, `join()`, `leave()`, `destroy()` |
 
-**Video Methods**:
-
-- `createVideoTrack()` - Create camera track
-- `setVideoEnabled(boolean)` - Enable/disable camera
-- `getVideoEnabled()` - Get camera state
-
-**Lifecycle**:
-
-- `init(config)` - Initialize with app ID, channel, token, UID
-- `join()` - Join RTC channel
-- `leave()` - Leave channel and cleanup all tracks
-- `destroy()` - Destroy instance
-
-**Subscription Filters** (optional):
-
-```typescript
-await rtcHelper.init({
-  appId: "...",
-  channel: "...",
-  token: "...",
-  uid: 12345,
-  shouldSubscribeAudio: (uid) => uid !== 999, // Skip audio from uid 999
-  shouldSubscribeVideo: (uid) => uid === 100, // Only video from uid 100
-});
-```
-
-### Video Track Lifecycle Best Practices
-
-```typescript
-// Create once
-await rtcHelper.createVideoTrack({ encoderConfig: "720p_2" });
-await rtcHelper.client.publish(rtcHelper.localVideoTrack);
-
-// Toggle (reuse same track)
-await rtcHelper.setVideoEnabled(false); // Camera off
-await rtcHelper.setVideoEnabled(true); // Camera on
-
-// Cleanup (automatic)
-await rtcHelper.leave(); // Stops and closes all tracks
-```
-
-**Common Pitfalls**:
-
-- ❌ Don't recreate track on toggle - use `setVideoEnabled()`
-- ❌ Don't use `key` prop on video components - causes remounting
-- ❌ Don't manually cleanup tracks - RTCHelper handles it
-- ✅ Pass `null` to video component when disabled
-- ✅ Check `track._isClosed` before using track references
+**Video track best practices**: Create once, toggle with `setVideoEnabled()`, let `leave()` handle cleanup. Don't recreate tracks on toggle, don't use `key` prop on video components (causes remounting).
 
 ---
 
@@ -576,4 +531,11 @@ done
 
 ---
 
-**Last Updated**: 2026-02-23
+## Related Documents
+
+- [`AI_SAMPLES_DESIGN.md`](./AI_SAMPLES_DESIGN.md) — Architecture rationale for the three-package model
+- [`VIBE_CODING_DESIGN.md`](./VIBE_CODING_DESIGN.md) — Why vibe-coding repos flatten this architecture for AI platforms
+
+---
+
+**Last Updated**: 2026-03-05

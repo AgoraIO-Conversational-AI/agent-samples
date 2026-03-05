@@ -1,47 +1,35 @@
 # Vibe Coding — Design Decisions
 
-This document explains why the vibe-coding repos are structured the way they are, how they relate to the [agent-samples](https://github.com/AgoraIO-Conversational-AI/agent-samples) three-package architecture, and why each project makes different trade-offs for the same Agora Conversational AI platform.
+This document explains why the vibe-coding repos flatten the agent-samples three-package architecture into self-contained single repos, and why that trade-off makes sense for AI coding platforms.
 
-For the agent-samples design rationale, see [`AI_SAMPLES_DESIGN.md`](https://github.com/AgoraIO-Conversational-AI/agent-samples/blob/main/design/AI_SAMPLES_DESIGN.md) and [`AI_SAMPLES_UIKIT_TOOLKIT_DEV.md`](https://github.com/AgoraIO-Conversational-AI/agent-samples/blob/main/design/AI_SAMPLES_UIKIT_TOOLKIT_DEV.md).
+For the agent-samples design rationale, see [`AI_SAMPLES_DESIGN.md`](./AI_SAMPLES_DESIGN.md) and [`AI_SAMPLES_UIKIT_TOOLKIT_DEV.md`](./AI_SAMPLES_UIKIT_TOOLKIT_DEV.md).
 
 ---
 
-## Two Projects, Two Audiences
+## Three Projects, Three Audiences
 
-| | agent-samples | vibe-coding |
-|---|---|---|
-| **Who builds with it** | Developers (clone, install, code) | AI coding platforms (v0, Lovable) via a single prompt |
-| **Who modifies it** | The developer, in an IDE | The AI platform, in response to natural language |
-| **How it's installed** | `npm install --legacy-peer-deps` | Platform imports the GitHub URL and generates a project |
-| **How it's customized** | Fork the repo, edit code | Tell the platform "make the mic button bigger" |
+| | agent-samples | vibe-coding (v0, Lovable) | agent-samples + Claude Code |
+|---|---|---|---|
+| **Who builds with it** | Developers (clone, install, code) | AI coding platforms via a single prompt | AI coding agent with full local access |
+| **Who modifies it** | The developer, in an IDE | The AI platform, in response to natural language | Claude Code, with full codebase visibility |
+| **How it's installed** | `npm install --legacy-peer-deps` | Platform imports the GitHub URL and generates a project | `npm install --legacy-peer-deps` (same as developer) |
+| **How it's customized** | Fork the repo, edit code | Tell the platform "make the mic button bigger" | Describe changes in natural language, Claude Code edits source directly |
 
-This single difference — **human developer vs AI platform as the builder** — drives every design decision below.
+The vibe-coding repos exist because **v0 and Lovable have platform constraints** (no GitHub package installs, no node_modules visibility, sandboxed builds) that agent-samples' three-package model doesn't accommodate. Claude Code has none of these constraints — it works directly with the agent-samples codebase, can read into node_modules, and can install any package. This makes Claude Code the most capable AI coding approach for agent-samples.
 
 ---
 
 ## The agent-samples Three-Package Model
 
-Agent-samples uses a deliberate three-layer architecture (documented in [`AI_SAMPLES_DESIGN.md`](https://github.com/AgoraIO-Conversational-AI/agent-samples/blob/main/design/AI_SAMPLES_DESIGN.md)):
+Agent-samples uses a three-layer architecture: toolkit (SDK), ui-kit (components), and samples (applications). The design philosophy is **domain components from ui-kit, generic UI from shadcn/Tailwind** — see [`AI_SAMPLES_DESIGN.md`](./AI_SAMPLES_DESIGN.md) for full details.
 
-```
-agent-toolkit (@agora/conversational-ai)    — SDK layer
-agent-ui-kit  (@agora/agent-ui-kit)         — Component layer
-agent-samples                               — Application layer
-```
-
-This gives developers four adoption paths:
-1. **Use everything** — clone agent-samples, working app in minutes
-2. **SDK + own UI** — install the toolkit, build custom components
-3. **Components + own logic** — install the ui-kit, wire up your own SDK calls
-4. **Both packages** — combine SDK helpers with pre-built UI
-
-The design philosophy is: **domain components from ui-kit, generic UI from shadcn/Tailwind**. Even agent-samples doesn't use ui-kit for buttons, inputs, or layout — it reserves ui-kit for voice AI domain components (AgentVisualizer, Conversation/Message, SettingsDialog/SessionPanel, AvatarVideoDisplay/VideoGrid) and handles everything else locally with Tailwind classes and lucide-react icons.
+The key point for vibe-coding: even agent-samples doesn't use ui-kit for buttons, inputs, or layout — it reserves ui-kit for voice AI domain components and handles everything else locally with Tailwind and lucide-react.
 
 ---
 
 ## Why Vibe-Coding Flattens Everything
 
-Vibe-coding takes the agent-samples "shadcn for generic UI" principle to its logical conclusion: **when the AI platform is the developer, even domain-specific components should be generated locally**. Here's why.
+Vibe-coding takes the agent-samples "shadcn for generic UI" principle further: **when the AI platform is the developer, even domain-specific components should be generated locally**. These constraints are specific to v0 and Lovable — Claude Code working with agent-samples directly does not have them.
 
 ### 1. Package hosting: GitHub refs don't work on AI platforms
 
@@ -82,7 +70,7 @@ Every npm dependency is a potential build failure on constrained platform sandbo
 
 ## Why Inline Token Generation (v007)
 
-Agent-samples has its own inline v007 token builder in Python (`core/tokens.py`). Vibe-coding also generates v007 tokens inline, but in JavaScript using Web-standard APIs instead of Node.js APIs. The primary reason for the Web API approach is **Deno compatibility**.
+Agent-samples uses an inline v007 token builder in Python (`core/tokens.py`, stdlib only — no pip-installable v007 package exists). Vibe-coding also generates v007 tokens inline, but in JavaScript using Web-standard APIs instead of Node.js APIs. The primary reason for the Web API approach is **Deno compatibility**.
 
 ### The Deno constraint
 
@@ -135,22 +123,18 @@ The v0 variant (Next.js API routes on Node.js) could technically use the `agora-
 
 ## The shadcn Connection
 
-There's a direct line between agent-samples' design philosophy and vibe-coding's:
-
 ```
 agent-samples:  "shadcn for generic UI, ui-kit for domain components"
                  ↓ extend the principle
 vibe-coding:    "shadcn for everything — the AI platform is the developer"
 ```
 
-Agent-samples already chose not to use ui-kit for buttons, inputs, layout, icons, or utilities — it uses shadcn conventions and Tailwind locally (documented in AI_SAMPLES_DESIGN.md: "the samples use a shadcn/v0-style CSS variable system for theming and Tailwind utilities for all generic layout and controls"). The ui-kit is reserved for voice AI domain logic that's hard to get right: transcript rendering with turn semantics, PTS-synced agent visualization, session debugging panels.
-
-Vibe-coding drops the domain components too, because:
-1. The packages aren't on npm (so they can't be installed)
-2. The AI platform can't see into them (so it can't debug them)
+Vibe-coding drops even the domain components because:
+1. The packages aren't on npm (so v0/Lovable can't install them)
+2. The AI platform can't see into node_modules (so it can't debug them)
 3. The AI platform can generate them (so they're not saving effort)
 
-If the toolkit and ui-kit were published to npm, reason #1 would go away. But #2 and #3 would remain — AI coding platforms fundamentally work better with source code they own than with abstractions they import.
+If the packages were published to npm, #1 would go away. But #2 and #3 would remain for v0/Lovable. Note that Claude Code has none of these constraints — it can install GitHub packages, read into node_modules, and understand the abstractions.
 
 ---
 
@@ -186,7 +170,7 @@ If the toolkit and ui-kit were published to npm, reason #1 would go away. But #2
 | **SDK wrapper** | `@agora/conversational-ai` (RTCHelper, RTMHelper, SubRenderController) | Raw `agora-rtc-sdk-ng` + `agora-rtm` in a custom hook |
 | **UI: generic** | shadcn/Tailwind locally (same as vibe-coding) | shadcn/Tailwind locally |
 | **UI: domain** | `@agora/agent-ui-kit` (AgentVisualizer, Conversation, etc.) | Built from scratch by the AI platform |
-| **Token generation** | Python backend uses Agora token lib | Inline v007 builder (Web APIs, Deno-compatible) |
+| **Token generation** | Inline Python v007 builder (stdlib only) | Inline JS v007 builder (Web APIs, Deno-compatible) |
 | **Backend** | Python Flask (`simple-backend/`) | Next.js API routes (v0) / Supabase Edge Functions (Lovable) |
 | **Runtime** | Node.js only | Node.js (v0) + Deno (Lovable) |
 | **Installation** | `npm install --legacy-peer-deps` | Platform imports via URL prompt |
@@ -219,8 +203,6 @@ If the toolkit and ui-kit were published to npm, reason #1 would go away. But #2
 | `AgoraLogo` | Custom `AgoraLogo.tsx` (Lovable) / `public/agora.svg` (v0) |
 | `AudioVisualizer` / `LiveWaveform` | Custom waveform in hook + component |
 
-Note: agent-samples itself doesn't use ui-kit's `Button`, `Card`, `Popover`, `MicButton`, `MicSelector`, `CameraSelector`, `MessageEngine`, or `cn()` — it handles these locally with shadcn/Tailwind. Vibe-coding extends this to the domain components too.
-
 ---
 
 ## What Would Change If Packages Were on npm
@@ -234,7 +216,7 @@ If `@agora/conversational-ai` and `@agora/agent-ui-kit` were published to the np
 | **AI generates UI better from source** | **Remains** — platforms work better with code they own |
 | **Deno token gen** | **Unrelated** — token gen is server-side, toolkit is client-side |
 
-Publishing to npm would make it *possible* to use the toolkit on AI platforms, but the black-box and AI-modifiability arguments still favor inline code for this use case. The three-package model is designed for developers who understand APIs and read documentation; AI platforms work best with flat, visible source code they can trace end-to-end.
+Publishing to npm would make it *possible* to use the toolkit on v0/Lovable, but the black-box and AI-modifiability arguments still favor inline code for those platforms. Claude Code is the exception — it can use the three-package model directly since it has full filesystem access and can read package internals.
 
 ---
 
@@ -283,3 +265,19 @@ Key payload choices:
 - **`enable_rtm: true`** — Enables RTM text messaging between user and agent
 - **`remote_rtc_uids: ["*"]`** — Wildcard subscribes to all users. Agent-samples uses `["<user_uid>"]` only when an avatar vendor is configured (avatar requires explicit UID targeting).
 - **`agent_rtm_uid: "100-<channel>"`** — RTM UID format for agent. Clients target RTC UID `"100"` for messages, not this value.
+
+---
+
+## Future Improvements
+
+**Consolidate with AI_SAMPLES_DESIGN.md** — This document and `AI_SAMPLES_DESIGN.md` both describe the three-package model and shadcn philosophy from different perspectives. If the vibe-coding repos stabilize, these could merge into a single design doc with an "AI Platform Constraints" section.
+
+**Claude Code as primary AI workflow** — With Claude Code, developers get the benefits of AI-assisted coding (natural language modifications, automated debugging) without the platform constraints that drove the vibe-coding design. Agent-samples + Claude Code may reduce the need for separate vibe-coding repos over time.
+
+**npm publishing** — If the toolkit and ui-kit are published to npm, constraint #1 (can't install on AI platforms) disappears. The vibe-coding repos would still be justified by constraints #2 and #3, but the gap narrows.
+
+**Shared token builder** — Both repos inline v007 token generation independently (Python stdlib vs Web APIs). A shared, Web-standard token module published to npm and Deno registries would eliminate this duplication while remaining platform-agnostic.
+
+---
+
+**Last Updated**: 2026-03-05
