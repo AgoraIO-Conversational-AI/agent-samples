@@ -20,8 +20,31 @@ from core.config import initialize_constants
 from core.tokens import build_token_with_rtm
 from core.agent import create_agent_payload, send_agent_to_channel, hangup_agent
 from core.utils import generate_random_channel
+import copy
+import re
 
 app = Flask(__name__)
+
+# Keys in agent payload that contain secrets and must be redacted
+_SENSITIVE_KEYS = re.compile(
+    r'(key|token|api_key|anam_api_key|secret|certificate|password|authorization|credentials)',
+    re.IGNORECASE
+)
+
+
+def _redact_payload(obj):
+    """Deep-clone a payload and redact sensitive fields so no secrets leak to clients."""
+    if isinstance(obj, dict):
+        result = {}
+        for k, v in obj.items():
+            if _SENSITIVE_KEYS.search(k) and isinstance(v, str) and len(v) > 8:
+                result[k] = v[:4] + '***' + v[-4:]
+            else:
+                result[k] = _redact_payload(v)
+        return result
+    elif isinstance(obj, (list, tuple)):
+        return [_redact_payload(item) for item in obj]
+    return obj
 
 
 @app.after_request
@@ -175,10 +198,10 @@ def start_agent():
         "agent_response": agent_response
     }
 
-    # Add debug info if requested
+    # Add debug info if requested (redact secrets)
     if 'debug' in query_params:
         response_data["debug"] = {
-            "agent_payload": agent_payload,
+            "agent_payload": _redact_payload(agent_payload),
             "channel": channel,
             "api_url": f"{constants.get('AGENT_ENDPOINT', 'https://api.agora.io/api/conversational-ai-agent/v2/projects')}/{constants['APP_ID']}/join",
             "token_generation_method": "v007 tokens with RTC+RTM services" if has_certificate else "APP_ID only (no APP_CERTIFICATE)",
