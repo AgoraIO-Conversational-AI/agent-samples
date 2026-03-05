@@ -25,13 +25,58 @@ React Client (8083) → Python Backend (8082) → Agora ConvoAI → Custom LLM (
 
 **Cleanup flow:** When the user ends a call, the React client calls `/hangup-agent` on the backend, which calls Agora's hangup API and then POSTs `/unregister-agent` to the custom LLM. The custom LLM stops the audio subscriber, disconnects Thymia, and clears all session state.
 
+## Shared Projects
+
+This recipe uses the standard sample apps — no special Thymia variants needed. Thymia is enabled via environment variables on the existing projects.
+
+| Project                                 | Repo                                                                                | Role                                                                             |
+| --------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `react-voice-client`                    | agent-samples                                                                       | Voice UI with optional Thymia tab (enabled via `NEXT_PUBLIC_ENABLE_THYMIA=true`) |
+| `react-video-client-avatar`             | agent-samples                                                                       | Video avatar UI with optional Thymia tab (same env var)                          |
+| `simple-backend`                        | agent-samples                                                                       | Python backend — routes calls to Agora ConvoAI                                   |
+| `agent-toolkit`                         | [agent-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-toolkit)         | Core SDK with RTC/RTM helpers and React hooks                                    |
+| `agent-ui-kit`                          | [agent-ui-kit](https://github.com/AgoraIO-Conversational-AI/agent-ui-kit)           | React UI components for voice, chat, video, and Thymia panel                     |
+| `server-custom-llm/node`                | [server-custom-llm](https://github.com/AgoraIO-Conversational-AI/server-custom-llm) | Custom LLM proxy with Thymia module and RTM integration                          |
+| `server-custom-llm/go-audio-subscriber` | server-custom-llm                                                                   | Go binary that captures RTC audio and pipes PCM to the Node server               |
+
+## Keys Required
+
+| Key                   | Where to get it                            | Used by                                                       |
+| --------------------- | ------------------------------------------ | ------------------------------------------------------------- |
+| **Thymia API Key**    | Contact [Thymia](https://thymia.ai/)       | Custom LLM server (`THYMIA_API_KEY`)                          |
+| **Agora APP_ID**      | [Agora Console](https://console.agora.io/) | Backend (`THYMIA_APP_ID`)                                     |
+| **Agora AUTH_HEADER** | Agora Console → RESTful API credentials    | Backend (`THYMIA_AGENT_AUTH_HEADER`)                          |
+| **LLM API Key**       | OpenAI (GPT-5.1 recommended)               | Backend (`THYMIA_LLM_API_KEY`) — passed through to custom LLM |
+| **TTS Key**           | Rime recommended                           | Backend (`THYMIA_TTS_KEY`)                                    |
+
+**Optional:**
+
+| Key               | Notes                                                                    |
+| ----------------- | ------------------------------------------------------------------------ |
+| `APP_CERTIFICATE` | Only needed if token auth is enabled on your Agora project               |
+| `ASR_KEY`         | Only if using Deepgram ASR. Default `ares` (Agora built-in) needs no key |
+
+## Enabling Thymia
+
+Thymia is toggled on in two places:
+
+**1. Custom LLM server** — set `THYMIA_ENABLED=true` and provide `THYMIA_API_KEY`:
+
+```bash
+PORT=8100 THYMIA_ENABLED=true THYMIA_API_KEY=<your-key> node custom_llm.js
+```
+
+**2. React client** — set `NEXT_PUBLIC_ENABLE_THYMIA=true` in `.env.local`:
+
+```bash
+# react-voice-client/.env.local  (or react-video-client-avatar/.env.local)
+NEXT_PUBLIC_ENABLE_THYMIA=true
+```
+
+This adds the Thymia tab to the client UI. Without it, the client works normally — voice/video only.
+
 ## Prerequisites
 
-- **Thymia API Key** — contact Thymia for access
-- **Agora credentials** — APP_ID, APP_CERTIFICATE (optional), auth header
-- **LLM API key** — OpenAI API key (GPT-5.1 recommended for biomarker accuracy)
-- **TTS vendor** — Rime recommended
-- **Cloudflare tunnel** (or similar) to expose custom LLM to Agora ConvoAI
 - **Node.js 20+** (custom LLM server) — use `nvm use 20`
 - **Node.js 22+** (React client) — use `nvm use 22`
 - **Python 3.x** (backend)
@@ -73,16 +118,7 @@ PORT=8100 THYMIA_ENABLED=true THYMIA_API_KEY=<your-key> node custom_llm.js
 
 No `.env` file needed — the custom LLM receives the OpenAI API key and RTC params from the backend in each request.
 
-### 3. Cloudflare Tunnel
-
-In a separate terminal:
-
-```bash
-cloudflared tunnel --url http://localhost:8100
-# Note the tunnel URL (e.g., https://xxx-yyy.trycloudflare.com)
-```
-
-### 4. Backend .env — Add THYMIA Profile
+### 3. Backend .env — Add THYMIA Profile
 
 Add a `THYMIA` profile to `simple-backend/.env`. The simple-backend uses profile-prefixed env vars — each key is `{PROFILE}_{VAR}` (e.g., `THYMIA_LLM_URL` sets `LLM_URL` for the THYMIA profile). See `AGENT.md` for the full list of config keys.
 
@@ -98,11 +134,11 @@ THYMIA_AGENT_AUTH_HEADER=<your-auth-header>
 
 THYMIA_ENABLE_MLLM=false
 
-# LLM — point to custom LLM via tunnel
+# LLM — point to custom LLM server
 # LLM_URL: your custom LLM's /chat/completions endpoint
 # LLM_VENDOR: "custom" tells Agora ConvoAI to add turn_id + timestamp
 # LLM_STYLE: "openai" for OpenAI-compatible request/response format
-THYMIA_LLM_URL=https://<your-tunnel>.trycloudflare.com/chat/completions
+THYMIA_LLM_URL=<your-custom-llm-url>/chat/completions
 THYMIA_LLM_VENDOR=custom
 THYMIA_LLM_STYLE=openai
 THYMIA_LLM_MODEL=gpt-5.1
@@ -124,14 +160,16 @@ THYMIA_DEFAULT_GREETING=Hi there! I'm Bella. I'd love to have a quick chat and l
 THYMIA_DEFAULT_PROMPT=<see Prompt section below — paste as single line with \n>
 ```
 
-### 5. Python Backend
+**`THYMIA_LLM_URL`** must be reachable from the Agora ConvoAI Engine (cloud). For local development, use a Cloudflare tunnel (see [Local Development](#local-development) below). For production, use your deployed server URL.
+
+### 4. Python Backend
 
 ```bash
 cd agent-samples/simple-backend
 python3 local_server.py
 ```
 
-### 6. React Client
+### 5. React Client
 
 ```bash
 cd agent-samples/react-voice-client
@@ -140,13 +178,34 @@ npm run dev
 # Open http://localhost:8083
 ```
 
-The Thymia tab is enabled by `NEXT_PUBLIC_ENABLE_THYMIA=true` in `.env.local` (already set).
+The Thymia tab is enabled by `NEXT_PUBLIC_ENABLE_THYMIA=true` in `.env.local`.
 
-### 7. Connect
+### 6. Connect
 
 Open http://localhost:8083, enter `THYMIA` in the **Server Profile** field, and click **Start Conversation**.
 
 Or use the URL shortcut: **http://localhost:8083?profile=THYMIA**
+
+## Local Development
+
+When running the custom LLM server locally, the Agora ConvoAI Engine (cloud) can't reach `localhost`. Use a [Cloudflare tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/create-local-tunnel/) to expose it:
+
+```bash
+# Install (macOS)
+brew install cloudflare/cloudflare/cloudflared
+
+# Start tunnel pointing to custom LLM server
+cloudflared tunnel --url http://localhost:8100
+# Outputs a URL like https://xxx-yyy.trycloudflare.com
+```
+
+Use that tunnel URL as `THYMIA_LLM_URL` in your backend `.env`:
+
+```bash
+THYMIA_LLM_URL=https://xxx-yyy.trycloudflare.com/chat/completions
+```
+
+Not needed in production if the custom LLM server is deployed with a public URL.
 
 ## Greeting
 
@@ -231,6 +290,6 @@ IMPORTANT:
 - **Bella not referencing data:** Check custom LLM logs for `AgentUpdate` entries — biomarkers should be pushed via Agent Update API.
 - **Audio subscriber not connecting:** Verify Go binary exists at `go-audio-subscriber/bin/audio_subscriber`. On macOS, verify `sdk/agora_sdk_mac/` has the dylib files.
 - **"Cannot find module" errors:** Run `npm install --legacy-peer-deps` in `server-custom-llm/node/`. Make sure Node.js 20+ is active (`nvm use 20`).
-- **Agent not starting:** Check backend logs for the `/start-agent` request. Verify the tunnel URL in `LLM_URL` (i.e. `THYMIA_LLM_URL` for this profile) is correct and the custom LLM server is running.
+- **Agent not starting:** Check backend logs for the `/start-agent` request. Verify `LLM_URL` (i.e. `THYMIA_LLM_URL`) is reachable from the Agora cloud.
 - **RTM messages not reaching client:** The custom LLM initializes RTM from request params on first call. Check custom LLM logs for "RTM init" messages.
 - **ASR with null key:** If using Deepgram, set `THYMIA_ASR_KEY`. Or use `THYMIA_ASR_VENDOR=ares` (Agora built-in, no key needed).
