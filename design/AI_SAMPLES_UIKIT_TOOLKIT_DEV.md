@@ -1,6 +1,6 @@
 # Cross-Repository Development Guide
 
-**Location**: `agent-samples/assets/AI_SAMPLES_UIKIT_TOOLKIT_DEV.md`
+**Location**: `agent-samples/design/AI_SAMPLES_UIKIT_TOOLKIT_DEV.md`
 
 This guide explains how to develop across the five Agora Conversational AI repositories. Read this file at the start of development sessions for context on the workflow, git hooks, and package management.
 
@@ -35,15 +35,18 @@ This guide explains how to develop across the five Agora Conversational AI repos
 
 **agent-ui-kit** - Edit when:
 
-- Fixing bugs in UI components (MicButton, Message, Response, etc.)
-- Adding new UI components
-- Changing component props or styling
+- Fixing bugs in domain-specific components (AgentVisualizer, Conversation, Message, SettingsDialog, SessionPanel, AvatarVideoDisplay, VideoGrid)
+- Adding new domain-specific components for voice AI
+- Changing component props or behavior
+- Note: Sample apps use shadcn/Tailwind for generic UI (buttons, inputs, layout). Only edit ui-kit for voice AI domain components.
 
 **agent-samples** - Edit when:
 
 - Fixing bugs in sample apps (VoiceClient, VideoAvatarClient)
 - Adding new sample applications
 - Updating documentation or configuration
+- Changing styling or theming (edit `globals.css` and Tailwind classes, not ui-kit)
+- Updating local utilities in `lib/utils.ts` (cn, renderMarkdownToHtml, etc.)
 
 **server-custom-llm** - Edit when:
 
