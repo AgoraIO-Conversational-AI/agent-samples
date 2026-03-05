@@ -248,4 +248,23 @@ Currently installed from GitHub (not npm registry):
 
 ---
 
+## Related Documents
+
+- [`VIBE_CODING_DESIGN.md`](./VIBE_CODING_DESIGN.md) — Why the vibe-coding repos flatten this three-package model for AI coding platforms (v0, Lovable)
+- [`AI_SAMPLES_UIKIT_TOOLKIT_DEV.md`](./AI_SAMPLES_UIKIT_TOOLKIT_DEV.md) — Cross-repository development workflow, git hooks, and operational guide
+
+---
+
+## Future Improvements
+
+**Publish to npm** — Moving `@agora/conversational-ai` and `@agora/agent-ui-kit` to the npm registry would eliminate `--legacy-peer-deps`, enable AI coding platforms to install them, and add proper semantic versioning. This is the single highest-impact change.
+
+**Reduce unused ui-kit exports** — The samples don't use ui-kit's `Button`, `Card`, `Popover`, `MicButton`, `MicSelector`, `CameraSelector`, `MessageEngine`, or `cn()`. These remain for third-party consumers, but the package could be split or tree-shaken to reduce the surface area.
+
+**Consolidate duplicated utilities** — `cn()`, `renderMarkdownToHtml()`, and `decodeStreamMessage()` are intentionally duplicated in samples and ui-kit. If the packages move to npm with proper versioning, samples could import these from ui-kit instead.
+
+**Consolidate design docs** — This document and [`VIBE_CODING_DESIGN.md`](./VIBE_CODING_DESIGN.md) both describe the three-package model from different angles. If the vibe-coding repos stabilize, these could merge into a single design doc.
+
+---
+
 **Last Updated**: 2026-03-05
