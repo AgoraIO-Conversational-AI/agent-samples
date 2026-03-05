@@ -15,29 +15,28 @@ Real-time voice biomarker analysis during a therapeutic conversation. The AI the
 ## Architecture
 
 ```
-React Client (8083) → Python Backend (8082) → Agora ConvoAI → Custom LLM (8100)
-                                                                  ├── Go Audio Subscriber (RTC)
-                                                                  ├── Thymia Module → Thymia Sentinel API (wss://ws.thymia.ai)
+react-video-client-avatar → simple-backend → Agora ConvoAI → server-custom-llm/node
+                                                                  ├── go-audio-subscriber (RTC)
+                                                                  ├── Thymia module → Thymia Sentinel API
                                                                   └── RTM → Client (biomarkers/progress/safety)
 ```
 
-**Data flow:** The backend passes RTC params (app_id, channel, tokens) and the LLM API key through to the custom LLM server in each request. The custom LLM uses these to spawn the Go audio subscriber, connect to Thymia, and push biomarkers back via RTM and Agent Update API.
+**Data flow:** `simple-backend` passes RTC params (app_id, channel, tokens) and the LLM API key through to `server-custom-llm/node` in each request. The custom LLM uses these to spawn `go-audio-subscriber`, connect to Thymia, and push biomarkers back via RTM and Agent Update API.
 
-**Cleanup flow:** When the user ends a call, the React client calls `/hangup-agent` on the backend, which calls Agora's hangup API and then POSTs `/unregister-agent` to the custom LLM. The custom LLM stops the audio subscriber, disconnects Thymia, and clears all session state.
+**Cleanup flow:** When the user ends a call, `react-video-client-avatar` calls `/hangup-agent` on `simple-backend`, which calls Agora's hangup API and then POSTs `/unregister-agent` to `server-custom-llm/node`. The custom LLM stops the audio subscriber, disconnects Thymia, and clears all session state.
 
 ## Shared Projects
 
 This recipe uses the standard sample apps — no special Thymia variants needed. Thymia is enabled via environment variables on the existing projects.
 
-| Project                                 | Repo                                                                                | Role                                                                             |
-| --------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `react-voice-client`                    | agent-samples                                                                       | Voice UI with optional Thymia tab (enabled via `NEXT_PUBLIC_ENABLE_THYMIA=true`) |
-| `react-video-client-avatar`             | agent-samples                                                                       | Video avatar UI with optional Thymia tab (same env var)                          |
-| `simple-backend`                        | agent-samples                                                                       | Python backend — routes calls to Agora ConvoAI                                   |
-| `agent-toolkit`                         | [agent-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-toolkit)         | Core SDK with RTC/RTM helpers and React hooks                                    |
-| `agent-ui-kit`                          | [agent-ui-kit](https://github.com/AgoraIO-Conversational-AI/agent-ui-kit)           | React UI components for voice, chat, video, and Thymia panel                     |
-| `server-custom-llm/node`                | [server-custom-llm](https://github.com/AgoraIO-Conversational-AI/server-custom-llm) | Custom LLM proxy with Thymia module and RTM integration                          |
-| `server-custom-llm/go-audio-subscriber` | server-custom-llm                                                                   | Go binary that captures RTC audio and pipes PCM to the Node server               |
+| Project                                 | Repo                                                                                | Role                                                          |
+| --------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `react-video-client-avatar`             | agent-samples                                                                       | Video avatar UI with Thymia tab (`NEXT_PUBLIC_ENABLE_THYMIA`) |
+| `simple-backend`                        | agent-samples                                                                       | Python backend — routes calls to Agora ConvoAI                |
+| `agent-toolkit`                         | [agent-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-toolkit)         | Core SDK with RTC/RTM helpers and React hooks                 |
+| `agent-ui-kit`                          | [agent-ui-kit](https://github.com/AgoraIO-Conversational-AI/agent-ui-kit)           | React UI components for voice, chat, video, and Thymia panel  |
+| `server-custom-llm/node`                | [server-custom-llm](https://github.com/AgoraIO-Conversational-AI/server-custom-llm) | Custom LLM proxy with Thymia module and RTM integration       |
+| `server-custom-llm/go-audio-subscriber` | server-custom-llm                                                                   | Go binary that captures RTC audio and pipes PCM to Node       |
 
 ## Keys Required
 
@@ -69,11 +68,11 @@ PORT=8100 THYMIA_ENABLED=true THYMIA_API_KEY=<your-key> node custom_llm.js
 **2. React client** — set `NEXT_PUBLIC_ENABLE_THYMIA=true` in `.env.local`:
 
 ```bash
-# react-voice-client/.env.local  (or react-video-client-avatar/.env.local)
+# react-video-client-avatar/.env.local
 NEXT_PUBLIC_ENABLE_THYMIA=true
 ```
 
-This adds the Thymia tab to the client UI. Without it, the client works normally — voice/video only.
+This adds the Thymia tab to the client UI. Without it, the client works normally — video only.
 
 ## Prerequisites
 
@@ -172,19 +171,18 @@ python3 local_server.py
 ### 5. React Client
 
 ```bash
-cd agent-samples/react-voice-client
+cd agent-samples/react-video-client-avatar
 nvm use 22
 npm run dev
-# Open http://localhost:8083
 ```
 
 The Thymia tab is enabled by `NEXT_PUBLIC_ENABLE_THYMIA=true` in `.env.local`.
 
 ### 6. Connect
 
-Open http://localhost:8083, enter `THYMIA` in the **Server Profile** field, and click **Start Conversation**.
+Open the React client, enter `THYMIA` in the **Server Profile** field, and click **Start Conversation**.
 
-Or use the URL shortcut: **http://localhost:8083?profile=THYMIA**
+Or use the URL shortcut: **`?profile=THYMIA`**
 
 ## Local Development
 
