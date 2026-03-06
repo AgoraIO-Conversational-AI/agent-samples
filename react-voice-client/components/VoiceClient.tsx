@@ -71,6 +71,7 @@ export function VoiceClient() {
   const [sessionAgentId, setSessionAgentId] = useState<string | null>(null);
   const [sessionPayload, setSessionPayload] = useState<object | null>(null);
   const [autoConnect, setAutoConnect] = useState(false);
+  const [returnUrl, setReturnUrl] = useState<string | null>(null);
   const [selectedMic, setSelectedMic] = useState(() =>
     typeof window !== "undefined"
       ? localStorage.getItem("selectedMicId") || ""
@@ -88,6 +89,10 @@ export function VoiceClient() {
       }
       if (params.get("autoconnect") === "true") {
         setAutoConnect(true);
+      }
+      const ru = params.get("returnurl");
+      if (ru) {
+        setReturnUrl(ru);
       }
     }
   }, []);
@@ -267,6 +272,10 @@ export function VoiceClient() {
     setSessionAgentId(null);
     setSessionPayload(null);
     await leaveChannel();
+    if (returnUrl) {
+      window.location.href = returnUrl;
+      return;
+    }
   };
 
   const handleSendMessage = async () => {
