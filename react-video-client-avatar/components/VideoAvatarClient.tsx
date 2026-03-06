@@ -75,6 +75,7 @@ export function VideoAvatarClient() {
   const [activeTab, setActiveTab] = useState("video");
   const _conversationRef = useRef<HTMLDivElement>(null);
   const [autoConnect, setAutoConnect] = useState(false);
+  const [returnUrl, setReturnUrl] = useState<string | null>(null);
   const [selectedMic, setSelectedMic] = useState(() =>
     typeof window !== "undefined"
       ? localStorage.getItem("selectedMicId") || ""
@@ -93,6 +94,10 @@ export function VideoAvatarClient() {
       }
       if (params.get("autoconnect") === "true") {
         setAutoConnect(true);
+      }
+      const ru = params.get("returnurl");
+      if (ru) {
+        setReturnUrl(ru);
       }
     }
   }, []);
@@ -304,6 +309,10 @@ export function VideoAvatarClient() {
     await leaveChannel();
     setSessionAgentId(null);
     setSessionPayload(null);
+    if (returnUrl) {
+      window.location.href = returnUrl;
+      return;
+    }
   };
 
   const handleSendMessage = async () => {
