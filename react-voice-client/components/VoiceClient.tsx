@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
-import { Mic, MicOff, Settings, Phone, PhoneOff, SendHorizontal } from "lucide-react";
+import {
+  Mic,
+  MicOff,
+  Settings,
+  Phone,
+  PhoneOff,
+  SendHorizontal,
+} from "lucide-react";
 import { useAgoraVoiceClient } from "@/hooks/useAgoraVoiceClient";
 import { useAudioVisualization } from "@/hooks/useAudioVisualization";
 import { IconButton } from "@agora/agent-ui-kit";
@@ -10,7 +17,7 @@ import { Conversation, ConversationContent } from "@agora/agent-ui-kit";
 import { Message, MessageContent } from "@agora/agent-ui-kit";
 import { Response } from "@agora/agent-ui-kit";
 import { AgoraLogo } from "@agora/agent-ui-kit";
-import { SettingsDialog, SessionPanel } from "@agora/agent-ui-kit";
+import { SettingsDialog } from "@agora/agent-ui-kit";
 import { cn } from "@/lib/utils";
 import { MobileTabs, ThymiaPanel, useThymia } from "@agora/agent-ui-kit";
 import type { RTMEventSource } from "@agora/agent-ui-kit";
@@ -23,8 +30,14 @@ const DEFAULT_PROFILE = process.env.NEXT_PUBLIC_DEFAULT_PROFILE || "VOICE";
 const THYMIA_ENABLED = process.env.NEXT_PUBLIC_ENABLE_THYMIA === "true";
 
 const SENSITIVE_KEYS = [
-  "api_key", "key", "token", "adc_credentials_string",
-  "subscriber_token", "rtm_token", "ticket", "anam_api_key",
+  "api_key",
+  "key",
+  "token",
+  "adc_credentials_string",
+  "subscriber_token",
+  "rtm_token",
+  "ticket",
+  "anam_api_key",
 ];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -58,6 +71,11 @@ export function VoiceClient() {
   const [sessionAgentId, setSessionAgentId] = useState<string | null>(null);
   const [sessionPayload, setSessionPayload] = useState<object | null>(null);
   const [autoConnect, setAutoConnect] = useState(false);
+  const [selectedMic, setSelectedMic] = useState(() =>
+    typeof window !== "undefined"
+      ? localStorage.getItem("selectedMicId") || ""
+      : "",
+  );
   const conversationRef = useRef<HTMLDivElement>(null);
 
   // Read URL parameters on mount
@@ -107,6 +125,23 @@ export function VoiceClient() {
     progress: thymiaProgress,
     safety: thymiaSafety,
   } = useThymia(rtmSource, THYMIA_ENABLED && isConnected);
+
+  // Handle mic selection change: persist to localStorage and live-switch if connected
+  const handleMicChange = async (deviceId: string) => {
+    setSelectedMic(deviceId);
+    if (deviceId) {
+      localStorage.setItem("selectedMicId", deviceId);
+    } else {
+      localStorage.removeItem("selectedMicId");
+    }
+    if (isConnected && localAudioTrack && deviceId) {
+      try {
+        await localAudioTrack.setDevice(deviceId);
+      } catch (err) {
+        console.error("Failed to switch microphone:", err);
+      }
+    }
+  };
 
   // Get audio visualization data (restart on mute/unmute to fix Web Audio API connection)
   const frequencyData = useAudioVisualization(
@@ -161,6 +196,7 @@ export function VoiceClient() {
         channel: data.channel,
         token: data.token || null,
         uid: parseInt(data.uid),
+        ...(selectedMic ? { microphoneId: selectedMic } : {}),
       });
 
       // Phase 3: Now start the agent (client is listening for greeting)
@@ -179,9 +215,10 @@ export function VoiceClient() {
       // Store agent_id from the actual agent response
       if (agentData.agent_response?.response) {
         try {
-          const resp = typeof agentData.agent_response.response === "string"
-            ? JSON.parse(agentData.agent_response.response)
-            : agentData.agent_response.response;
+          const resp =
+            typeof agentData.agent_response.response === "string"
+              ? JSON.parse(agentData.agent_response.response)
+              : agentData.agent_response.response;
           if (resp.agent_id) {
             setAgentId(resp.agent_id);
             setSessionAgentId(resp.agent_id);
@@ -287,7 +324,7 @@ export function VoiceClient() {
             <ThemeToggle />
             <button
               onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-              className="rounded-full p-2 hover:bg-accent transition-colors"
+              className="cursor-pointer rounded-full p-2 hover:bg-accent transition-colors"
               aria-label="Toggle settings"
             >
               <Settings className="h-5 w-5" />
@@ -302,57 +339,60 @@ export function VoiceClient() {
           /* Connection Form - Centered (same as original) */
           <div className="flex flex-1 items-center justify-center">
             {(autoConnect || isLoading) && !isConnected ? (
-              <p className="text-lg text-muted-foreground animate-pulse">Connecting...</p>
+              <p className="text-lg text-muted-foreground animate-pulse">
+                Connecting...
+              </p>
             ) : (
-            <div className="w-full max-w-md rounded-lg border bg-card p-6 shadow-lg">
-              <h2 className="mb-4 text-lg font-semibold">Connect to Agent</h2>
-              <div className="space-y-4">
-                <div>
-                  <label
-                    htmlFor="backend"
-                    className="mb-2 block text-sm font-medium"
-                  >
-                    Backend URL
-                  </label>
-                  <input
-                    id="backend"
-                    type="text"
-                    value={backendUrl}
-                    onChange={(e) => setBackendUrl(e.target.value)}
-                    placeholder={DEFAULT_BACKEND_URL}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
-                </div>
+              <div className="w-full max-w-md rounded-lg border bg-card p-6 shadow-lg">
+                <h2 className="mb-4 text-lg font-semibold">Connect to Agent</h2>
+                <div className="space-y-4">
+                  <div>
+                    <label
+                      htmlFor="backend"
+                      className="mb-2 block text-sm font-medium"
+                    >
+                      Backend URL
+                    </label>
+                    <input
+                      id="backend"
+                      type="text"
+                      value={backendUrl}
+                      onChange={(e) => setBackendUrl(e.target.value)}
+                      placeholder={DEFAULT_BACKEND_URL}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                  </div>
 
-                <div>
-                  <label
-                    htmlFor="profile"
-                    className="mb-2 block text-sm font-medium"
-                  >
-                    Server Profile
-                  </label>
-                  <input
-                    id="profile"
-                    type="text"
-                    value={profile}
-                    onChange={(e) => setProfile(e.target.value)}
-                    placeholder={DEFAULT_PROFILE}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Leave empty for default &ldquo;{DEFAULT_PROFILE}&rdquo; profile
-                  </p>
-                </div>
+                  <div>
+                    <label
+                      htmlFor="profile"
+                      className="mb-2 block text-sm font-medium"
+                    >
+                      Server Profile
+                    </label>
+                    <input
+                      id="profile"
+                      type="text"
+                      value={profile}
+                      onChange={(e) => setProfile(e.target.value)}
+                      placeholder={DEFAULT_PROFILE}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Leave empty for default &ldquo;{DEFAULT_PROFILE}&rdquo;
+                      profile
+                    </p>
+                  </div>
 
-                <button
-                  onClick={handleStart}
-                  disabled={isLoading}
-                  className="w-full rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                >
-                  {isLoading ? "Connecting..." : "Start Call"}
-                </button>
+                  <button
+                    onClick={handleStart}
+                    disabled={isLoading}
+                    className="cursor-pointer w-full rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {isLoading ? "Connecting..." : "Start Call"}
+                  </button>
+                </div>
               </div>
-            </div>
             )}
           </div>
         ) : (
@@ -379,7 +419,11 @@ export function VoiceClient() {
             <div className="hidden md:flex md:w-96 flex-col gap-6 self-stretch">
               {/* Agent Visualizer */}
               <div className="rounded-lg border bg-card p-6 shadow-lg flex-shrink">
-                <AgentVisualizer state={getAgentState()} size="sm" lottieBasePath={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/agora-uikit/lottie`} />
+                <AgentVisualizer
+                  state={getAgentState()}
+                  size="sm"
+                  lottieBasePath={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/agora-uikit/lottie`}
+                />
                 <p className="mt-2 text-xs text-center text-muted-foreground">
                   {isAgentSpeaking ? "Agent Speaking" : "Agent Listening"}
                 </p>
@@ -393,13 +437,21 @@ export function VoiceClient() {
                     variant={isMuted ? "standard" : "filled"}
                     size="md"
                     onClick={toggleMute}
-                    className={isMuted ? "rounded-lg bg-muted text-destructive hover:bg-muted/80" : "rounded-lg"}
+                    className={
+                      isMuted
+                        ? "rounded-lg bg-muted text-destructive hover:bg-muted/80"
+                        : "rounded-lg"
+                    }
                   >
-                    {isMuted ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+                    {isMuted ? (
+                      <MicOff className="size-4" />
+                    ) : (
+                      <Mic className="size-4" />
+                    )}
                   </IconButton>
                   <button
                     onClick={handleStop}
-                    className="flex items-center gap-2 rounded-lg bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
+                    className="cursor-pointer flex items-center gap-2 rounded-lg bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
                   >
                     <PhoneOff className="h-4 w-4" />
                     End Call
@@ -464,7 +516,13 @@ export function VoiceClient() {
                                   from={isAgent ? "assistant" : "user"}
                                   name={time ? `${label}  ${time}` : label}
                                 >
-                                  <MessageContent className={isAgent ? "px-3 py-2" : "px-3 py-2 bg-foreground text-background"}>
+                                  <MessageContent
+                                    className={
+                                      isAgent
+                                        ? "px-3 py-2"
+                                        : "px-3 py-2 bg-foreground text-background"
+                                    }
+                                  >
                                     <Response>{msg.text}</Response>
                                   </MessageContent>
                                 </Message>
@@ -478,13 +536,17 @@ export function VoiceClient() {
                                   currentInProgressMessage.uid,
                                 );
                                 const label = isAgent ? "Agent" : "You";
-                                const time = formatTime(currentInProgressMessage.timestamp);
+                                const time = formatTime(
+                                  currentInProgressMessage.timestamp,
+                                );
                                 return (
                                   <Message
                                     from={isAgent ? "assistant" : "user"}
                                     name={time ? `${label}  ${time}` : label}
                                   >
-                                    <MessageContent className={`animate-pulse px-3 py-2 ${isAgent ? "" : "bg-foreground text-background"}`}>
+                                    <MessageContent
+                                      className={`animate-pulse px-3 py-2 ${isAgent ? "" : "bg-foreground text-background"}`}
+                                    >
                                       <Response>
                                         {currentInProgressMessage.text}
                                       </Response>
@@ -510,7 +572,7 @@ export function VoiceClient() {
                             <button
                               onClick={handleSendMessage}
                               disabled={!isConnected || !chatMessage.trim()}
-                              className="h-10 w-10 flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                              className="cursor-pointer h-10 w-10 flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                             >
                               <SendHorizontal className="h-4 w-4" />
                             </button>
@@ -542,19 +604,27 @@ export function VoiceClient() {
             </div>
 
             {/* Mobile: Fixed Bottom Controls */}
-            <div className="flex md:hidden gap-3 p-4 border-t bg-card justify-center">
+            <div className="flex md:hidden gap-3 p-4 border-t bg-card justify-center items-center">
               <IconButton
                 shape="square"
                 variant={isMuted ? "standard" : "filled"}
                 size="md"
                 onClick={toggleMute}
-                className={isMuted ? "rounded-lg bg-muted text-destructive hover:bg-muted/80" : "rounded-lg"}
+                className={
+                  isMuted
+                    ? "rounded-lg bg-muted text-destructive hover:bg-muted/80"
+                    : "rounded-lg"
+                }
               >
-                {isMuted ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+                {isMuted ? (
+                  <MicOff className="size-4" />
+                ) : (
+                  <Mic className="size-4" />
+                )}
               </IconButton>
               <button
                 onClick={handleStop}
-                className="flex items-center gap-2 rounded-lg bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 min-h-[48px]"
+                className="cursor-pointer flex items-center gap-2 rounded-lg bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
               >
                 <PhoneOff className="h-4 w-4" />
                 End Call
@@ -577,11 +647,9 @@ export function VoiceClient() {
         greeting={greeting}
         onGreetingChange={setGreeting}
         disabled={isConnected}
-      >
-        {isConnected && (
-          <SessionPanel agentId={sessionAgentId} payload={sessionPayload} />
-        )}
-      </SettingsDialog>
+        selectedMicId={selectedMic}
+        onMicChange={handleMicChange}
+      />
     </div>
   );
 }
