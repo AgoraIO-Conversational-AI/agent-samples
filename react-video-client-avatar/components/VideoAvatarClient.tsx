@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
-import { Mic, MicOff, Video, VideoOff, Settings, Phone, PhoneOff, SendHorizontal } from "lucide-react";
+import {
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+  Settings,
+  Phone,
+  PhoneOff,
+  SendHorizontal,
+} from "lucide-react";
 import { useAgoraVideoClient } from "@/hooks/useAgoraVideoClient";
 import { useAudioVisualization } from "@/hooks/useAudioVisualization";
 import { IconButton } from "@agora/agent-ui-kit";
@@ -11,7 +20,7 @@ import { Response } from "@agora/agent-ui-kit";
 import { AvatarVideoDisplay, LocalVideoPreview } from "@agora/agent-ui-kit";
 import { VideoGrid, MobileTabs } from "@agora/agent-ui-kit";
 import { AgoraLogo } from "@agora/agent-ui-kit";
-import { SettingsDialog, SessionPanel } from "@agora/agent-ui-kit";
+import { SettingsDialog } from "@agora/agent-ui-kit";
 import { ThymiaPanel, useThymia } from "@agora/agent-ui-kit";
 import type { RTMEventSource } from "@agora/agent-ui-kit";
 import { RTMHelper } from "@agora/conversational-ai/helper/rtm";
@@ -24,8 +33,14 @@ const DEFAULT_PROFILE = process.env.NEXT_PUBLIC_DEFAULT_PROFILE || "VIDEO";
 const THYMIA_ENABLED = process.env.NEXT_PUBLIC_ENABLE_THYMIA === "true";
 
 const SENSITIVE_KEYS = [
-  "api_key", "key", "token", "adc_credentials_string",
-  "subscriber_token", "rtm_token", "ticket", "anam_api_key",
+  "api_key",
+  "key",
+  "token",
+  "adc_credentials_string",
+  "subscriber_token",
+  "rtm_token",
+  "ticket",
+  "anam_api_key",
 ];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -60,6 +75,11 @@ export function VideoAvatarClient() {
   const [activeTab, setActiveTab] = useState("video");
   const _conversationRef = useRef<HTMLDivElement>(null);
   const [autoConnect, setAutoConnect] = useState(false);
+  const [selectedMic, setSelectedMic] = useState(() =>
+    typeof window !== "undefined"
+      ? localStorage.getItem("selectedMicId") || ""
+      : "",
+  );
   const [sessionAgentId, setSessionAgentId] = useState<string | null>(null);
   const [sessionPayload, setSessionPayload] = useState<object | null>(null);
 
@@ -94,6 +114,23 @@ export function VideoAvatarClient() {
   } = useAgoraVideoClient();
 
   // Removed verbose logging - see useAgoraVideoClient for agent message logs
+
+  // Handle mic selection change: persist to localStorage and live-switch if connected
+  const handleMicChange = async (deviceId: string) => {
+    setSelectedMic(deviceId);
+    if (deviceId) {
+      localStorage.setItem("selectedMicId", deviceId);
+    } else {
+      localStorage.removeItem("selectedMicId");
+    }
+    if (isConnected && localAudioTrack && deviceId) {
+      try {
+        await localAudioTrack.setDevice(deviceId);
+      } catch (err) {
+        console.error("Failed to switch microphone:", err);
+      }
+    }
+  };
 
   // Get audio visualization data (restart on mute/unmute to fix Web Audio API connection)
   const frequencyData = useAudioVisualization(
@@ -191,6 +228,7 @@ export function VideoAvatarClient() {
         channel: data.channel,
         token: data.token || null,
         uid: parseInt(data.uid),
+        ...(selectedMic ? { microphoneId: selectedMic } : {}),
       });
 
       // Auto-enable local video if checkbox was checked
@@ -226,9 +264,10 @@ export function VideoAvatarClient() {
       // Store agent_id from the actual agent response
       if (agentData.agent_response?.response) {
         try {
-          const resp = typeof agentData.agent_response.response === "string"
-            ? JSON.parse(agentData.agent_response.response)
-            : agentData.agent_response.response;
+          const resp =
+            typeof agentData.agent_response.response === "string"
+              ? JSON.parse(agentData.agent_response.response)
+              : agentData.agent_response.response;
           if (resp.agent_id) {
             setAgentId(resp.agent_id);
             setSessionAgentId(resp.agent_id);
@@ -323,7 +362,7 @@ export function VideoAvatarClient() {
             <ThemeToggle />
             <button
               onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-              className="rounded-full p-2 hover:bg-accent transition-colors"
+              className="cursor-pointer rounded-full p-2 hover:bg-accent transition-colors"
               aria-label="Toggle settings"
             >
               <Settings className="h-5 w-5" />
@@ -337,82 +376,85 @@ export function VideoAvatarClient() {
         {!isConnected ? (
           /* Connection Form - Centered (same as original) */
           <div className="flex flex-1 items-center justify-center">
-            {(autoConnect || isLoading) ? (
-              <p className="text-lg text-muted-foreground animate-pulse">Connecting...</p>
+            {autoConnect || isLoading ? (
+              <p className="text-lg text-muted-foreground animate-pulse">
+                Connecting...
+              </p>
             ) : (
-            <div className="w-full max-w-md rounded-lg border bg-card p-6 shadow-lg">
-              <h2 className="mb-4 text-lg font-semibold">Connect to Agent</h2>
-              <div className="space-y-4">
-                <div>
-                  <label
-                    htmlFor="backend"
-                    className="mb-2 block text-sm font-medium"
-                  >
-                    Backend URL
-                  </label>
-                  <input
-                    id="backend"
-                    type="text"
-                    value={backendUrl}
-                    onChange={(e) => setBackendUrl(e.target.value)}
-                    placeholder={DEFAULT_BACKEND_URL}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="profile"
-                    className="mb-2 block text-sm font-medium"
-                  >
-                    Server Profile
-                  </label>
-                  <input
-                    id="profile"
-                    type="text"
-                    value={profile}
-                    onChange={(e) => setProfile(e.target.value)}
-                    placeholder={DEFAULT_PROFILE}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Leave empty for default &ldquo;{DEFAULT_PROFILE}&rdquo; profile
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
+              <div className="w-full max-w-md rounded-lg border bg-card p-6 shadow-lg">
+                <h2 className="mb-4 text-lg font-semibold">Connect to Agent</h2>
+                <div className="space-y-4">
+                  <div>
+                    <label
+                      htmlFor="backend"
+                      className="mb-2 block text-sm font-medium"
+                    >
+                      Backend URL
+                    </label>
                     <input
-                      type="checkbox"
-                      checked={enableLocalVideo}
-                      onChange={(e) => setEnableLocalVideo(e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300"
+                      id="backend"
+                      type="text"
+                      value={backendUrl}
+                      onChange={(e) => setBackendUrl(e.target.value)}
+                      placeholder={DEFAULT_BACKEND_URL}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                     />
-                    <span className="text-sm font-medium">
-                      Enable Local Video
-                    </span>
-                  </label>
+                  </div>
 
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <div>
+                    <label
+                      htmlFor="profile"
+                      className="mb-2 block text-sm font-medium"
+                    >
+                      Server Profile
+                    </label>
                     <input
-                      type="checkbox"
-                      checked={enableAvatar}
-                      onChange={(e) => setEnableAvatar(e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300"
+                      id="profile"
+                      type="text"
+                      value={profile}
+                      onChange={(e) => setProfile(e.target.value)}
+                      placeholder={DEFAULT_PROFILE}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                     />
-                    <span className="text-sm font-medium">Enable Avatar</span>
-                  </label>
-                </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Leave empty for default &ldquo;{DEFAULT_PROFILE}&rdquo;
+                      profile
+                    </p>
+                  </div>
 
-                <button
-                  onClick={handleStart}
-                  disabled={isLoading}
-                  className="w-full rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                >
-                  {isLoading ? "Connecting..." : "Start Call"}
-                </button>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={enableLocalVideo}
+                        onChange={(e) => setEnableLocalVideo(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <span className="text-sm font-medium">
+                        Enable Local Video
+                      </span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={enableAvatar}
+                        onChange={(e) => setEnableAvatar(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <span className="text-sm font-medium">Enable Avatar</span>
+                    </label>
+                  </div>
+
+                  <button
+                    onClick={handleStart}
+                    disabled={isLoading}
+                    className="cursor-pointer w-full rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {isLoading ? "Connecting..." : "Start Call"}
+                  </button>
+                </div>
               </div>
-            </div>
             )}
           </div>
         ) : (
@@ -421,7 +463,11 @@ export function VideoAvatarClient() {
             {/* Desktop Layout - Hidden on mobile */}
             <VideoGrid
               className="hidden md:grid flex-1 min-w-0"
-              style={{ gridTemplateColumns: "2fr 3fr", gridTemplateRows: "1fr 1fr", gap: "1rem" }}
+              style={{
+                gridTemplateColumns: "2fr 3fr",
+                gridTemplateRows: "1fr 1fr",
+                gap: "1rem",
+              }}
               chat={
                 <div className="flex flex-col h-full">
                   {/* Conversation Header */}
@@ -450,7 +496,13 @@ export function VideoAvatarClient() {
                             from={isAgent ? "assistant" : "user"}
                             name={time ? `${label}  ${time}` : label}
                           >
-                            <MessageContent className={isAgent ? "px-3 py-2" : "px-3 py-2 bg-foreground text-background"}>
+                            <MessageContent
+                              className={
+                                isAgent
+                                  ? "px-3 py-2"
+                                  : "px-3 py-2 bg-foreground text-background"
+                              }
+                            >
                               <Response>{msg.text}</Response>
                             </MessageContent>
                           </Message>
@@ -464,13 +516,17 @@ export function VideoAvatarClient() {
                             currentInProgressMessage.uid,
                           );
                           const label = isAgent ? "Agent" : "You";
-                          const time = formatTime(currentInProgressMessage.timestamp);
+                          const time = formatTime(
+                            currentInProgressMessage.timestamp,
+                          );
                           return (
                             <Message
                               from={isAgent ? "assistant" : "user"}
                               name={time ? `${label}  ${time}` : label}
                             >
-                              <MessageContent className={`animate-pulse px-3 py-2 ${isAgent ? "" : "bg-foreground text-background"}`}>
+                              <MessageContent
+                                className={`animate-pulse px-3 py-2 ${isAgent ? "" : "bg-foreground text-background"}`}
+                              >
                                 <Response>
                                   {currentInProgressMessage.text}
                                 </Response>
@@ -496,7 +552,7 @@ export function VideoAvatarClient() {
                       <button
                         onClick={handleSendMessage}
                         disabled={!isConnected || !chatMessage.trim()}
-                        className="h-10 w-10 flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                        className="cursor-pointer h-10 w-10 flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                       >
                         <SendHorizontal className="h-4 w-4" />
                       </button>
@@ -563,22 +619,38 @@ export function VideoAvatarClient() {
                         variant={isMuted ? "standard" : "filled"}
                         size="md"
                         onClick={toggleMute}
-                        className={isMuted ? "rounded-lg bg-muted text-destructive hover:bg-muted/80" : "rounded-lg"}
+                        className={
+                          isMuted
+                            ? "rounded-lg bg-muted text-destructive hover:bg-muted/80"
+                            : "rounded-lg"
+                        }
                       >
-                        {isMuted ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+                        {isMuted ? (
+                          <MicOff className="size-4" />
+                        ) : (
+                          <Mic className="size-4" />
+                        )}
                       </IconButton>
                       <IconButton
                         shape="square"
                         variant={isLocalVideoActive ? "filled" : "standard"}
                         size="md"
                         onClick={toggleVideo}
-                        className={!isLocalVideoActive ? "rounded-lg bg-muted text-destructive hover:bg-muted/80" : "rounded-lg"}
+                        className={
+                          !isLocalVideoActive
+                            ? "rounded-lg bg-muted text-destructive hover:bg-muted/80"
+                            : "rounded-lg"
+                        }
                       >
-                        {isLocalVideoActive ? <Video className="size-4" /> : <VideoOff className="size-4" />}
+                        {isLocalVideoActive ? (
+                          <Video className="size-4" />
+                        ) : (
+                          <VideoOff className="size-4" />
+                        )}
                       </IconButton>
                       <button
                         onClick={handleStop}
-                        className="flex items-center gap-2 rounded-lg bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
+                        className="cursor-pointer flex items-center gap-2 rounded-lg bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
                       >
                         <PhoneOff className="h-4 w-4" />
                         End Call
@@ -639,8 +711,8 @@ export function VideoAvatarClient() {
                     label: "Chat",
                     content: (
                       <div className="flex flex-col h-full gap-2 p-2">
-                        {/* Avatar - 35% */}
-                        <div className="flex-[35] rounded-lg border bg-card shadow-lg overflow-hidden">
+                        {/* Avatar - 50% (matches Video tab) */}
+                        <div className="flex-[50] rounded-lg border bg-card shadow-lg overflow-hidden">
                           <AvatarVideoDisplay
                             videoTrack={avatarVideoTrack}
                             state={
@@ -651,19 +723,8 @@ export function VideoAvatarClient() {
                           />
                         </div>
 
-                        {/* Chat - 65% */}
-                        <div className="flex-[65] rounded-lg border bg-card shadow-lg overflow-hidden flex flex-col">
-                          {/* Conversation Header */}
-                          <div className="border-b p-3 flex-shrink-0 flex items-center justify-between">
-                            <h2 className="font-semibold text-sm">
-                              Conversation
-                            </h2>
-                            <p className="text-xs text-muted-foreground">
-                              {messageList.length} message
-                              {messageList.length !== 1 ? "s" : ""}
-                            </p>
-                          </div>
-
+                        {/* Chat - 50% */}
+                        <div className="flex-[50] rounded-lg border bg-card shadow-lg overflow-hidden flex flex-col">
                           {/* Messages */}
                           <Conversation
                             height=""
@@ -681,7 +742,13 @@ export function VideoAvatarClient() {
                                     from={isAgent ? "assistant" : "user"}
                                     name={time ? `${label}  ${time}` : label}
                                   >
-                                    <MessageContent className={isAgent ? "px-3 py-2" : "px-3 py-2 bg-foreground text-background"}>
+                                    <MessageContent
+                                      className={
+                                        isAgent
+                                          ? "px-3 py-2"
+                                          : "px-3 py-2 bg-foreground text-background"
+                                      }
+                                    >
                                       <Response>{msg.text}</Response>
                                     </MessageContent>
                                   </Message>
@@ -695,13 +762,17 @@ export function VideoAvatarClient() {
                                     currentInProgressMessage.uid,
                                   );
                                   const label = isAgent ? "Agent" : "You";
-                                  const time = formatTime(currentInProgressMessage.timestamp);
+                                  const time = formatTime(
+                                    currentInProgressMessage.timestamp,
+                                  );
                                   return (
                                     <Message
                                       from={isAgent ? "assistant" : "user"}
                                       name={time ? `${label}  ${time}` : label}
                                     >
-                                      <MessageContent className={`animate-pulse px-3 py-2 ${isAgent ? "" : "bg-foreground text-background"}`}>
+                                      <MessageContent
+                                        className={`animate-pulse px-3 py-2 ${isAgent ? "" : "bg-foreground text-background"}`}
+                                      >
                                         <Response>
                                           {currentInProgressMessage.text}
                                         </Response>
@@ -727,7 +798,7 @@ export function VideoAvatarClient() {
                               <button
                                 onClick={handleSendMessage}
                                 disabled={!isConnected || !chatMessage.trim()}
-                                className="h-10 w-10 flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                                className="cursor-pointer h-10 w-10 flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                               >
                                 <SendHorizontal className="h-4 w-4" />
                               </button>
@@ -765,22 +836,38 @@ export function VideoAvatarClient() {
                   variant={isMuted ? "standard" : "filled"}
                   size="md"
                   onClick={toggleMute}
-                  className={isMuted ? "rounded-lg bg-muted text-destructive hover:bg-muted/80" : "rounded-lg"}
+                  className={
+                    isMuted
+                      ? "rounded-lg bg-muted text-destructive hover:bg-muted/80"
+                      : "rounded-lg"
+                  }
                 >
-                  {isMuted ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+                  {isMuted ? (
+                    <MicOff className="size-4" />
+                  ) : (
+                    <Mic className="size-4" />
+                  )}
                 </IconButton>
                 <IconButton
                   shape="square"
                   variant={isLocalVideoActive ? "filled" : "standard"}
                   size="md"
                   onClick={toggleVideo}
-                  className={!isLocalVideoActive ? "rounded-lg bg-muted text-destructive hover:bg-muted/80" : "rounded-lg"}
+                  className={
+                    !isLocalVideoActive
+                      ? "rounded-lg bg-muted text-destructive hover:bg-muted/80"
+                      : "rounded-lg"
+                  }
                 >
-                  {isLocalVideoActive ? <Video className="size-4" /> : <VideoOff className="size-4" />}
+                  {isLocalVideoActive ? (
+                    <Video className="size-4" />
+                  ) : (
+                    <VideoOff className="size-4" />
+                  )}
                 </IconButton>
                 <button
                   onClick={handleStop}
-                  className="flex items-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 min-h-[44px]"
+                  className="cursor-pointer flex items-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 min-h-[44px]"
                 >
                   <PhoneOff className="h-4 w-4" />
                   End Call
@@ -804,11 +891,9 @@ export function VideoAvatarClient() {
         greeting={greeting}
         onGreetingChange={setGreeting}
         disabled={isConnected}
-      >
-        {isConnected && (
-          <SessionPanel agentId={sessionAgentId} payload={sessionPayload} />
-        )}
-      </SettingsDialog>
+        selectedMicId={selectedMic}
+        onMicChange={handleMicChange}
+      />
     </div>
   );
 }
