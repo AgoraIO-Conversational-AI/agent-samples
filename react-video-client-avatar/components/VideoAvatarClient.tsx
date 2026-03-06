@@ -361,7 +361,7 @@ export function VideoAvatarClient() {
           <div>
             <h1 className="text-lg md:text-xl font-bold flex items-center gap-2">
               <AgoraLogo size={28} />
-              Agora Convo AI Video Agent
+              <span className="hidden md:inline">Agora Convo AI </span>Video Agent
             </h1>
             <p className="text-xs md:text-sm text-muted-foreground ml-10">
               React with Agora AI UIKit - Video + Avatar
