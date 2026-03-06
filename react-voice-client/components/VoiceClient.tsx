@@ -323,7 +323,7 @@ export function VoiceClient() {
           <div>
             <h1 className="text-lg md:text-xl font-bold flex items-center gap-2">
               <AgoraLogo size={28} />
-              Agora Convo AI Voice Agent
+              <span className="hidden md:inline">Agora Convo AI </span>Voice Agent
             </h1>
             <p className="text-xs md:text-sm text-muted-foreground ml-10">
               React with Agora AI UIKit
