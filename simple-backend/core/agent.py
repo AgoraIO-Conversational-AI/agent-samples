@@ -311,6 +311,84 @@ def build_avatar_config(avatar_vendor, constants, channel, agent_video_token, qu
         return None
 
 
+def _create_pipeline_payload(channel, pipeline_id, constants, query_params=None, agent_video_token=None):
+    """
+    Creates a minimal agent payload for Agent Builder pipeline mode.
+
+    When pipeline_id is set, Agora resolves all STT/TTS/LLM/avatar configs
+    from the pipeline — only connection properties are needed.
+
+    Args:
+        channel: The channel name
+        pipeline_id: Agent Builder pipeline ID
+        constants: Dictionary of constants
+        query_params: Optional query parameters for overrides
+        agent_video_token: Token for avatar video (if avatar enabled)
+
+    Returns:
+        OrderedDict containing the minimal pipeline payload
+    """
+    query_params = query_params or {}
+
+    # Generate agent token
+    agent_rtm_uid = f"{constants['AGENT_UID']}-{channel}"
+    if constants.get("APP_CERTIFICATE"):
+        agent_token_info = build_token_with_rtm(
+            channel, constants["AGENT_UID"], constants, rtm_uid=agent_rtm_uid
+        )
+        agent_channel_token = agent_token_info["token"]
+    else:
+        agent_channel_token = constants["APP_ID"]
+
+    # Avatar mode needs explicit user UID
+    avatar_vendor = constants.get("AVATAR_VENDOR")
+    remote_rtc_uids = [constants["USER_UID"]] if avatar_vendor else ["*"]
+
+    properties = OrderedDict([
+        ("channel", channel),
+        ("token", agent_channel_token),
+        ("agent_rtc_uid", constants["AGENT_UID"]),
+        ("agent_rtm_uid", agent_rtm_uid),
+        ("remote_rtc_uids", remote_rtc_uids),
+        ("enable_string_uid", False),
+    ])
+
+    # Allow query param overrides for prompt and greeting only.
+    # asr_language and enable_aivad are NOT included — the pipeline owns those
+    # settings. The client always sends them as defaults which would conflict
+    # with the pipeline's own config.
+    prompt = query_params.get('prompt')
+    greeting = query_params.get('greeting')
+
+    overrides = {}
+    if prompt:
+        overrides["llm"] = {"system_messages": [{"role": "system", "content": prompt}]}
+    if greeting:
+        overrides["llm"] = overrides.get("llm", {})
+        overrides["llm"]["greeting_message"] = greeting
+
+    if overrides:
+        properties["overrides"] = overrides
+
+    # Add avatar config if needed (avatar isn't part of pipeline)
+    if avatar_vendor:
+        avatar_config = build_avatar_config(
+            avatar_vendor, constants, channel,
+            agent_video_token if agent_video_token else "",
+            query_params
+        )
+        if avatar_config:
+            properties["avatar"] = avatar_config
+
+    payload = OrderedDict([
+        ("name", channel),
+        ("pipeline_id", pipeline_id),
+        ("properties", properties)
+    ])
+
+    return payload
+
+
 def create_agent_payload(channel, constants, query_params=None, agent_video_token=None):
     """
     Creates the complete agent payload for Agora ConvoAI.
@@ -325,6 +403,11 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
         OrderedDict containing the complete agent payload
     """
     query_params = query_params or {}
+
+    # Check for pipeline mode (Agent Builder)
+    pipeline_id = query_params.get('pipeline_id') or constants.get("PIPELINE_ID")
+    if pipeline_id:
+        return _create_pipeline_payload(channel, pipeline_id, constants, query_params, agent_video_token)
 
     # Check if MLLM mode is enabled
     enable_mllm = query_params.get('enable_mllm', constants.get("ENABLE_MLLM", "false")).lower() == "true"
@@ -577,7 +660,11 @@ def send_agent_to_channel(channel, agent_payload, constants):
 
     print(f"Sending agent to Agora ConvoAI:")
     print(f"URL: {agent_api_url}")
-    print(f"🔧 enable_rtm: {agent_payload['properties']['advanced_features']['enable_rtm']}")
+    advanced = agent_payload.get('properties', {}).get('advanced_features')
+    if advanced:
+        print(f"🔧 enable_rtm: {advanced.get('enable_rtm')}")
+    else:
+        print(f"🔧 pipeline mode (no advanced_features)")
 
     # Optional curl dump (disabled by default to avoid exposing API keys)
     enable_curl_dump = constants.get("ENABLE_CURL_DUMP", "false").lower() == "true"

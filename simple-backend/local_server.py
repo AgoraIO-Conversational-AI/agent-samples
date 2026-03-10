@@ -65,6 +65,7 @@ def start_agent():
         channel: Channel name (auto-generated if not provided)
         profile: Profile name for env var overrides
         connect: "true" (default) to start agent, "false" for token-only
+        pipeline_id: Agent Builder pipeline ID (overrides inline LLM/TTS/ASR config)
         debug: Include debug info in response
 
     Examples:
