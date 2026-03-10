@@ -120,6 +120,7 @@ def initialize_constants(profile=None):
         "ENABLE_AIVAD": get_env_var('ENABLE_AIVAD', profile, "true"),
 
         # Agent settings
+        "PIPELINE_ID": get_env_var('PIPELINE_ID', profile),
         "IDLE_TIMEOUT": get_env_var('IDLE_TIMEOUT', profile, "120"),
         "MAX_HISTORY": get_env_var('MAX_HISTORY', profile, "32"),
 

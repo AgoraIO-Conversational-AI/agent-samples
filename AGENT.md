@@ -105,6 +105,32 @@ VOICE_VAD_SILENCE_DURATION_MS=300
 VOICE_ENABLE_AIVAD=true
 ```
 
+### Pipeline Mode (Agent Builder)
+
+Pipeline mode is an alternative to inline LLM/TTS/ASR configuration. Instead of specifying every vendor setting in `.env`, you create a pipeline in [Agora Agent Builder](https://console.agora.io) and reference it by ID. Agora resolves all STT, TTS, LLM, and AIVAD config from the pipeline — the backend only sends connection properties. **No LLM API key, TTS key, or ASR config is needed.**
+
+**Minimal `.env` for pipeline mode:**
+
+```bash
+# Only 3 values required — no LLM/TTS/ASR keys needed
+VOICE_APP_ID=your_app_id
+VOICE_APP_CERTIFICATE=your_app_certificate
+VOICE_PIPELINE_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# Optional overrides (pipeline defaults used if omitted)
+VOICE_DEFAULT_PROMPT=You are a helpful assistant.
+VOICE_DEFAULT_GREETING=Hello!
+```
+
+**Key behaviors:**
+
+- Only `APP_ID`, `APP_CERTIFICATE`, and `PIPELINE_ID` are required — no `LLM_API_KEY`, `TTS_KEY`, `TTS_VENDOR`, or `TTS_VOICE_ID` needed
+- Uses token auth (v007 token from `APP_CERTIFICATE`), not Basic auth — no `AGENT_AUTH_HEADER` needed
+- The `pipeline_id` query parameter overrides the env var: `/start-agent?channel=test&pipeline_id=xxx`
+- Only `prompt` and `greeting` are passed as overrides — the pipeline owns ASR, AIVAD, TTS, and LLM config
+- Avatar config is still sent separately (not part of the pipeline)
+- The payload contains no `advanced_features`, `llm`, `tts`, `asr`, `parameters`, or `turn_detection` — just `name`, `pipeline_id`, `properties`, and optional `overrides`
+
 ---
 
 ## Companion Servers (Optional)

@@ -67,28 +67,39 @@ audio, processes it through STT → LLM → TTS, and streams the response back.
 
 To run the server sample that your voice client will connect to, you will need:
 
-**Agora Credentials:**
+**Agora Credentials (always required):**
 
 ```bash
 APP_ID=                  # Required: Agora Console
-APP_CERTIFICATE=         # Optional for testing: Agora Console
-AGENT_AUTH_HEADER=       # Required: Agora Console
+APP_CERTIFICATE=         # Required: Agora Console (enable in Project Security)
 ```
 
 - **APP_ID / APP_CERTIFICATE**
   - Console: [Project Management](https://console.agora.io/project-management)
   - Help: [Manage Agora Account](https://docs.agora.io/en/conversational-ai/get-started/manage-agora-account)
-- **AGENT_AUTH_HEADER**
-  - Console: [RESTful API](https://console.agora.io/restful-api)
-  - Help: [RESTful Authentication](https://docs.agora.io/en/conversational-ai/rest-api/restful-authentication)
+  - Enable the App Certificate under Project Security in the Agora Console
 
-**LLM & TTS Providers:**
+### Option A: Pipeline Mode (Agent Builder) — Simplest
+
+Use a pre-configured pipeline from [Agora Agent Builder](https://console.agora.io). No LLM or TTS API keys needed — the pipeline owns all provider config.
 
 ```bash
-LLM_API_KEY=            # Required: OpenAI or compatible API key
-TTS_VENDOR=             # Required: rime, elevenlabs, openai, or cartesia
-TTS_KEY=                # Required: API key for your TTS vendor
-TTS_VOICE_ID=           # Required: Voice/speaker ID for your chosen vendor
+APP_ID=                  # Required: Agora Console
+APP_CERTIFICATE=         # Required: Agora Console
+PIPELINE_ID=             # Required: 32-char hex ID from Agent Builder
+```
+
+### Option B: Inline Config — Full Control
+
+Configure LLM, TTS, and ASR providers directly in `.env`. This gives you full control over every parameter.
+
+```bash
+APP_ID=                  # Required: Agora Console
+APP_CERTIFICATE=         # Required: Agora Console
+LLM_API_KEY=             # Required: OpenAI or compatible API key
+TTS_VENDOR=              # Required: rime, elevenlabs, openai, or cartesia
+TTS_KEY=                 # Required: API key for your TTS vendor
+TTS_VOICE_ID=            # Required: Voice/speaker ID for your chosen vendor
 ```
 
 - **LLM**: [OpenAI API Keys](https://platform.openai.com/settings/organization/api-keys)

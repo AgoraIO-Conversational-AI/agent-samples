@@ -37,8 +37,12 @@ The backend uses **profiles** to manage client configurations via environment va
 ```bash
 # Agora credentials (required)
 VOICE_APP_ID=
-VOICE_APP_CERTIFICATE=
-# VOICE_AGENT_AUTH_HEADER=  # Not needed when APP_CERTIFICATE is set
+VOICE_APP_CERTIFICATE=       # Required: enables token auth (no AGENT_AUTH_HEADER needed)
+
+# Pipeline mode (simplest — skip all LLM/TTS/ASR config below)
+# VOICE_PIPELINE_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# --- Inline config (only needed WITHOUT pipeline) ---
 
 # MLLM settings — choose one vendor:
 
@@ -78,8 +82,12 @@ VOICE_ENABLE_CURL_DUMP=true
 ```bash
 # Agora credentials (required)
 VIDEO_APP_ID=
-VIDEO_APP_CERTIFICATE=
-# VIDEO_AGENT_AUTH_HEADER=  # Not needed when APP_CERTIFICATE is set
+VIDEO_APP_CERTIFICATE=       # Required: enables token auth (no AGENT_AUTH_HEADER needed)
+
+# Pipeline mode (simplest — skip all LLM/TTS/ASR config below)
+# VIDEO_PIPELINE_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# --- Inline config (only needed WITHOUT pipeline) ---
 
 # LLM settings (direct OpenAI)
 VIDEO_ENABLE_MLLM=false
@@ -114,6 +122,23 @@ VIDEO_DEFAULT_PROMPT=You are Bella, a quiz master...
 
 # Debug
 VIDEO_ENABLE_CURL_DUMP=true
+```
+
+### Pipeline Mode (Agent Builder)
+
+Instead of configuring LLM/TTS/ASR inline, you can reference an [Agent Builder](https://console.agora.io) pipeline. When `PIPELINE_ID` is set, the backend sends a minimal payload and Agora resolves all STT/TTS/LLM config from the pipeline. **No LLM API key, TTS key, or ASR config is needed** — only Agora credentials and the pipeline ID.
+
+```bash
+# Pipeline mode — only 3 values required (no LLM/TTS/ASR keys needed)
+VOICE_APP_ID=your_app_id
+VOICE_APP_CERTIFICATE=your_app_certificate
+VOICE_PIPELINE_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+The `pipeline_id` query parameter overrides the env var:
+
+```bash
+curl "http://localhost:8082/start-agent?channel=test&pipeline_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
 
 ### Profile Overrides
@@ -204,12 +229,12 @@ The backend builds the Agora ConvoAI agent payload in `core/agent.py`. Key secti
 
 ### Advanced Features
 
-| Feature | Default | Description |
-|---------|---------|-------------|
-| `enable_rtm` | `true` | Always enabled. Required for RTM messaging between client and agent. |
-| `enable_sal` | `false` | Selective Attention Locking (beta). Blocks ~95% of ambient voices so the agent focuses on the primary speaker. Set `ENABLE_SAL=true` to enable. |
-| `enable_mllm` | `false` | Enables multimodal LLM mode (Gemini Live or OpenAI Realtime). Set `ENABLE_MLLM=true` to enable. |
-| `enable_tools` | conditional | Automatically enabled when MCP servers are configured. |
+| Feature        | Default     | Description                                                                                                                                     |
+| -------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enable_rtm`   | `true`      | Always enabled. Required for RTM messaging between client and agent.                                                                            |
+| `enable_sal`   | `false`     | Selective Attention Locking (beta). Blocks ~95% of ambient voices so the agent focuses on the primary speaker. Set `ENABLE_SAL=true` to enable. |
+| `enable_mllm`  | `false`     | Enables multimodal LLM mode (Gemini Live or OpenAI Realtime). Set `ENABLE_MLLM=true` to enable.                                                 |
+| `enable_tools` | conditional | Automatically enabled when MCP servers are configured.                                                                                          |
 
 ### Turn Detection
 
@@ -225,10 +250,10 @@ Turn detection controls how the agent detects when the user has finished speakin
 }
 ```
 
-| Setting | Env Var | Default | Description |
-|---------|---------|---------|-------------|
-| End-of-speech mode | `ENABLE_AIVAD` | `true` → `"semantic"` | `"semantic"` uses AI-based end-of-speech detection. Set `ENABLE_AIVAD=false` for basic `"vad"` mode. |
-| Silence duration | `VAD_SILENCE_DURATION_MS` | *(omitted)* | Only included when explicitly set in `.env`. Controls ms of silence before end-of-speech triggers. Omit to use server defaults. |
+| Setting            | Env Var                   | Default               | Description                                                                                                                     |
+| ------------------ | ------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| End-of-speech mode | `ENABLE_AIVAD`            | `true` → `"semantic"` | `"semantic"` uses AI-based end-of-speech detection. Set `ENABLE_AIVAD=false` for basic `"vad"` mode.                            |
+| Silence duration   | `VAD_SILENCE_DURATION_MS` | _(omitted)_           | Only included when explicitly set in `.env`. Controls ms of silence before end-of-speech triggers. Omit to use server defaults. |
 
 In MLLM mode, `turn_detection` also includes a top-level `mode` field (defaults to `"server_vad"`, configurable via `TURN_DETECTION_TYPE`).
 
@@ -241,11 +266,11 @@ In MLLM mode, `turn_detection` also includes a top-level `mode` field (defaults 
 }
 ```
 
-| Setting | Env Var | Default | Description |
-|---------|---------|---------|-------------|
-| `transcript` | — | enabled (non-MLLM only) | Enables transcript protocol v2 for real-time captions. Only included in standard TTS+LLM mode. |
-| `enable_dump` | — | `true` | Always enabled. Enables server-side request logging. |
-| `audio_scenario` | `ENABLE_AUDIO_CHORUS` | *(omitted)* | Set `ENABLE_AUDIO_CHORUS=true` to add `"audio_scenario": "chorus"` for multi-speaker scenarios. |
+| Setting          | Env Var               | Default                 | Description                                                                                     |
+| ---------------- | --------------------- | ----------------------- | ----------------------------------------------------------------------------------------------- |
+| `transcript`     | —                     | enabled (non-MLLM only) | Enables transcript protocol v2 for real-time captions. Only included in standard TTS+LLM mode.  |
+| `enable_dump`    | —                     | `true`                  | Always enabled. Enables server-side request logging.                                            |
+| `audio_scenario` | `ENABLE_AUDIO_CHORUS` | _(omitted)_             | Set `ENABLE_AUDIO_CHORUS=true` to add `"audio_scenario": "chorus"` for multi-speaker scenarios. |
 
 ### Authentication
 
@@ -253,6 +278,32 @@ The backend supports two authentication methods for the Agora ConvoAI API:
 
 1. **v007 token (recommended):** Set `APP_ID` and `APP_CERTIFICATE`. The backend auto-generates a v007 token and sends `Authorization: agora token=<token>`.
 2. **REST API key:** Set `AGENT_AUTH_HEADER` to `Basic <base64(customer_id:customer_secret)>` from the [Agora Console](https://console.agora.io) REST API key page. Only needed when `APP_CERTIFICATE` is not available.
+
+### Pipeline Mode Payload
+
+When `pipeline_id` is set (via env var or query param), the backend sends a minimal payload:
+
+```json
+{
+  "name": "channel_name",
+  "pipeline_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "properties": {
+    "channel": "channel_name",
+    "token": "007eJx...",
+    "agent_rtc_uid": 100,
+    "agent_rtm_uid": "...",
+    "remote_rtc_uids": ["*"]
+  },
+  "overrides": {
+    "llm": {
+      "system_messages": [{ "role": "system", "content": "..." }],
+      "greeting_message": "Hello!"
+    }
+  }
+}
+```
+
+The pipeline payload has **no** `advanced_features`, `llm`, `tts`, `asr`, `parameters`, or `turn_detection` sections. Only `prompt` and `greeting` are passed as optional overrides — the pipeline owns all other config. Avatar config is still sent separately when configured.
 
 ## Advanced Configuration
 
