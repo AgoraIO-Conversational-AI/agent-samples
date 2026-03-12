@@ -198,17 +198,20 @@ export function useAgoraVoiceClient() {
             token: config.token,
             channel: config.channel,
           },
-          renderMode: "auto" as TranscriptHelperMode,
+          renderMode: "text" as TranscriptHelperMode,
           enableLog: true,
         });
 
         // Listen to transcript updates
         api.on("transcript-updated", (messages: TranscriptItem[]) => {
           // Convert to IMessageListItem format
+          // Fix missing spaces: server sometimes omits spaces after punctuation
+          const fixSpacing = (t: string) =>
+            t.replace(/([.!?,:;])([A-Za-z])/g, "$1 $2");
           const convertedMessages = messages.map((m) => ({
             turn_id: m.turn_id,
             uid: m.uid,
-            text: m.text,
+            text: fixSpacing(m.text),
             status: m.status,
             timestamp: m.timestamp,
           }));

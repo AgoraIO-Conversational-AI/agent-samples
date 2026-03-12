@@ -350,6 +350,7 @@ def _create_pipeline_payload(channel, pipeline_id, constants, query_params=None,
         ("agent_rtc_uid", constants["AGENT_UID"]),
         ("agent_rtm_uid", agent_rtm_uid),
         ("remote_rtc_uids", remote_rtc_uids),
+        ("advanced_features", {"enable_rtm": True}),
         ("enable_string_uid", False),
     ])
 
