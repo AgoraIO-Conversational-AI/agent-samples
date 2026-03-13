@@ -6,11 +6,12 @@
     "dev": "next dev -p 8083",
     "build": "next build",
     "start": "next start -p 8083",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "node -e \"const fs=require('fs');const p='node_modules/agora-agent-client-toolkit/package.json';const j=JSON.parse(fs.readFileSync(p));if(!j.main){j.main='./src/index.ts';j.module='./src/index.ts';j.types='./src/index.ts';fs.writeFileSync(p,JSON.stringify(j,null,2))}\""
   },
   "dependencies": {
     "@agora/agent-ui-kit": "github:AgoraIO-Conversational-AI/agent-ui-kit#main",
-    "@agora/conversational-ai": "github:AgoraIO-Conversational-AI/agent-toolkit#main",
+    "agora-agent-client-toolkit": "github:AgoraIO-Conversational-AI/agent-client-toolkit-ts#main",
     "@lottiefiles/dotlottie-react": "^0.17.10",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",

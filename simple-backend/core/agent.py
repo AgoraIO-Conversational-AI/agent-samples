@@ -412,7 +412,6 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
 
     # Check if MLLM mode is enabled
     enable_mllm = query_params.get('enable_mllm', constants.get("ENABLE_MLLM", "false")).lower() == "true"
-    print(f"🔍 DEBUG: enable_mllm={enable_mllm}, ENABLE_MLLM from constants={constants.get('ENABLE_MLLM', 'NOT SET')}")
 
     # Get other settings
     idle_timeout = int(query_params.get('idle_timeout', constants["IDLE_TIMEOUT"]))

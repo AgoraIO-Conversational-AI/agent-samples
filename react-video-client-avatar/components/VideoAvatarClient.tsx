@@ -23,7 +23,6 @@ import { AgoraLogo } from "@agora/agent-ui-kit";
 import { SettingsDialog } from "@agora/agent-ui-kit";
 import { ThymiaPanel, useThymia } from "@agora/agent-ui-kit";
 import type { RTMEventSource } from "@agora/agent-ui-kit";
-import { RTMHelper } from "@agora/conversational-ai/helper/rtm";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -115,7 +114,11 @@ export function VideoAvatarClient() {
     leaveChannel,
     toggleMute,
     sendMessage,
-    rtcHelperRef,
+    rtmClient,
+    localVideoTrack,
+    createVideoTrack,
+    setVideoEnabled,
+    getVideoEnabled,
   } = useAgoraVideoClient();
 
   // Removed verbose logging - see useAgoraVideoClient for agent message logs
@@ -144,12 +147,13 @@ export function VideoAvatarClient() {
   );
 
   // RTM event source adapter for Thymia hooks
+  // Maps RTMClient's addEventListener/removeEventListener to the RTMEventSource interface
   const rtmSource = useMemo<RTMEventSource>(
     () => ({
-      on: (e, fn) => RTMHelper.getInstance().on(e, fn),
-      off: (e, fn) => RTMHelper.getInstance().off(e, fn),
+      on: (e, fn) => rtmClient?.addEventListener(e, fn),
+      off: (e, fn) => rtmClient?.removeEventListener(e, fn),
     }),
-    [],
+    [rtmClient],
   );
 
   // Thymia voice biomarker data (opt-in via NEXT_PUBLIC_ENABLE_THYMIA)
@@ -161,31 +165,8 @@ export function VideoAvatarClient() {
     safety: thymiaSafety,
   } = useThymia(rtmSource, THYMIA_ENABLED && isConnected);
 
-  // Local video state - managed by RTCHelper
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [localVideoTrack, setLocalVideoTrack] = useState<any>(null);
+  // Local video state
   const [isLocalVideoActive, setIsLocalVideoActive] = useState(false);
-
-  // Sync local video track from RTCHelper
-  useEffect(() => {
-    const rtcHelper = rtcHelperRef.current;
-    if (!rtcHelper) return;
-
-    // Update local state when RTCHelper's video track changes
-    const interval = setInterval(() => {
-      const currentTrack = rtcHelper.localVideoTrack;
-      const currentEnabled = rtcHelper.getVideoEnabled();
-
-      // Check if track object reference changed (new track created)
-      if (currentTrack !== localVideoTrack) {
-        console.log("[VideoAvatarClient] Track changed, updating state");
-        setLocalVideoTrack(currentTrack);
-        setIsLocalVideoActive(currentEnabled);
-      }
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [rtcHelperRef.current, localVideoTrack]);
 
   const handleStart = async () => {
     setIsLoading(true);
@@ -237,19 +218,8 @@ export function VideoAvatarClient() {
       });
 
       // Auto-enable local video if checkbox was checked
-      if (enableLocalVideo && rtcHelperRef.current) {
-        const rtcHelper = rtcHelperRef.current;
-
-        // Create video track using RTCHelper
-        await rtcHelper.createVideoTrack({ encoderConfig: "720p_2" });
-
-        // Publish video track
-        if (rtcHelper.localVideoTrack && rtcHelper.client) {
-          await rtcHelper.client.publish(rtcHelper.localVideoTrack);
-        }
-
-        // Update local state
-        setLocalVideoTrack(rtcHelper.localVideoTrack);
+      if (enableLocalVideo) {
+        await createVideoTrack("720p_2");
         setIsLocalVideoActive(true);
       }
 
@@ -305,7 +275,6 @@ export function VideoAvatarClient() {
   }, [autoConnect]);
 
   const handleStop = async () => {
-    // RTCHelper.leave() will cleanup video track automatically
     await leaveChannel();
     setSessionAgentId(null);
     setSessionPayload(null);
@@ -333,18 +302,15 @@ export function VideoAvatarClient() {
   };
 
   const toggleVideo = async () => {
-    const rtcHelper = rtcHelperRef.current;
-    if (!rtcHelper) return;
-
     const newState = !isLocalVideoActive;
-    await rtcHelper.setVideoEnabled(newState);
+    await setVideoEnabled(newState);
     setIsLocalVideoActive(newState);
   };
 
   // Helper to determine if message is from agent
-  // Agent messages have uid: 0 (stream_id: 0)
+  // Toolkit convention: uid 0 = self (user), non-zero = remote (agent)
   const isAgentMessage = (uid: number) => {
-    return uid === 0;
+    return uid !== 0;
   };
 
   const formatTime = (ts?: number) => {
