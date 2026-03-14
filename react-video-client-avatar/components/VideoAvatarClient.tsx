@@ -204,7 +204,9 @@ export function VideoAvatarClient() {
 
       const data = await tokenResponse.json();
 
-      if (data.agent?.uid) {
+      if (data.agent_rtm_uid) {
+        setAgentUID(data.agent_rtm_uid);
+      } else if (data.agent?.uid) {
         setAgentUID(data.agent.uid);
       }
 
