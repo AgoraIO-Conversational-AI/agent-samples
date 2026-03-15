@@ -21,9 +21,8 @@ import { AvatarVideoDisplay, LocalVideoPreview } from "@agora/agent-ui-kit";
 import { VideoGrid, MobileTabs } from "@agora/agent-ui-kit";
 import { AgoraLogo } from "@agora/agent-ui-kit";
 import { SettingsDialog } from "@agora/agent-ui-kit";
-import { ThymiaPanel, useThymia } from "@agora/agent-ui-kit";
+import { ThymiaPanel, useThymia, cn } from "@agora/agent-ui-kit";
 import type { RTMEventSource } from "@agora/agent-ui-kit";
-import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./ThemeToggle";
 
 const DEFAULT_BACKEND_URL =

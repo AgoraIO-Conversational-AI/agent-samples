@@ -115,7 +115,7 @@ AWS Lambda deployment.
 
 ### Core Packages
 
-- **[agent-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-toolkit)** - Core SDK toolkit with RTC/RTM helpers and React hooks
+- **[agent-client-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-client-toolkit-ts)** - Core client toolkit with RTC/RTM connection management, transcript handling, and React hooks
 - **[agent-ui-kit](https://github.com/AgoraIO-Conversational-AI/agent-ui-kit)** - React UI components for voice, chat, and video
 
 ### Voice Agent Sample

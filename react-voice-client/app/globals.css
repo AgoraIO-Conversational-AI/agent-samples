@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@source "../client-ui-kit/**/*.{ts,tsx}";
 @source "../node_modules/@agora/agent-ui-kit/src/**/*.{ts,tsx}";
 
 @custom-variant dark (&:is(.dark *));

@@ -46,7 +46,7 @@ This sample application uses the Agora Conversational AI SDK and UI Kit packages
 
 **Dependencies:**
 
-- `@agora/conversational-ai` - Core SDK and React hooks from [agent-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-toolkit)
+- `agora-agent-client-toolkit` - Core client toolkit from [agent-client-toolkit-ts](https://github.com/AgoraIO-Conversational-AI/agent-client-toolkit-ts) — RTC/RTM connection management, transcript handling, and React hooks
 - `@agora/agent-ui-kit` - UI components from [agent-ui-kit](https://github.com/AgoraIO-Conversational-AI/agent-ui-kit)
 
 **Key Components:**
@@ -190,7 +190,7 @@ react-video-client-avatar/
 │   ├── use-is-mobile.ts
 │   └── useAgoraVideoClient.ts   # Custom hook for Agora integration
 ├── lib/
-│   └── utils.ts                 # Utility functions (cn)
+│   └── theme/                   # Theme utilities
 ├── next.config.ts               # Transpile workspace packages
 ├── package.json                 # Dependencies
 └── README.md                    # This file
@@ -204,18 +204,14 @@ Uses MediaStream mode for responsive layouts:
 
 ```typescript
 import { LocalVideoPreview, AvatarVideoDisplay } from '@agora/agent-ui-kit'
-import { useLocalVideo, useRemoteVideo } from '@agora/conversational-ai'
 
 // Local camera
-const { videoTrack } = useLocalVideo()
 <LocalVideoPreview
-  videoTrack={videoTrack}
+  videoTrack={localVideoTrack}
   useMediaStream={true}  // Enables multi-instance rendering
 />
 
-// Avatar video
-const { remoteVideoUsersArray } = useRemoteVideo({ client })
-const avatarVideoTrack = remoteVideoUsersArray[0]?.videoTrack
+// Avatar video (remote video track from agent-client-toolkit)
 <AvatarVideoDisplay
   videoTrack={avatarVideoTrack}
   state={avatarVideoTrack ? "connected" : "disconnected"}

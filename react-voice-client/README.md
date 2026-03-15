@@ -15,10 +15,7 @@ UI Kit integration.
 - [Usage](#usage)
 - [Project Structure](#project-structure)
 - [Key Implementation Details](#key-implementation-details)
-  - [MessageEngine Integration](#messageengine-integration)
-  - [ConvoTextStream Component](#convotextstream-component)
   - [Agent Visualizer](#agent-visualizer)
-  - [Microphone Button](#microphone-button)
   - [Custom Hook: useAgoraVoiceClient](#custom-hook-useagoravoiceclient)
 - [Message Types](#message-types)
 - [Building for Production](#building-for-production)
@@ -28,11 +25,10 @@ UI Kit integration.
 
 ## Features
 
-- **Real-time Transcription** - Live transcription rendering with word-level and
-  text-level modes
+- **Real-time Transcription** - Live transcript display via agent-client-toolkit
 - **UI Components** - Pre-built components for chat, audio visualization, and
-  agent state
-- **MicButton** - Microphone control with visual feedback
+  agent state from agent-ui-kit
+- **Text Chat** - Send text messages to the agent via RTM
 - **RTC Audio** - High-quality stereo audio with echo cancellation, noise
   suppression, and auto gain control
 - **TypeScript** - Full type safety with Agora SDK and UIKit types
@@ -44,17 +40,14 @@ This sample application uses the Agora Conversational AI SDK and UI Kit packages
 
 **Dependencies:**
 
-- `@agora/conversational-ai` - Core SDK from [agent-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-toolkit)
-- `@agora/conversational-ai-react` - React hooks from [agent-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-toolkit)
+- `agora-agent-client-toolkit` - Core client toolkit from [agent-client-toolkit-ts](https://github.com/AgoraIO-Conversational-AI/agent-client-toolkit-ts) — RTC/RTM connection management, transcript handling, and React hooks
 - `@agora/agent-ui-kit` - UI components from [agent-ui-kit](https://github.com/AgoraIO-Conversational-AI/agent-ui-kit)
 
 **Key Components:**
 
-1. **ConversationalAIAPI** - Main SDK for managing voice AI connections
-2. **RTCHelper** - Handles Agora RTC audio connections
-3. **SubRenderController** - Manages real-time transcription rendering
-4. **UI Components** - Pre-built components for chat, audio visualization,
-   buttons, and agent state
+1. **AgoraVoiceAI** - Main toolkit class for managing voice AI connections (from agent-client-toolkit)
+2. **UI Components** - Pre-built components for chat, audio visualization,
+   buttons, and agent state (from agent-ui-kit)
 
 ## Prerequisites
 
@@ -149,70 +142,14 @@ react-voice-client/
 │   ├── use-is-mobile.ts
 │   └── useAgoraVoiceClient.ts   # Custom hook for Agora integration
 ├── lib/
-│   ├── utils.ts                 # Utility functions (cn, markdown renderer)
 │   └── theme/                   # Theme utilities
 ├── icons/
 │   └── PhoneReceiver.tsx        # Custom icons
-├── COMPARISON.md                # Comparison with other implementations
 ├── package.json                 # Dependencies
 └── README.md                    # This file
 ```
 
 ## Key Implementation Details
-
-### MessageEngine Integration
-
-The MessageEngine handles real-time transcription messages from the Agora RTC
-stream:
-
-```typescript
-import {
-  MessageEngine,
-  EMessageEngineMode,
-  IMessageListItem,
-} from "@/lib/message-engine";
-
-const engine = new MessageEngine({
-  rtcEngine: client, // Agora RTC client
-  renderMode: EMessageEngineMode.AUTO, // AUTO, TEXT, or WORD
-  callback: (messages) => {
-    // Filter completed messages vs in-progress
-    const completedMessages = messages.filter((msg) => msg.status !== 0);
-    const inProgress = messages.find((msg) => msg.status === 0);
-
-    setMessageList(completedMessages);
-    setCurrentInProgressMessage(inProgress || null);
-  },
-});
-```
-
-**Rendering Modes:**
-
-- `AUTO` - Automatically determines best mode based on message content
-- `TEXT` - Processes messages as complete text blocks
-- `WORD` - Word-by-word rendering with timing information
-
-### ConvoTextStream Component
-
-Displays transcriptions in a fixed-position chat window (bottom-right):
-
-```typescript
-<ConvoTextStream
-  messageList={messageList}
-  currentInProgressMessage={currentInProgressMessage}
-  agentUID="0"
-  messageSource="rtc"
-/>
-```
-
-**Features:**
-
-- Auto-opens on first message
-- Auto-scroll with manual override detection
-- Supports streaming (in-progress) messages with pulse animation
-- Markdown rendering
-- Collapsible/expandable with message count indicator
-- Avatar display (AI vs User)
 
 ### Agent Visualizer
 
@@ -235,24 +172,6 @@ Shows Lottie animations for different agent states:
 - `talking` - Agent is speaking
 - `disconnected` - Disconnected from channel
 
-### Microphone Button
-
-Controls microphone with live waveform visualization:
-
-```typescript
-<MicButton
-  state={micState}  // "idle" | "listening" | "processing" | "error"
-  onClick={toggleMute}
-/>
-```
-
-**States:**
-
-- `idle` - Not active
-- `listening` - Active and listening (shows waveform)
-- `processing` - Processing audio
-- `error` - Microphone error
-
 ### Custom Hook: useAgoraVoiceClient
 
 Encapsulates all Agora RTC logic:
@@ -273,16 +192,17 @@ const {
 
 **Responsibilities:**
 
-- Agora client lifecycle management
-- MessageEngine initialization and cleanup
+- Agora client lifecycle management via `agora-agent-client-toolkit`
+- Transcript handling (replaces the former local MessageEngine)
 - Microphone track creation with AEC/ANS/AGC
 - Remote user (agent) audio subscription and playback
 - Agent speaking state detection
 - Mute/unmute functionality
+- Text chat via RTM `sendMessage`
 
 ## Message Types
 
-The MessageEngine processes these message types from RTC stream-message events:
+The agent-client-toolkit processes these message types from RTC stream-message events:
 
 ### User Transcription
 

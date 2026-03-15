@@ -23,14 +23,12 @@
     "agora-rtc-sdk-ng": "^4.24.2",
     "agora-rtm": "^2.2.3-1",
     "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "lucide-react": "^0.561.0",
     "next": "16.1.6",
     "next-themes": "^0.4.6",
     "react": "19.2.1",
-    "react-dom": "19.2.1",
-    "tailwind-merge": "^3.4.0"
+    "react-dom": "19.2.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

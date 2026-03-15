@@ -9,7 +9,7 @@ This guide explains how to develop across the five Agora Conversational AI repos
 **Repositories**:
 
 - `agent-samples/` - Sample applications (GitHub: AgoraIO-Conversational-AI/agent-samples)
-- `agent-toolkit/` - Core SDK (GitHub: AgoraIO-Conversational-AI/agent-toolkit)
+- `agent-client-toolkit-ts/` - Core client toolkit (GitHub: AgoraIO-Conversational-AI/agent-client-toolkit-ts)
 - `agent-ui-kit/` - UI components (GitHub: AgoraIO-Conversational-AI/agent-ui-kit)
 - `server-custom-llm/` - Custom LLM server, Python/Node.js/Go (GitHub: AgoraIO-Conversational-AI/server-custom-llm)
 - `server-mcp-memory/` - MCP memory server, Python/Node.js/Go (GitHub: AgoraIO-Conversational-AI/server-mcp)
@@ -17,7 +17,7 @@ This guide explains how to develop across the five Agora Conversational AI repos
 **Package Installation**: Samples install toolkit and ui-kit from GitHub:
 
 ```json
-"@agora/conversational-ai": "github:AgoraIO-Conversational-AI/agent-toolkit#main",
+"agora-agent-client-toolkit": "github:AgoraIO-Conversational-AI/agent-client-toolkit-ts#main",
 "@agora/agent-ui-kit": "github:AgoraIO-Conversational-AI/agent-ui-kit#main"
 ```
 
@@ -27,11 +27,11 @@ This guide explains how to develop across the five Agora Conversational AI repos
 
 ### When to Edit Each Repository
 
-**agent-toolkit** - Edit when:
+**agent-client-toolkit-ts** - Edit when:
 
-- Fixing bugs in RTCHelper, ConversationalAIAPI, or core SDK logic
-- Adding new features to the SDK
-- Changing SDK interfaces or behavior
+- Fixing bugs in AgoraVoiceAI, TranscriptHelper, or core toolkit logic
+- Adding new features to the toolkit
+- Changing toolkit interfaces or behavior
 
 **agent-ui-kit** - Edit when:
 
@@ -46,7 +46,7 @@ This guide explains how to develop across the five Agora Conversational AI repos
 - Adding new sample applications
 - Updating documentation or configuration
 - Changing styling or theming (edit `globals.css` and Tailwind classes, not ui-kit)
-- Updating local utilities in `lib/utils.ts` (cn, renderMarkdownToHtml, etc.)
+- Updating local theme or hook utilities
 
 **server-custom-llm** - Edit when:
 
@@ -66,16 +66,16 @@ This guide explains how to develop across the five Agora Conversational AI repos
 
 ## Making Changes to Toolkit or UI-Kit
 
-When fixing issues that require changes to `agent-toolkit` or `agent-ui-kit`:
+When fixing issues that require changes to `agent-client-toolkit-ts` or `agent-ui-kit`:
 
 ### 1. Test Changes Locally First
 
 Edit files in `node_modules` for quick testing:
 
 ```bash
-# Example: Fix bug in RTCHelper
+# Example: Fix bug in toolkit
 cd agent-samples/react-voice-client
-# Edit node_modules/@agora/conversational-ai/helper/rtc.ts
+# Edit node_modules/agora-agent-client-toolkit/src/...
 npm run dev  # Test the fix works
 ```
 
@@ -85,26 +85,26 @@ Once the fix works, copy it to the source repo:
 
 ```bash
 # For toolkit:
-cp node_modules/@agora/conversational-ai/helper/rtc.ts \
-   ../../../agent-toolkit/packages/conversational-ai/helper/rtc.ts
+cp node_modules/agora-agent-client-toolkit/src/voice-ai.ts \
+   ../../../agent-client-toolkit-ts/packages/core/src/voice-ai.ts
 
 # For ui-kit:
-cp node_modules/@agora/agent-ui-kit/components/MicButton.tsx \
-   ../../../agent-ui-kit/packages/agent-ui-kit/components/MicButton.tsx
+cp node_modules/@agora/agent-ui-kit/src/components/voice/mic-button.tsx \
+   ../../../agent-ui-kit/src/components/voice/mic-button.tsx
 ```
 
 ### 3. Update Documentation
 
 Update the README in the repo you modified:
 
-- `agent-toolkit/README.md` - Document new SDK features/APIs
+- `agent-client-toolkit-ts/README.md` - Document new toolkit features/APIs
 - `agent-ui-kit/README.md` - Document new component props/usage
 - `agent-samples/AGENT.md` - Note breaking changes if any
 
 ### 4. Commit and Push
 
 ```bash
-cd agent-toolkit  # or agent-ui-kit
+cd agent-client-toolkit-ts  # or agent-ui-kit
 git add .
 git commit -m "feat: description"  # or "fix:", "docs:", etc.
 git push origin main
@@ -268,7 +268,7 @@ cloudflared tunnel --url http://localhost:8090
 Samples install toolkit and ui-kit directly from GitHub main branch:
 
 ```json
-"@agora/conversational-ai": "github:AgoraIO-Conversational-AI/agent-toolkit#main",
+"agora-agent-client-toolkit": "github:AgoraIO-Conversational-AI/agent-client-toolkit-ts#main",
 "@agora/agent-ui-kit": "github:AgoraIO-Conversational-AI/agent-ui-kit#main"
 ```
 
@@ -293,7 +293,7 @@ If switching to versioned npm packages in the future:
 **Publishing to npm** (toolkit or ui-kit):
 
 ```bash
-cd agent-toolkit  # or agent-ui-kit
+cd agent-client-toolkit-ts  # or agent-ui-kit
 npm version patch  # or minor/major
 npm run build
 npm publish
@@ -303,13 +303,13 @@ git push origin main --follow-tags
 **Updating samples**:
 
 ```json
-"@agora/conversational-ai": "^1.2.3",
+"agora-agent-client-toolkit": "^1.2.3",
 "@agora/agent-ui-kit": "^0.5.0"
 ```
 
 ```bash
 cd agent-samples/react-voice-client
-npm install @agora/conversational-ai@latest
+npm install agora-agent-client-toolkit@latest
 npm install @agora/agent-ui-kit@latest
 ```
 
@@ -325,14 +325,13 @@ agent-samples/           # Sample applications
 ├── simple-voice-client-with-backend/
 └── simple-backend/
 
-agent-toolkit/           # Core SDK (@agora/conversational-ai)
+agent-client-toolkit-ts/ # Core client toolkit (agora-agent-client-toolkit)
 └── packages/
-    ├── conversational-ai/  # Main package
+    ├── core/               # Main package
     └── react/              # React hooks
 
 agent-ui-kit/            # UI components (@agora/agent-ui-kit)
-└── packages/
-    └── agent-ui-kit/
+└── src/                 # Components, hooks, utilities
 
 server-custom-llm/       # Custom LLM proxy (OpenAI-compatible)
 ├── python/              # FastAPI + uvicorn (port 8100)
@@ -367,7 +366,7 @@ For the full design rationale (singleton pattern, dual transport, PTS synchroniz
 
 ## Git Hooks
 
-The three front-end repositories (agent-samples, agent-toolkit, agent-ui-kit) use git hooks to enforce code quality:
+The three front-end repositories (agent-samples, agent-client-toolkit-ts, agent-ui-kit) use git hooks to enforce code quality:
 
 ### Pre-commit Hook
 
@@ -459,7 +458,7 @@ git commit -m "docs: update README with video API"
 
 ```bash
 cd agent-samples/react-voice-client
-npm list @agora/conversational-ai
+npm list agora-agent-client-toolkit
 npm list @agora/agent-ui-kit
 ```
 
@@ -514,7 +513,7 @@ bash test/run_all.sh python   # or node, go
 
 ```bash
 cd /Users/benweekes/work/convoai
-for dir in agent-samples agent-toolkit agent-ui-kit server-custom-llm server-mcp-memory; do
+for dir in agent-samples agent-client-toolkit-ts agent-ui-kit server-custom-llm server-mcp-memory; do
   echo "--- $dir ---" && (cd "$dir" && git pull)
 done
 ```
@@ -538,4 +537,4 @@ done
 
 ---
 
-**Last Updated**: 2026-03-05
+**Last Updated**: 2026-03-14
