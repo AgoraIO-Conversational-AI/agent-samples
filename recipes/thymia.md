@@ -42,7 +42,7 @@ This recipe uses the standard sample apps — no special Thymia variants needed.
 
 | Key                   | Where to get it                            | Used by                                                       |
 | --------------------- | ------------------------------------------ | ------------------------------------------------------------- |
-| **Thymia API Key**    | Contact [Thymia](https://thymia.ai/)       | Custom LLM server (`THYMIA_API_KEY`)                          |
+| **Thymia API Key**    | Contact [Thymia](https://thymia.ai/)       | Backend `.env` profile (`THYMIA_THYMIA_API_KEY`) — passed through to custom LLM |
 | **Agora APP_ID**      | [Agora Console](https://console.agora.io/) | Backend (`THYMIA_APP_ID`)                                     |
 | **Agora AUTH_HEADER** | Agora Console → RESTful API credentials    | Backend (`THYMIA_AGENT_AUTH_HEADER`)                          |
 | **LLM API Key**       | OpenAI (GPT-5.1 recommended)               | Backend (`THYMIA_LLM_API_KEY`) — passed through to custom LLM |
@@ -59,11 +59,13 @@ This recipe uses the standard sample apps — no special Thymia variants needed.
 
 Thymia is toggled on in two places:
 
-**1. Custom LLM server** — set `THYMIA_ENABLED=true` and provide `THYMIA_API_KEY`:
+**1. Custom LLM server** — set `THYMIA_ENABLED=true`:
 
 ```bash
-PORT=8100 THYMIA_ENABLED=true THYMIA_API_KEY=<your-key> node custom_llm.js
+PORT=8100 THYMIA_ENABLED=true node custom_llm.js
 ```
+
+The Thymia API key is passed from the backend `.env` profile through `llm_config.params` in each request — no env var needed on the custom LLM server.
 
 **2. React client** — set `NEXT_PUBLIC_ENABLE_THYMIA=true` in `.env.local`:
 
@@ -112,10 +114,10 @@ npm install --legacy-peer-deps
 Start with Thymia enabled:
 
 ```bash
-PORT=8100 THYMIA_ENABLED=true THYMIA_API_KEY=<your-key> node custom_llm.js
+PORT=8100 THYMIA_ENABLED=true node custom_llm.js
 ```
 
-No `.env` file needed — the custom LLM receives the OpenAI API key and RTC params from the backend in each request.
+No `.env` file needed — the custom LLM receives the OpenAI API key, Thymia API key, and RTC params from the backend in each request via `llm_config.params`.
 
 ### 3. Backend .env — Add THYMIA Profile
 
@@ -132,6 +134,9 @@ THYMIA_APP_CERTIFICATE=
 THYMIA_AGENT_AUTH_HEADER=<your-auth-header>
 
 THYMIA_ENABLE_MLLM=false
+
+# Thymia API key — passed to custom LLM via llm_config.params
+THYMIA_THYMIA_API_KEY=<your-thymia-api-key>
 
 # LLM — point to custom LLM server
 # LLM_URL: your custom LLM's /chat/completions endpoint
@@ -283,7 +288,7 @@ IMPORTANT:
 
 ## Troubleshooting
 
-- **No biomarkers appearing:** Check custom LLM logs for Thymia connection errors. Verify `THYMIA_API_KEY` is set and `THYMIA_ENABLED=true`.
+- **No biomarkers appearing:** Check custom LLM logs for Thymia connection errors. Verify `THYMIA_THYMIA_API_KEY` is set in the backend `.env` profile and `THYMIA_ENABLED=true` on the custom LLM server.
 - **Thymia tab not showing:** Ensure `NEXT_PUBLIC_ENABLE_THYMIA=true` in client `.env.local` and restart dev server.
 - **Bella not referencing data:** Check custom LLM logs for `AgentUpdate` entries — biomarkers should be pushed via Agent Update API.
 - **Audio subscriber not connecting:** Verify Go binary exists at `go-audio-subscriber/bin/audio_subscriber`. On macOS, verify `sdk/agora_sdk_mac/` has the dylib files.

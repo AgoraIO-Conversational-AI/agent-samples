@@ -48,6 +48,7 @@ This recipe uses the standard sample apps — no special Shen variants needed. S
 | Key                    | Where to get it                            | Used by                                                        |
 | ---------------------- | ------------------------------------------ | -------------------------------------------------------------- |
 | **Shen.AI API Key**    | Contact [Shen.AI](https://shen.ai/)        | React client (`NEXT_PUBLIC_SHEN_API_KEY` in `.env.local`)      |
+| **Thymia API Key**     | Contact [Thymia](https://thymia.ai/)       | Backend `.env` profile (`VIDEO_THYMIA_SHEN_THYMIA_API_KEY`) — passed to custom LLM |
 | **Agora APP_ID**       | [Agora Console](https://console.agora.io/) | Backend (`VIDEO_THYMIA_SHEN_APP_ID`)                           |
 | **Agora AUTH_HEADER**  | Agora Console → RESTful API credentials    | Backend (`VIDEO_THYMIA_SHEN_AGENT_AUTH_HEADER`)                |
 | **LLM API Key**        | OpenAI (GPT-4o-mini or above)              | Backend (`VIDEO_THYMIA_SHEN_LLM_API_KEY`) — passed to custom LLM |
@@ -65,13 +66,13 @@ This recipe uses the standard sample apps — no special Shen variants needed. S
 
 Shen is toggled on in two places:
 
-**1. Custom LLM server** — set `SHEN_ENABLED=true`:
+**1. Custom LLM server** — set `SHEN_ENABLED=true` (and `THYMIA_ENABLED=true` since this profile combines both):
 
 ```bash
-PORT=8100 SHEN_ENABLED=true node custom_llm.js
+PORT=8100 SHEN_ENABLED=true THYMIA_ENABLED=true node custom_llm.js
 ```
 
-The Shen module listens for `shen.vitals` RTM messages and injects them into the LLM prompt. No external API key is needed on the server — all processing happens in the browser.
+The Shen module listens for `shen.vitals` RTM messages and injects them into the LLM prompt. No Shen API key is needed on the server — all camera processing happens in the browser. The Thymia API key is passed from the backend `.env` profile via `llm_config.params`.
 
 **2. React client** — set these in `.env.local`:
 
@@ -79,9 +80,10 @@ The Shen module listens for `shen.vitals` RTM messages and injects them into the
 # react-video-client-avatar/.env.local
 NEXT_PUBLIC_ENABLE_SHEN=true
 NEXT_PUBLIC_SHEN_API_KEY=<your-shen-api-key>
+NEXT_PUBLIC_ENABLE_THYMIA=true
 ```
 
-This adds the Shen tab and camera overlay to the client UI. Without it, the client works normally — video avatar only.
+This adds both the Shen tab (camera vitals) and Thymia tab (voice biomarkers) to the client UI. Without these, the client works normally — video avatar only.
 
 ## Prerequisites
 
@@ -115,13 +117,13 @@ nvm use 20
 npm install --legacy-peer-deps
 ```
 
-Start with Shen enabled:
+Start with both Shen and Thymia enabled (this profile uses both):
 
 ```bash
-PORT=8100 SHEN_ENABLED=true node custom_llm.js
+PORT=8100 SHEN_ENABLED=true THYMIA_ENABLED=true node custom_llm.js
 ```
 
-No `.env` file needed — the custom LLM receives the OpenAI API key and RTC params from the backend in each request.
+No `.env` file needed — the custom LLM receives the OpenAI API key, Thymia API key, and RTC params from the backend in each request via `llm_config.params`.
 
 ### 3. Backend .env — Add VIDEO_THYMIA_SHEN Profile
 
@@ -135,6 +137,9 @@ Add a `VIDEO_THYMIA_SHEN` profile to `simple-backend/.env`. The simple-backend u
 # Agora credentials
 VIDEO_THYMIA_SHEN_APP_ID=<your-app-id>
 VIDEO_THYMIA_SHEN_APP_CERTIFICATE=<your-certificate>
+
+# Thymia API key — passed to custom LLM via llm_config.params
+VIDEO_THYMIA_SHEN_THYMIA_API_KEY=<your-thymia-api-key>
 
 # LLM — point to custom LLM server
 VIDEO_THYMIA_SHEN_LLM_URL=<your-custom-llm-url>/chat/completions
