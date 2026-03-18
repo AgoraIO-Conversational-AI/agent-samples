@@ -158,6 +158,9 @@ def initialize_constants(profile=None):
         "HEYGEN_QUALITY": get_env_var('HEYGEN_QUALITY', profile, "high"),
         "HEYGEN_ACTIVITY_IDLE_TIMEOUT": get_env_var('HEYGEN_ACTIVITY_IDLE_TIMEOUT', profile, "120"),
 
+        # Integration API keys (passed to custom LLM via register-agent)
+        "THYMIA_API_KEY": get_env_var('THYMIA_API_KEY', profile),
+
         # MCP settings (JSON array of MCP server configs)
         "MCP_SERVERS": get_env_var('MCP_SERVERS', profile),
 

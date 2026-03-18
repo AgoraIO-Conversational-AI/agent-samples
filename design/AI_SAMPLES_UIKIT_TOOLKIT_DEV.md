@@ -35,10 +35,12 @@ This guide explains how to develop across the five Agora Conversational AI repos
 
 **agent-ui-kit** - Edit when:
 
-- Fixing bugs in domain-specific components (AgentVisualizer, Conversation, Message, SettingsDialog, SessionPanel, AvatarVideoDisplay, VideoGrid)
+- Fixing bugs in domain-specific components (AgentVisualizer, Conversation, Message, SettingsDialog, SessionPanel, AvatarVideoDisplay, VideoGrid, ThymiaPanel, ShenPanel)
 - Adding new domain-specific components for voice AI
 - Changing component props or behavior
+- Adding shared types for integration components (e.g., `src/types/shen-types.ts`)
 - Note: Sample apps use shadcn/Tailwind for generic UI (buttons, inputs, layout). Only edit ui-kit for voice AI domain components.
+- Note: Hooks that import external SDKs (e.g., Shen.AI) belong in the sample app, not ui-kit. Only SDK-agnostic hooks and types go in ui-kit.
 
 **agent-samples** - Edit when:
 
@@ -53,7 +55,8 @@ This guide explains how to develop across the five Agora Conversational AI repos
 - Changing the LLM proxy pipeline (tool execution, conversation memory, RAG)
 - Adding new endpoints or modifying streaming behavior
 - Adding custom tools to `tools.{py,js,go}`
-- Changes should be made in all three languages (Python, Node.js, Go) to keep parity
+- Adding or modifying integration modules (e.g., `node/integrations/thymia/`, `node/integrations/shen/`)
+- Changes should be made in all three languages (Python, Node.js, Go) to keep parity where applicable. Integration modules (Thymia, Shen) are currently Node.js only.
 
 **server-mcp-memory** - Edit when:
 
@@ -323,7 +326,8 @@ agent-samples/           # Sample applications
 ├── react-video-client-avatar/
 ├── simple-voice-client-no-backend/
 ├── simple-voice-client-with-backend/
-└── simple-backend/
+├── simple-backend/
+└── recipes/             # Integration recipes (thymia.md, shen.md)
 
 agent-toolkit/           # Core SDK (@agora/conversational-ai)
 └── packages/
@@ -337,6 +341,7 @@ agent-ui-kit/            # UI components (@agora/agent-ui-kit)
 server-custom-llm/       # Custom LLM proxy (OpenAI-compatible)
 ├── python/              # FastAPI + uvicorn (port 8100)
 ├── node/                # Express (port 8101)
+│   └── integrations/    # Thymia, Shen modules (RTM + Agent Update API)
 ├── go/                  # Gin (port 8102)
 └── test/                # Automated test scripts
 
@@ -492,7 +497,7 @@ PORT=8082 python3 local_server.py
 cd agent-samples/react-voice-client
 npm run dev
 
-# Video Client (port 8084)
+# Video Client (port 8084) — uses --webpack flag (Turbopack incompatible with Shen WASM)
 cd agent-samples/react-video-client-avatar
 npm run dev
 ```
@@ -538,4 +543,4 @@ done
 
 ---
 
-**Last Updated**: 2026-03-05
+**Last Updated**: 2026-03-16

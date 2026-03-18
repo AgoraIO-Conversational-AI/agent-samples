@@ -22,6 +22,8 @@ import { VideoGrid, MobileTabs } from "@agora/agent-ui-kit";
 import { AgoraLogo } from "@agora/agent-ui-kit";
 import { SettingsDialog } from "@agora/agent-ui-kit";
 import { ThymiaPanel, useThymia } from "@agora/agent-ui-kit";
+import { ShenPanel } from "@agora/agent-ui-kit";
+import { useShenai } from "@/hooks/useShenai";
 import type { RTMEventSource } from "@agora/agent-ui-kit";
 import { RTMHelper } from "@agora/conversational-ai/helper/rtm";
 import { cn } from "@/lib/utils";
@@ -31,6 +33,8 @@ const DEFAULT_BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8082";
 const DEFAULT_PROFILE = process.env.NEXT_PUBLIC_DEFAULT_PROFILE || "VIDEO";
 const THYMIA_ENABLED = process.env.NEXT_PUBLIC_ENABLE_THYMIA === "true";
+const SHEN_ENABLED = process.env.NEXT_PUBLIC_ENABLE_SHEN === "true";
+const SHEN_API_KEY = process.env.NEXT_PUBLIC_SHEN_API_KEY || "";
 
 const SENSITIVE_KEYS = [
   "api_key",
@@ -161,6 +165,64 @@ export function VideoAvatarClient() {
     safety: thymiaSafety,
   } = useThymia(rtmSource, THYMIA_ENABLED && isConnected);
 
+  // Shen.AI camera vitals (opt-in via NEXT_PUBLIC_ENABLE_SHEN)
+  // RTM publish function for Shen to push vitals to server
+  const shenRtmPublish = useMemo(() => {
+    if (!SHEN_ENABLED) return null;
+    return async (message: string): Promise<boolean> => {
+      try {
+        const rtm = RTMHelper.getInstance();
+        if (rtm && (rtm as any).client) {
+          const channel = (rtm as any).channel;
+          if (channel) {
+            await (rtm as any).client.publish(channel, message);
+            return true;
+          }
+        }
+        return false;
+      } catch {
+        return false;
+      }
+    };
+  }, []);
+
+  const shenState = useShenai(
+    SHEN_ENABLED && isConnected,
+    SHEN_API_KEY,
+    shenRtmPublish,
+    "shen-canvas",
+  );
+
+  // Move the shen canvas between desktop/mobile containers based on screen size
+  useEffect(() => {
+    if (!SHEN_ENABLED || !isConnected) return;
+
+    // Create the canvas once
+    let canvas = document.getElementById("shen-canvas") as HTMLCanvasElement;
+    if (!canvas) {
+      canvas = document.createElement("canvas");
+      canvas.id = "shen-canvas";
+      canvas.className = "absolute top-1/2 left-1/2 h-full";
+      canvas.style.transform = "translate(-50%, -50%) scale(1.8)";
+    }
+
+    const moveCanvas = () => {
+      const isMobile = window.matchMedia("(max-width: 767px)").matches;
+      const containerId = isMobile
+        ? "shen-container-mobile"
+        : "shen-container-desktop";
+      const container = document.getElementById(containerId);
+      if (container && canvas.parentElement !== container) {
+        container.appendChild(canvas);
+      }
+    };
+
+    moveCanvas();
+    const mql = window.matchMedia("(max-width: 767px)");
+    mql.addEventListener("change", moveCanvas);
+    return () => mql.removeEventListener("change", moveCanvas);
+  }, [isConnected]);
+
   // Local video state - managed by RTCHelper
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [localVideoTrack, setLocalVideoTrack] = useState<any>(null);
@@ -233,6 +295,7 @@ export function VideoAvatarClient() {
         channel: data.channel,
         token: data.token || null,
         uid: parseInt(data.uid),
+        rtmUid: data.user_rtm_uid, // Channel-scoped RTM UID for multi-session support
         ...(selectedMic ? { microphoneId: selectedMic } : {}),
       });
 
@@ -571,8 +634,8 @@ export function VideoAvatarClient() {
               }
               avatar={
                 <div className="flex flex-col h-full">
-                  {/* Avatar Video + optional Thymia tab */}
-                  {THYMIA_ENABLED ? (
+                  {/* Avatar Video + optional Thymia/Shen tabs */}
+                  {THYMIA_ENABLED || SHEN_ENABLED ? (
                     <MobileTabs
                       tabs={[
                         {
@@ -593,20 +656,38 @@ export function VideoAvatarClient() {
                             </div>
                           ),
                         },
-                        {
-                          id: "thymia",
-                          label: "Thymia",
-                          content: (
-                            <ThymiaPanel
-                              biomarkers={biomarkers}
-                              wellness={wellness}
-                              clinical={clinical}
-                              progress={thymiaProgress}
-                              safety={thymiaSafety}
-                              isConnected={isConnected}
-                            />
-                          ),
-                        },
+                        ...(THYMIA_ENABLED
+                          ? [
+                              {
+                                id: "thymia",
+                                label: "Thymia",
+                                content: (
+                                  <ThymiaPanel
+                                    biomarkers={biomarkers}
+                                    wellness={wellness}
+                                    clinical={clinical}
+                                    progress={thymiaProgress}
+                                    safety={thymiaSafety}
+                                    isConnected={isConnected}
+                                  />
+                                ),
+                              },
+                            ]
+                          : []),
+                        ...(SHEN_ENABLED
+                          ? [
+                              {
+                                id: "shen",
+                                label: "Shen",
+                                content: (
+                                  <ShenPanel
+                                    shenState={shenState}
+                                    isConnected={isConnected}
+                                  />
+                                ),
+                              },
+                            ]
+                          : []),
                       ]}
                     />
                   ) : (
@@ -670,11 +751,18 @@ export function VideoAvatarClient() {
               }
               localVideo={
                 <div className="h-full flex items-center justify-center p-2">
-                  <LocalVideoPreview
-                    videoTrack={isLocalVideoActive ? localVideoTrack : null}
-                    className="h-full w-full"
-                    useMediaStream={true}
-                  />
+                  {SHEN_ENABLED ? (
+                    <div
+                      id="shen-container-desktop"
+                      className="relative h-full w-full rounded-lg overflow-hidden bg-black"
+                    />
+                  ) : (
+                    <LocalVideoPreview
+                      videoTrack={isLocalVideoActive ? localVideoTrack : null}
+                      className="h-full w-full"
+                      useMediaStream={true}
+                    />
+                  )}
                 </div>
               }
             />
@@ -703,15 +791,22 @@ export function VideoAvatarClient() {
                         </div>
 
                         {/* Local Video - 50% */}
-                        <div className="flex-1 rounded-lg border bg-card shadow-lg overflow-hidden">
-                          <LocalVideoPreview
-                            videoTrack={
-                              isLocalVideoActive ? localVideoTrack : null
-                            }
-                            className="h-full w-full"
-                            useMediaStream={true}
+                        {SHEN_ENABLED ? (
+                          <div
+                            id="shen-container-mobile"
+                            className="relative flex-1 rounded-lg border bg-black shadow-lg overflow-hidden"
                           />
-                        </div>
+                        ) : (
+                          <div className="flex-1 rounded-lg border bg-card shadow-lg overflow-hidden">
+                            <LocalVideoPreview
+                              videoTrack={
+                                isLocalVideoActive ? localVideoTrack : null
+                              }
+                              className="h-full w-full"
+                              useMediaStream={true}
+                            />
+                          </div>
+                        )}
                       </div>
                     ),
                   },
@@ -829,6 +924,21 @@ export function VideoAvatarClient() {
                               clinical={clinical}
                               progress={thymiaProgress}
                               safety={thymiaSafety}
+                              isConnected={isConnected}
+                            />
+                          ),
+                        },
+                      ]
+                    : []),
+                  ...(SHEN_ENABLED
+                    ? [
+                        {
+                          id: "shen",
+                          label: "Shen",
+                          content: (
+                            <ShenPanel
+                              shenState={shenState}
+                              canvasId="shen-canvas"
                               isConnected={isConnected}
                             />
                           ),

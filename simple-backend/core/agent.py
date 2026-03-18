@@ -490,9 +490,14 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
                 llm_config["params"]["agent_uid"] = constants["AGENT_UID"]
                 sub_token_info = build_token_with_rtm(channel, "5000", constants)
                 llm_config["params"]["subscriber_token"] = sub_token_info["token"]
-                rtm_token_info = build_token_with_rtm(channel, "5001", constants)
+                llm_rtm_uid = f"5001-{channel}"
+                rtm_token_info = build_token_with_rtm(channel, "5001", constants, rtm_uid=llm_rtm_uid)
                 llm_config["params"]["rtm_token"] = rtm_token_info["token"]
-                llm_config["params"]["rtm_uid"] = "5001"
+                llm_config["params"]["rtm_uid"] = llm_rtm_uid
+                # Pass integration API keys to custom LLM if configured
+                thymia_api_key = constants.get("THYMIA_API_KEY")
+                if thymia_api_key:
+                    llm_config["params"]["thymia_api_key"] = thymia_api_key
 
         # Optional: greeting behavior configuration
         if greeting_mode:

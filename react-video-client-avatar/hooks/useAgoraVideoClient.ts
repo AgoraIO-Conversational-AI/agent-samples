@@ -18,6 +18,7 @@ export type VoiceClientConfig = {
   channel: string;
   token: string | null;
   uid: number;
+  rtmUid?: string; // Separate RTM UID (e.g. "101-{channel}") for multi-session support
   microphoneId?: string;
 };
 
@@ -180,7 +181,7 @@ export function useAgoraVideoClient() {
           rtcEngine: rtcHelper.client!,
           rtmConfig: {
             appId: config.appId,
-            uid: `${config.uid}`, // RTM uid must be string
+            uid: config.rtmUid || `${config.uid}`, // Use channel-scoped RTM UID if available
             token: config.token,
             channel: config.channel,
           },
@@ -199,10 +200,10 @@ export function useAgoraVideoClient() {
             timestamp: m.timestamp,
           }));
 
-          // Filter out in-progress messages
-          const completedMessages = convertedMessages.filter(
-            (msg) => msg.status !== TurnStatus.IN_PROGRESS,
-          );
+          // Filter out in-progress messages and sort by timestamp
+          const completedMessages = convertedMessages
+            .filter((msg) => msg.status !== TurnStatus.IN_PROGRESS)
+            .sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
 
           const inProgress = convertedMessages.find(
             (msg) => msg.status === TurnStatus.IN_PROGRESS,
