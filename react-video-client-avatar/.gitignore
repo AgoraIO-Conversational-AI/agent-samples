@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Shen.AI WASM SDK (34MB+ binary, not committed — see recipes/shen.md for setup)
+shenai-sdk/
+public/shenai-sdk/
