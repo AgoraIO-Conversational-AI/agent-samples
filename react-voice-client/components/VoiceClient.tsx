@@ -19,8 +19,9 @@ import { Response } from "@agora/agent-ui-kit";
 import { AgoraLogo } from "@agora/agent-ui-kit";
 import { SettingsDialog } from "@agora/agent-ui-kit";
 import { cn } from "@/lib/utils";
-import { MobileTabs, ThymiaPanel, useThymia } from "@agora/agent-ui-kit";
-import type { RTMEventSource } from "@agora/agent-ui-kit";
+import { MobileTabs } from "@agora/agent-ui-kit";
+import { ThymiaPanel, useThymia } from "@agora/agent-ui-kit/thymia";
+import type { RTMEventSource } from "@agora/agent-ui-kit/thymia";
 import { RTMHelper } from "@agora/conversational-ai/helper/rtm";
 import { ThemeToggle } from "./ThemeToggle";
 
