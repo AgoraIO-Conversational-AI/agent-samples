@@ -3,3 +3,7 @@
 
 # npm
 package-lock.json
+
+# Thymia/Shen variants (just .env config on base clients)
+react-video-client-thymia/
+react-voice-client-thymia/

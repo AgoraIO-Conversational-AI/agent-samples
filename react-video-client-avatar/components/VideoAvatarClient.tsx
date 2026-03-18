@@ -24,7 +24,6 @@ import { SettingsDialog } from "@agora/agent-ui-kit";
 import { ShenPanel } from "@agora/agent-ui-kit";
 import { ThymiaPanel, useThymia } from "@agora/agent-ui-kit/thymia";
 import { useShenai } from "@/hooks/useShenai";
-import type { RTMEventSource } from "@agora/agent-ui-kit/thymia";
 import AgoraRTC from "agora-rtc-sdk-ng";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./ThemeToggle";
@@ -121,9 +120,8 @@ export function VideoAvatarClient() {
     agentUid,
     rtcClientRef,
     rtmClientRef,
+    rtmSource,
   } = useAgoraVideoClient();
-
-  // Removed verbose logging - see useAgoraVideoClient for agent message logs
 
   // Handle mic selection change: persist to localStorage and live-switch if connected
   const handleMicChange = async (deviceId: string) => {
@@ -147,26 +145,6 @@ export function VideoAvatarClient() {
     localAudioTrack,
     isConnected && !isMuted,
   );
-
-  // RTM event source adapter for Thymia hooks
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rtmSource = useMemo<RTMEventSource | null>(() => {
-    const rtm = rtmClientRef.current;
-    if (!rtm) return null;
-    return {
-      on: (event: string, handler: (...args: any[]) => void) => {
-        if (event === "message") {
-          (rtm as any).addEventListener("message", handler);
-        }
-      },
-      off: (event: string, handler: (...args: any[]) => void) => {
-        if (event === "message") {
-          (rtm as any).removeEventListener("message", handler);
-        }
-      },
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rtmClientRef.current]);
 
   // Thymia voice biomarker data (opt-in via NEXT_PUBLIC_ENABLE_THYMIA)
   const {

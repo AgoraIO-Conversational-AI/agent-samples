@@ -60,7 +60,7 @@ export function useAudioDevices(): UseAudioDevicesReturn {
 
   useEffect(() => {
     AgoraRTC.onMicrophoneChanged = (info) => {
-      console.log("Microphone changed:", info.state, info.device.label);
+      // Microphone changed — reload device list
       loadDevices();
     };
 

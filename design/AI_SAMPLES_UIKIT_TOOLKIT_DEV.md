@@ -39,6 +39,7 @@ This guide explains how to develop across the five Agora Conversational AI repos
 - Adding new domain-specific components for voice AI
 - Changing component props or behavior
 - Adding shared types for integration components (e.g., `src/types/shen-types.ts`)
+- Adding SDK-agnostic hooks (e.g., `useThymia`, `useRTMSubscription`) — these live in ui-kit subpath exports (`@agora/agent-ui-kit/thymia`, `@agora/agent-ui-kit/rtc`, `@agora/agent-ui-kit/session`)
 - Note: Sample apps use shadcn/Tailwind for generic UI (buttons, inputs, layout). Only edit ui-kit for voice AI domain components.
 - Note: Hooks that import external SDKs (e.g., Shen.AI) belong in the sample app, not ui-kit. Only SDK-agnostic hooks and types go in ui-kit.
 
@@ -71,32 +72,57 @@ This guide explains how to develop across the five Agora Conversational AI repos
 
 When fixing issues that require changes to `agent-client-toolkit` or `agent-ui-kit`:
 
-### 1. Test Changes Locally First
+### 1. Local Symlink Development (Preferred)
 
-Edit files in `node_modules` for quick testing:
+For iterative development, symlink the ui-kit package to use local source:
 
 ```bash
-# Example: Fix bug in toolkit
+# In sample app package.json, change:
+"@agora/agent-ui-kit": "github:AgoraIO-Conversational-AI/agent-ui-kit#main"
+# To:
+"@agora/agent-ui-kit": "file:../../agent-ui-kit"
+
+# Then install in BOTH repos:
+cd agent-ui-kit && npm install --legacy-peer-deps
+cd agent-samples/react-video-client-avatar && npm install --legacy-peer-deps
+
+# Edit ui-kit source directly, rebuild, and test:
+cd agent-ui-kit/packages/uikit
+# Edit src/... files
+npm run build   # or npx tsup --no-dts for quick JS-only build
+# Sample app hot-reloads with changes
+```
+
+**Gotchas with symlinks:**
+
+- Must `npm install` in both the ui-kit AND the sample app
+- `agora-rtc-sdk-ng` must be in ui-kit peerDependencies
+- Remember to revert to GitHub reference before committing
+
+### 2. Quick Testing via node_modules
+
+For one-off fixes, edit files in `node_modules` directly:
+
+```bash
 cd agent-samples/react-voice-client
-# Edit node_modules/agora-agent-client-toolkit/dist/...
+# Edit node_modules/@agora/agent-ui-kit/dist/...
 npm run dev  # Test the fix works
 ```
 
-### 2. Copy Changes to Source Repository
+### 3. Copy Changes to Source Repository
 
-Once the fix works, copy it to the source repo:
+Once the fix works, apply it to the source repo:
 
 ```bash
 # For toolkit (published on npm — edit source repo, publish new version):
 # Edit in ../../../agent-client-toolkit/src/...
 # Then: npm version patch && npm publish
 
-# For ui-kit:
-cp node_modules/@agora/agent-ui-kit/components/MicButton.tsx \
-   ../../../agent-ui-kit/packages/agent-ui-kit/components/MicButton.tsx
+# For ui-kit — edit source directly:
+# Edit ../../../agent-ui-kit/packages/uikit/src/...
 ```
 
-### 3. Update Documentation
+### 4. Update Documentation
 
 Update the README in the repo you modified:
 
@@ -104,7 +130,7 @@ Update the README in the repo you modified:
 - `agent-ui-kit/README.md` - Document new component props/usage
 - `agent-samples/AGENT.md` - Note breaking changes if any
 
-### 4. Commit and Push
+### 5. Commit and Push
 
 ```bash
 cd agent-client-toolkit  # or agent-ui-kit
@@ -122,7 +148,7 @@ git push origin main
 - Prettier errors: `npx prettier --write <file>`
 - Commit-msg hook blocks "claude" references (case-insensitive)
 
-### 5. Update Samples to Use Latest Changes
+### 6. Update Samples to Use Latest Changes
 
 After publishing a new toolkit version to npm or pushing to ui-kit on GitHub, update samples:
 
@@ -183,7 +209,7 @@ The two server repos (`server-custom-llm` and `server-mcp-memory`) each have imp
 
 **Python**: No build step. Just run the server directly.
 
-**Node.js**: Requires Node 18+ (system default may be 16). Use `nvm use 20` before running. Run `npm install` in the `node/` directory before first use.
+**Node.js**: Requires Node 18+ (system default may be 16). Use `nvm use 18` before running. Run `npm install` in the `node/` directory before first use.
 
 **Go (server-mcp-memory only)**: Requires `CGO_ENABLED=1` and the `-tags sqlite_fts5` build flag for FTS5 support. Always use:
 
@@ -196,7 +222,7 @@ CGO_ENABLED=1 go run -tags sqlite_fts5 .
 ```bash
 # Custom LLM Server
 cd server-custom-llm/python && LLM_API_KEY=sk-... python3 custom_llm.py     # port 8100
-cd server-custom-llm/node   && LLM_API_KEY=sk-... node custom_llm.js        # port 8101
+cd server-custom-llm/node   && THYMIA_ENABLED=true SHEN_ENABLED=true LLM_API_KEY=sk-... node custom_llm.js  # port 8101
 cd server-custom-llm/go     && LLM_API_KEY=sk-... go run .                   # port 8102
 
 # MCP Memory Server
@@ -241,11 +267,13 @@ cloudflared tunnel --url http://localhost:8090
 
 **server-custom-llm**:
 
-| Variable       | Description              | Default                     |
-| -------------- | ------------------------ | --------------------------- |
-| `LLM_API_KEY`  | API key for LLM provider | _(required)_                |
-| `LLM_BASE_URL` | LLM API base URL         | `https://api.openai.com/v1` |
-| `LLM_MODEL`    | Default model name       | `gpt-4o-mini`               |
+| Variable          | Description              | Default                     |
+| ----------------- | ------------------------ | --------------------------- |
+| `LLM_API_KEY`     | API key for LLM provider | _(required)_                |
+| `LLM_BASE_URL`    | LLM API base URL         | `https://api.openai.com/v1` |
+| `LLM_MODEL`       | Default model name       | `gpt-4o-mini`               |
+| `THYMIA_ENABLED`  | Enable Thymia module     | `false`                     |
+| `SHEN_ENABLED`    | Enable Shen module       | `false`                     |
 
 **server-mcp-memory**: No API keys required. Uses CLI flags or env vars for port, host, and DB path:
 
@@ -331,14 +359,15 @@ agent-samples/           # Sample applications
 ├── simple-voice-client-no-backend/
 ├── simple-voice-client-with-backend/
 ├── simple-backend/
-└── recipes/             # Integration recipes (thymia.md, shen.md)
+├── recipes/             # Integration recipes (thymia.md, shen.md)
+└── design/              # Architecture docs
 
 agent-client-toolkit/    # Core SDK (agora-agent-client-toolkit on npm)
 └── src/                 # Main package source
 
 agent-ui-kit/            # UI components (@agora/agent-ui-kit)
 └── packages/
-    └── agent-ui-kit/
+    └── uikit/           # Main package (exports: ., ./thymia, ./rtc, ./session)
 
 server-custom-llm/       # Custom LLM proxy (OpenAI-compatible)
 ├── python/              # FastAPI + uvicorn (port 8100)
@@ -482,7 +511,7 @@ pytest tests/test_agent.py   # Specific file
 
 ### Dev Servers
 
-**Note:** The React clients require Node.js >= 20.9.0 (Next.js 16 requirement). Server repos only need Node 18+.
+**Note:** The React clients require Node.js >= 22 (Next.js 16 + React 19). Use `nvm use 22`. Server repos only need Node 18+.
 
 ```bash
 # Backend (port 8082)
@@ -537,6 +566,3 @@ done
 - [`AI_SAMPLES_DESIGN.md`](./AI_SAMPLES_DESIGN.md) — Architecture rationale for the three-package model
 - [`VIBE_CODING_DESIGN.md`](./VIBE_CODING_DESIGN.md) — Why vibe-coding repos flatten this architecture for AI platforms
 
----
-
-**Last Updated**: 2026-03-16

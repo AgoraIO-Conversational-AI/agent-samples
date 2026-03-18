@@ -195,7 +195,7 @@ export function useAgoraVoiceClient() {
           rtcEngine: rtcClient,
           rtmConfig: { rtmEngine: rtmClient },
           renderMode: TranscriptHelperMode.TEXT,
-          enableLog: true,
+          enableLog: false,
         });
 
         // Listen to transcript updates
@@ -227,8 +227,10 @@ export function useAgoraVoiceClient() {
 
         voiceAIRef.current = voiceAI;
 
-        // Login RTM and join RTC channel
+        // Login RTM, subscribe to channel for server-pushed messages (e.g. Thymia biomarkers),
+        // and join RTC channel
         await rtmClient.login({ token: config.token ?? undefined });
+        await rtmClient.subscribe(config.channel, { withMessage: true });
         await rtcClient.join(
           config.appId,
           config.channel,

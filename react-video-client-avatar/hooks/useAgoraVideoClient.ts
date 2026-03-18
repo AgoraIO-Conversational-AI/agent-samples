@@ -58,6 +58,16 @@ export function useAgoraVideoClient() {
   const voiceAIRef = useRef<AgoraVoiceAI | null>(null);
   const volumeCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Simple fan-out for RTM messages — one Agora addEventListener, many subscribers.
+  // Agora RTM may not support multiple addEventListener calls for the same event,
+  // so we use a single listener and dispatch to all registered handlers ourselves.
+  type RTMHandler = (event: { message: string | Uint8Array }) => void;
+  const rtmListenersRef = useRef<Set<RTMHandler>>(new Set());
+  const [rtmSource, setRtmSource] = useState<{
+    on: (event: string, handler: RTMHandler) => void;
+    off: (event: string, handler: RTMHandler) => void;
+  } | null>(null);
+
   // Setup RTC event listeners for both audio and video
   useEffect(() => {
     const rtcClient = rtcClientRef.current;
@@ -164,6 +174,8 @@ export function useAgoraVideoClient() {
         rtcClientRef.current = null;
       }
 
+      rtmListenersRef.current.clear();
+      setRtmSource(null);
       setLocalAudioTrack(null);
       setIsConnected(false);
       setMicState("idle");
@@ -201,7 +213,7 @@ export function useAgoraVideoClient() {
           rtcEngine: rtcClient,
           rtmConfig: { rtmEngine: rtmClient },
           renderMode: TranscriptHelperMode.AUTO,
-          enableLog: true,
+          enableLog: false,
         });
 
         // Listen to transcript updates
@@ -231,8 +243,47 @@ export function useAgoraVideoClient() {
 
         voiceAIRef.current = voiceAI;
 
-        // Login RTM and join RTC channel
+        // Login RTM, subscribe to channel for server-pushed messages (e.g. Thymia biomarkers),
+        // and join RTC channel
         await rtmClient.login({ token: config.token ?? undefined });
+        await rtmClient.subscribe(config.channel, { withMessage: true });
+
+        // Single RTM message listener — fans out to all registered handlers.
+        // Also logs incoming messages for debugging.
+        rtmClient.addEventListener("message", (event: any) => {
+          try {
+            let raw: string;
+            if (typeof event.message === "string") {
+              raw = event.message;
+            } else if (event.message instanceof Uint8Array) {
+              raw = new TextDecoder().decode(event.message);
+            } else {
+              return;
+            }
+            const parsed = JSON.parse(raw);
+            console.log("[RTM]", parsed.object, "len:", raw.length);
+          } catch {
+            // skip
+          }
+          // Dispatch to all registered subscribers
+          for (const handler of rtmListenersRef.current) {
+            try {
+              handler(event);
+            } catch {
+              // skip
+            }
+          }
+        });
+
+        // Create the RTMEventSource that hooks can subscribe to
+        setRtmSource({
+          on: (_event: string, handler: RTMHandler) => {
+            rtmListenersRef.current.add(handler);
+          },
+          off: (_event: string, handler: RTMHandler) => {
+            rtmListenersRef.current.delete(handler);
+          },
+        });
         await rtcClient.join(
           config.appId,
           config.channel,
@@ -325,5 +376,6 @@ export function useAgoraVideoClient() {
     agentUid,
     rtcClientRef,
     rtmClientRef,
+    rtmSource,
   };
 }

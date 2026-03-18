@@ -3,27 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { ShenState, RTMPublish } from "@agora/agent-ui-kit";
 
-// Human-readable state names for logging
-const FACE_STATES: Record<string, string> = {
-  "0": "OK",
-  "1": "TOO_FAR",
-  "2": "TOO_CLOSE",
-  "3": "NOT_CENTERED",
-  "4": "NOT_VISIBLE",
-  "5": "TURNED_AWAY",
-  "6": "UNKNOWN",
-};
-const MEAS_STATES: Record<string, string> = {
-  "0": "NOT_STARTED",
-  "1": "WAITING_FOR_FACE",
-  "2": "RUNNING_SIGNAL_SHORT",
-  "3": "RUNNING_SIGNAL_GOOD",
-  "4": "RUNNING_SIGNAL_BAD",
-  "5": "RUNNING_DEVICE_UNSTABLE",
-  "6": "FINISHED",
-  "7": "FAILED",
-};
-
 const EMPTY_STATE: ShenState = {
   sdkLoaded: false,
   initialized: false,
@@ -156,12 +135,11 @@ export function useShenai(
           enableErrorReporting: false,
           enablePreloadDisplay: false,
           onRuntimeInitialized: () => {
-            console.log("[Shen] WASM runtime ready");
+            // WASM runtime ready
           },
         });
         sdkRef.current = sdk;
         setState((s) => ({ ...s, sdkLoaded: true }));
-        console.log("[Shen] SDK loaded, version:", sdk.getVersion());
       } catch (err) {
         console.error("[Shen] Failed to load SDK:", err);
       }
@@ -180,7 +158,7 @@ export function useShenai(
 
     const canvas = document.getElementById(canvasId);
     if (!canvas) {
-      console.debug("[Shen] Canvas not found yet, retrying...");
+      // Canvas not found yet, retrying...
       setTimeout(initialize, 200);
       return;
     }
@@ -215,7 +193,6 @@ export function useShenai(
         if (res === sdk.InitializationResult.OK) {
           sdk.attachToCanvas(`#${canvasId}`);
           setState((s) => ({ ...s, initialized: true }));
-          console.log("[Shen] SDK initialized successfully");
         } else {
           console.error("[Shen] Initialization failed:", res);
         }
@@ -257,19 +234,9 @@ export function useShenai(
         // Realtime metrics (available during measurement, 30s rolling window)
         const realtimeMetrics = sdk.getRealtimeMetrics?.(30) ?? null;
 
-        // Log face state changes (e.g. user outside safe zone)
+        // Track face state changes
         if (faceState !== lastFaceStateRef.current) {
-          const from = FACE_STATES[lastFaceStateRef.current] || lastFaceStateRef.current || "—";
-          const to = FACE_STATES[faceState] || faceState;
-          console.log(`[Shen] Face: ${from} → ${to}`);
           lastFaceStateRef.current = faceState;
-        }
-
-        // Log measurement state changes
-        if (measurementState !== lastMeasurementStateRef.current) {
-          const from = MEAS_STATES[lastMeasurementStateRef.current] || lastMeasurementStateRef.current || "—";
-          const to = MEAS_STATES[measurementState] || measurementState;
-          console.log(`[Shen] Measurement: ${from} → ${to} (progress: ${progress}%, HR: ${hr10s ?? realtimeHr ?? "—"})`);
         }
 
         // Use new value if available, otherwise keep last known value
@@ -331,7 +298,6 @@ export function useShenai(
         const isFinished = measurementState === "6" || measurementState === "7" ||
           measurementState === "0"; // NOT_STARTED after auto-stop
         if (prevMeasState !== measurementState && isFinished && prevMeasState !== "") {
-          console.log(`[Shen] Measurement ended (${MEAS_STATES[measurementState] || measurementState}), restarting in 2s...`);
           setTimeout(() => {
             if (destroyedRef.current) return;
             try {
@@ -339,7 +305,6 @@ export function useShenai(
                 sdkRef.current.resetMeasurementSession?.();
                 sdkRef.current.setOperatingMode?.(sdkRef.current.OperatingMode.MEASURE);
                 sdkRef.current.startMeasurement?.();
-                console.log("[Shen] Measurement restarted");
               }
             } catch (e) {
               console.error("[Shen] Failed to restart measurement:", e);
