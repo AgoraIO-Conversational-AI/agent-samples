@@ -36,7 +36,7 @@ UI Kit integration.
 
 ## Architecture
 
-This sample application uses the Agora Conversational AI SDK and UI Kit packages installed from GitHub:
+This sample application uses the Agora Conversational AI SDK (from npm) and UI Kit packages:
 
 **Dependencies:**
 

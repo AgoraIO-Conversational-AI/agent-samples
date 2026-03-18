@@ -42,7 +42,7 @@ Agora Conversational AI SDK and UI Kit.
 
 ## Architecture
 
-This sample application uses the Agora Conversational AI SDK and UI Kit packages installed from GitHub:
+This sample application uses the Agora Conversational AI SDK (from npm) and UI Kit packages:
 
 **Dependencies:**
 
@@ -55,8 +55,7 @@ This sample application uses the Agora Conversational AI SDK and UI Kit packages
 2. **AvatarVideoDisplay** - Shows remote avatar video stream
 3. **VideoGrid** - Desktop 2x2 grid layout (40/60 split)
 4. **MobileTabs** - Mobile tab switcher for Video and Chat views
-5. **ConversationalAIAPI** - Main SDK for managing voice AI connections
-6. **RTCHelper** - Handles Agora RTC audio and video connections
+5. **AgoraVoiceAI** - Main toolkit class for managing voice AI connections (from agent-client-toolkit)
 
 ## Prerequisites
 
@@ -257,7 +256,8 @@ const {
   leaveChannel,
   toggleMute,
   sendMessage,
-  rtcHelperRef,
+  rtcClientRef,
+  rtmClientRef,
 } = useAgoraVideoClient();
 ```
 
@@ -281,7 +281,7 @@ The build creates an optimized production bundle with:
 - **Language**: TypeScript 5
 - **Runtime**: React 19
 - **Styling**: Tailwind CSS v4
-- **UI Components**: Agora AI UIKit (workspace package)
+- **UI Components**: Agora AI UIKit
 - **RTC SDK**: agora-rtc-sdk-ng v4.24+
 - **Icons**: lucide-react
 - **State Management**: React hooks

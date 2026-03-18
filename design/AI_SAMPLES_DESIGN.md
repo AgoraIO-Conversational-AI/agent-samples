@@ -9,7 +9,7 @@ This document explains the architecture decisions behind the three core front-en
 ## The Three-Package Model
 
 ```
-agent-toolkit (@agora/conversational-ai)    — SDK layer
+agent-client-toolkit (agora-agent-client-toolkit) — SDK layer
 agent-ui-kit  (@agora/agent-ui-kit)         — Component layer
 agent-samples                               — Application layer
 ```
@@ -21,7 +21,7 @@ Each layer has a single responsibility and can be used independently.
 A monolithic sample app forces developers to fork and modify the entire codebase. The three-package split gives developers choice:
 
 1. **Use everything** — clone `agent-samples`, get a working app in minutes
-2. **Use SDK + own UI** — install `@agora/conversational-ai`, build custom components
+2. **Use SDK + own UI** — install `agora-agent-client-toolkit`, build custom components
 3. **Use components + own logic** — install `@agora/agent-ui-kit`, wire up your own SDK calls
 4. **Use both packages** — install both, combine SDK helpers with pre-built UI
 
@@ -29,7 +29,7 @@ Developers adopt what they need without carrying what they don't.
 
 ---
 
-## agent-toolkit (`@agora/conversational-ai`)
+## agent-client-toolkit (`agora-agent-client-toolkit`)
 
 ### Purpose
 
@@ -39,32 +39,29 @@ Eliminate the complexity of integrating Agora RTC and RTM for voice AI. Without 
 
 | Module | Responsibility |
 |--------|---------------|
-| **ConversationalAIAPI** | Singleton orchestrator — initializes RTC + RTM, wires up transcript processing, exposes `sendMessage()` and `transcript-updated` events |
-| **RTCHelper** | Wraps Agora RTC SDK — `init()`, `join()`, `publish()`, `setMuted()`, audio track creation with AEC/ANS/AGC, volume monitoring, network quality, subscription filtering |
-| **RTMHelper** | Wraps Agora RTM SDK — `login()`, `subscribe()`, message routing, presence events |
-| **SubRenderController** | Message processing engine — chunked message reassembly, turn deduplication, PTS-based word-level sync, multiple render modes (`word`, `text`, `chunk`, `auto`) |
-| **React hooks** | `useLocalVideo`, `useRemoteVideo` — camera management and remote video subscription |
-| **EventHelper** | Type-safe event emitter base class used by all helpers |
+| **AgoraVoiceAI** | Main class — initializes RTC + RTM via `init()` factory, wires up transcript processing, exposes `sendMessage()` and event callbacks |
+| **AgoraVoiceAIEvents** | Event type definitions for all voice AI events (transcript updates, connection state, agent speaking, etc.) |
+| **TranscriptHelperMode** | Transcript rendering modes — controls how transcript text is assembled and displayed |
+| **TurnStatus** | Turn state enum — `IN_PROGRESS`, `END`, `INTERRUPTED` for tracking conversation turns |
 
 ### Design Decisions
 
-**Singleton pattern** for RTCHelper and RTMHelper. A voice AI session has exactly one RTC connection and one RTM connection. Singletons prevent accidental double-initialization and ensure `leave()` / `destroy()` always clean up the correct instance.
+**Factory pattern** for AgoraVoiceAI. A voice AI session is created via `AgoraVoiceAI.init()` which returns a configured instance managing both RTC and RTM connections. Calling `disconnect()` cleans up all resources.
 
 **Dual transport** — transcripts arrive via both RTC stream messages and RTM. This provides redundancy; if one transport has packet loss, the other fills in.
 
-**PTS synchronization** — the SubRenderController aligns word display timing with audio playback timestamps. Without this, text appears before or after the agent speaks it. The `word` render mode uses `start_ms` from each word to display it exactly when the audio plays.
+**PTS synchronization** — the toolkit's transcript processor aligns word display timing with audio playback timestamps. Without this, text appears before or after the agent speaks it. The `word` render mode uses `start_ms` from each word to display it exactly when the audio plays.
 
-**Framework-agnostic core** — the SDK is pure TypeScript with no React dependency. React hooks are a separate export (`@agora/conversational-ai/react`). This means Vue, Svelte, or vanilla JS apps can use the core SDK directly.
+**Framework-agnostic core** — the SDK is pure TypeScript with no React dependency. This means Vue, Svelte, or vanilla JS apps can use the core SDK directly.
 
 **Zero runtime dependencies** — only peer dependencies on `agora-rtc-sdk-ng` and `agora-rtm`. No bundled third-party code.
 
 ### Conventions
 
-- All helpers use the EventHelper base class for consistent `on()` / `off()` / `once()` / `emit()` API
-- Singletons accessed via `getInstance()`, cleaned up via `destroy()`
-- RTM UID format: `"{rtc_uid}-{channel}"` (e.g., `"100-myChannel"`)
-- Agent RTC UID is always `"100"`, user is `"101"`
-- Transcript messages use `turn_id` for deduplication and `status` (IN_PROGRESS / END / INTERRUPTED) for state
+- AgoraVoiceAI instance created via `init()`, cleaned up via `disconnect()`
+- Events use callback-based API (`on()` / `off()`)
+- Agent UID is configurable (default `"0"`)
+- Transcript messages use `turn_id` for deduplication and `turn_status` (IN_PROGRESS / END / INTERRUPTED) for state
 
 ---
 
@@ -124,7 +121,7 @@ These components remain in the package for third-party consumers who want a more
 
 **Headless where possible** — components like `Conversation` and `Message` accept children and className overrides. The layout is opinionated but the content is flexible.
 
-**MessageEngine** — a standalone transcript processor available in ui-kit for consumers who don't use the toolkit SDK. The sample apps use the toolkit's `SubRenderController` instead, so `MessageEngine` is unused in samples but available for third-party integrations.
+**MessageEngine** — a standalone transcript processor available in ui-kit for consumers who don't use the toolkit SDK. The sample apps use the toolkit's built-in transcript processing instead, so `MessageEngine` is unused in samples but available for third-party integrations.
 
 **Lottie animations** — `AgentVisualizer` uses dotLottie files for the agent state visualization (listening, talking, not-joined). Files are loaded from a configurable `lottieBasePath`, not bundled, keeping the package small.
 
@@ -187,7 +184,7 @@ This ensures the client never misses the agent's greeting message.
 │   Local styling: shadcn CSS vars + Tailwind + lucide   │
 │   Local utils:   cn(), renderMarkdownToHtml()          │
 │                                                        │
-│   From toolkit:  RTCHelper, RTMHelper, ConvoAI API     │
+│   From toolkit:  AgoraVoiceAI                          │
 │   From ui-kit:   AgentVisualizer, Conversation/Message,│
 │                  SettingsDialog, SessionPanel,          │
 │                  AvatarVideoDisplay, VideoGrid,         │
@@ -196,16 +193,16 @@ This ensures the client never misses the agent's greeting message.
            │                  │
            ▼                  ▼
 ┌──────────────────┐ ┌─────────────────────────┐
-│  agent-toolkit   │ │      agent-ui-kit       │
+│ agent-client-    │ │      agent-ui-kit       │
+│ toolkit          │ │                         │
+│                  │ │  Used by samples:       │
+│  AgoraVoiceAI    │ │    AgentVisualizer      │
+│  Events/Types    │ │    Conversation/Message  │
+│                  │ │    SettingsDialog        │
+│  Peer deps:      │ │    SessionPanel          │
+│  agora-rtc-sdk   │ │    AvatarVideoDisplay    │
+│  agora-rtm       │ │    VideoGrid, MobileTabs │
 │                  │ │                         │
-│  RTCHelper       │ │  Used by samples:       │
-│  RTMHelper       │ │    AgentVisualizer      │
-│  SubRender       │ │    Conversation/Message  │
-│  ConvoAI API     │ │    SettingsDialog        │
-│                  │ │    SessionPanel          │
-│  Peer deps:      │ │    AvatarVideoDisplay    │
-│  agora-rtc-sdk   │ │    VideoGrid, MobileTabs │
-│  agora-rtm       │ │                         │
 │                  │ │  Available but unused:   │
 │                  │ │    Button, Card, Popover │
 │                  │ │    MicButton, MicSelector│
@@ -228,20 +225,20 @@ The toolkit and ui-kit do not depend on each other. A developer can use either o
 
 ```bash
 # Full stack (what agent-samples uses)
-npm install @agora/conversational-ai @agora/agent-ui-kit agora-rtc-sdk-ng agora-rtm
+npm install agora-agent-client-toolkit @agora/agent-ui-kit agora-rtc-sdk-ng agora-rtm
 
 # SDK only (custom UI)
-npm install @agora/conversational-ai agora-rtc-sdk-ng agora-rtm
+npm install agora-agent-client-toolkit agora-rtc-sdk-ng agora-rtm
 
 # Components only (custom SDK logic)
 npm install @agora/agent-ui-kit
 ```
 
-Currently installed from GitHub (not npm registry):
+The toolkit is published on npm as `agora-agent-client-toolkit`. The ui-kit is installed from GitHub:
 
 ```json
 {
-  "@agora/conversational-ai": "github:AgoraIO-Conversational-AI/agent-toolkit#main",
+  "agora-agent-client-toolkit": "^1.1.0",
   "@agora/agent-ui-kit": "github:AgoraIO-Conversational-AI/agent-ui-kit#main"
 }
 ```
@@ -257,11 +254,11 @@ Currently installed from GitHub (not npm registry):
 
 ## Future Improvements
 
-**Publish to npm** — Moving `@agora/conversational-ai` and `@agora/agent-ui-kit` to the npm registry would eliminate `--legacy-peer-deps`, enable AI coding platforms to install them, and add proper semantic versioning. This is the single highest-impact change.
+**Publish ui-kit to npm** — The toolkit is now published on npm as `agora-agent-client-toolkit`. Moving `@agora/agent-ui-kit` to the npm registry as well would complete the migration, enable AI coding platforms to install it, and add proper semantic versioning.
 
 **Reduce unused ui-kit exports** — The samples don't use ui-kit's `Button`, `Card`, `Popover`, `MicButton`, `MicSelector`, `CameraSelector`, `MessageEngine`, or `cn()`. These remain for third-party consumers, but the package could be split or tree-shaken to reduce the surface area.
 
-**Consolidate duplicated utilities** — `cn()`, `renderMarkdownToHtml()`, and `decodeStreamMessage()` are intentionally duplicated in samples and ui-kit. If the packages move to npm with proper versioning, samples could import these from ui-kit instead.
+**Consolidate duplicated utilities** — `cn()`, `renderMarkdownToHtml()`, and `decodeStreamMessage()` are intentionally duplicated in samples and ui-kit. With the toolkit now on npm, samples could potentially import these from ui-kit instead.
 
 **Consolidate design docs** — This document and [`VIBE_CODING_DESIGN.md`](./VIBE_CODING_DESIGN.md) both describe the three-package model from different angles. If the vibe-coding repos stabilize, these could merge into a single design doc.
 

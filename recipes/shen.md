@@ -39,7 +39,7 @@ This recipe uses the standard sample apps — no special Shen variants needed. S
 | --------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | `react-video-client-avatar` | agent-samples                                                                       | Video avatar UI with Shen tab and camera overlay (`NEXT_PUBLIC_ENABLE_SHEN`) |
 | `simple-backend`            | agent-samples                                                                       | Python backend — routes calls to Agora ConvoAI                           |
-| `agent-toolkit`             | [agent-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-toolkit)         | Core SDK with RTC/RTM helpers and React hooks                            |
+| `agent-client-toolkit`      | [agent-client-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-client-toolkit-ts) | Core client toolkit (`agora-agent-client-toolkit` on npm)                |
 | `agent-ui-kit`              | [agent-ui-kit](https://github.com/AgoraIO-Conversational-AI/agent-ui-kit)           | React UI components including ShenPanel                                  |
 | `server-custom-llm/node`    | [server-custom-llm](https://github.com/AgoraIO-Conversational-AI/server-custom-llm) | Custom LLM proxy with Shen module (RTM listener + Agent Update API)      |
 

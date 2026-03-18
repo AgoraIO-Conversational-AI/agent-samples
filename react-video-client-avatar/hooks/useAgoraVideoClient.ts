@@ -2,15 +2,21 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { IMicrophoneAudioTrack } from "agora-rtc-sdk-ng";
-import { RTCHelper } from "@agora/conversational-ai/helper/rtc";
-import { SubRenderController } from "@agora/conversational-ai/utils/sub-render";
-import { ConversationalAIAPI } from "@agora/conversational-ai";
-import type {
-  TranscriptItem,
+import AgoraRTC, {
+  IMicrophoneAudioTrack,
+  IAgoraRTCRemoteUser,
+  IAgoraRTCClient,
+} from "agora-rtc-sdk-ng";
+import AgoraRTM from "agora-rtm";
+import {
+  AgoraVoiceAI,
+  AgoraVoiceAIEvents,
+  TurnStatus,
   TranscriptHelperMode,
-} from "@agora/conversational-ai/type";
-import { TurnStatus, RTCHelperEvents } from "@agora/conversational-ai/type";
+  ChatMessageType,
+  ChatMessagePriority,
+  type TranscriptHelperItem,
+} from "agora-agent-client-toolkit";
 import { MicButtonState } from "@agora/agent-ui-kit";
 
 export type VoiceClientConfig = {
@@ -18,13 +24,15 @@ export type VoiceClientConfig = {
   channel: string;
   token: string | null;
   uid: number;
-  rtmUid?: string; // Separate RTM UID (e.g. "101-{channel}") for multi-session support
+  rtmUid?: string;
+  agentUid?: string;
+  agentRtmUid?: string;
   microphoneId?: string;
 };
 
 export interface IMessageListItem {
   turn_id: number;
-  uid: number;
+  uid: string;
   text: string;
   status: number;
   timestamp?: number;
@@ -40,42 +48,40 @@ export function useAgoraVideoClient() {
   const [currentInProgressMessage, setCurrentInProgressMessage] =
     useState<IMessageListItem | null>(null);
   const [isAgentSpeaking, setIsAgentSpeaking] = useState(false);
+  const [agentUid, setAgentUid] = useState<string | undefined>(undefined);
+  const [agentRtmUid, setAgentRtmUid] = useState<string | undefined>(undefined);
   const [remoteAudioTrack, setRemoteAudioTrack] = useState<any>(null);
   const [remoteVideoTrack, setRemoteVideoTrack] = useState<any>(null);
 
-  const rtcHelperRef = useRef<RTCHelper | null>(null);
-  const apiRef = useRef<ConversationalAIAPI | null>(null);
+  const rtcClientRef = useRef<IAgoraRTCClient | null>(null);
+  const rtmClientRef = useRef<InstanceType<typeof AgoraRTM.RTM> | null>(null);
+  const voiceAIRef = useRef<AgoraVoiceAI | null>(null);
   const volumeCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Setup RTC event listeners for both audio and video
   useEffect(() => {
-    const rtcHelper = rtcHelperRef.current;
-    if (!rtcHelper) return;
+    const rtcClient = rtcClientRef.current;
+    if (!rtcClient) return;
 
-    const handleUserPublished = (user: any, mediaType: "audio" | "video") => {
-      console.log(`🎥 VIDEO_DEBUG RTCHelper user-published:`, {
-        uid: user.uid,
-        mediaType,
-        hasAudioTrack: !!(user as any).audioTrack,
-        hasVideoTrack: !!(user as any).videoTrack,
-      });
+    const handleUserPublished = async (
+      user: IAgoraRTCRemoteUser,
+      mediaType: "audio" | "video",
+    ) => {
+      await rtcClient.subscribe(user, mediaType);
 
       if (mediaType === "audio") {
-        console.log(`🎥 VIDEO_DEBUG Audio published by user ${user.uid}`);
-        setRemoteAudioTrack((user as any).audioTrack);
+        user.audioTrack?.play();
+        setRemoteAudioTrack(user.audioTrack ?? null);
         setIsAgentSpeaking(true);
       } else if (mediaType === "video") {
-        console.log(`🎥 VIDEO_DEBUG Video published by user ${user.uid}`);
-        setRemoteVideoTrack((user as any).videoTrack);
+        setRemoteVideoTrack(user.videoTrack ?? null);
       }
     };
 
-    const handleUserUnpublished = (user: any, mediaType: "audio" | "video") => {
-      console.log(`🎥 VIDEO_DEBUG RTCHelper user-unpublished:`, {
-        uid: user.uid,
-        mediaType,
-      });
-
+    const handleUserUnpublished = (
+      _user: IAgoraRTCRemoteUser,
+      mediaType: "audio" | "video",
+    ) => {
       if (mediaType === "audio") {
         setIsAgentSpeaking(false);
         setRemoteAudioTrack(null);
@@ -84,24 +90,22 @@ export function useAgoraVideoClient() {
       }
     };
 
-    const handleUserLeft = (user: any) => {
-      console.log(`🎥 VIDEO_DEBUG User left:`, user.uid);
+    const handleUserLeft = () => {
       setIsAgentSpeaking(false);
       setRemoteAudioTrack(null);
       setRemoteVideoTrack(null);
     };
 
-    // Listen to RTCHelper events - it now handles both audio and video
-    rtcHelper.on(RTCHelperEvents.USER_PUBLISHED, handleUserPublished);
-    rtcHelper.on(RTCHelperEvents.USER_UNPUBLISHED, handleUserUnpublished);
-    rtcHelper.on(RTCHelperEvents.USER_LEFT, handleUserLeft);
+    rtcClient.on("user-published", handleUserPublished);
+    rtcClient.on("user-unpublished", handleUserUnpublished);
+    rtcClient.on("user-left", handleUserLeft);
 
     return () => {
-      rtcHelper.off(RTCHelperEvents.USER_PUBLISHED, handleUserPublished);
-      rtcHelper.off(RTCHelperEvents.USER_UNPUBLISHED, handleUserUnpublished);
-      rtcHelper.off(RTCHelperEvents.USER_LEFT, handleUserLeft);
+      rtcClient.off("user-published", handleUserPublished);
+      rtcClient.off("user-unpublished", handleUserUnpublished);
+      rtcClient.off("user-left", handleUserLeft);
     };
-  }, [rtcHelperRef.current]);
+  }, [rtcClientRef.current]);
 
   // Monitor remote audio volume levels
   useEffect(() => {
@@ -123,8 +127,8 @@ export function useAgoraVideoClient() {
         volumes.push(volume);
         if (volumes.length > 3) volumes.shift();
 
-        const isAllZero = volumes.length >= 2 && volumes.every((v) => v === 0);
-        const hasSound = volumes.length >= 2 && volumes.some((v) => v > 0);
+        const isAllZero = volumes.length >= 2 && volumes.every((v: number) => v === 0);
+        const hasSound = volumes.length >= 2 && volumes.some((v: number) => v > 0);
 
         if (isAllZero && isAgentSpeaking) {
           setIsAgentSpeaking(false);
@@ -142,110 +146,22 @@ export function useAgoraVideoClient() {
     };
   }, [remoteAudioTrack, isAgentSpeaking]);
 
-  const joinChannel = useCallback(
-    async (config: VoiceClientConfig) => {
-      if (isConnected) {
-        // eslint-disable-next-line react-hooks/immutability
-        await leaveChannel();
-      }
-
-      try {
-        // Initialize RTCHelper
-        const rtcHelper = RTCHelper.getInstance();
-        await rtcHelper.init({
-          appId: config.appId,
-          channel: config.channel,
-          token: config.token,
-          uid: config.uid,
-        });
-
-        // Create and publish audio track
-        const audioTrack = await rtcHelper.createAudioTrack({
-          encoderConfig: "high_quality_stereo",
-          AEC: true,
-          ANS: true,
-          AGC: true,
-          ...(config.microphoneId ? { microphoneId: config.microphoneId } : {}),
-        });
-
-        await rtcHelper.join();
-        await rtcHelper.publish();
-
-        setLocalAudioTrack(audioTrack);
-        setIsConnected(true);
-        setMicState("listening");
-        rtcHelperRef.current = rtcHelper;
-
-        // Initialize ConversationalAIAPI with SubRenderController and RTM
-        const api = ConversationalAIAPI.init({
-          rtcEngine: rtcHelper.client!,
-          rtmConfig: {
-            appId: config.appId,
-            uid: config.rtmUid || `${config.uid}`, // Use channel-scoped RTM UID if available
-            token: config.token,
-            channel: config.channel,
-          },
-          renderMode: "auto" as TranscriptHelperMode,
-          enableLog: true,
-        });
-
-        // Listen to transcript updates
-        api.on("transcript-updated" as any, (messages: TranscriptItem[]) => {
-          // Convert to IMessageListItem format
-          const convertedMessages = messages.map((m) => ({
-            turn_id: m.turn_id,
-            uid: m.uid,
-            text: m.text,
-            status: m.status,
-            timestamp: m.timestamp,
-          }));
-
-          // Filter out in-progress messages and sort by timestamp
-          const completedMessages = convertedMessages
-            .filter((msg) => msg.status !== TurnStatus.IN_PROGRESS)
-            .sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
-
-          const inProgress = convertedMessages.find(
-            (msg) => msg.status === TurnStatus.IN_PROGRESS,
-          );
-
-          // Log only when NEW agent messages arrive (not on every re-render)
-          const agentMessages = messages.filter(
-            (m) => m.uid === 0 && m.status === 0,
-          ); // IN_PROGRESS
-          if (agentMessages.length > 0) {
-            agentMessages.forEach((m) => {
-              console.log(
-                `💬 AGENT MSG turn_id=${m.turn_id} text="${m.text}" (${m.text?.length || 0} chars) status=${m.status}`,
-              );
-            });
-          }
-
-          setMessageList(completedMessages);
-          setCurrentInProgressMessage(inProgress || null);
-        });
-
-        apiRef.current = api;
-      } catch (error) {
-        console.error("Error joining channel:", error);
-        throw error;
-      }
-    },
-    [isConnected],
-  );
-
   const leaveChannel = useCallback(async () => {
     try {
-      // Cleanup API
-      if (apiRef.current) {
-        apiRef.current.destroy();
-        apiRef.current = null;
+      if (voiceAIRef.current) {
+        voiceAIRef.current.unsubscribe();
+        voiceAIRef.current.destroy();
+        voiceAIRef.current = null;
       }
 
-      // Cleanup RTCHelper
-      if (rtcHelperRef.current) {
-        await rtcHelperRef.current.leave();
-        rtcHelperRef.current = null;
+      if (rtmClientRef.current) {
+        await rtmClientRef.current.logout();
+        rtmClientRef.current = null;
+      }
+
+      if (rtcClientRef.current) {
+        await rtcClientRef.current.leave();
+        rtcClientRef.current = null;
       }
 
       setLocalAudioTrack(null);
@@ -260,36 +176,137 @@ export function useAgoraVideoClient() {
     }
   }, []);
 
+  const joinChannel = useCallback(
+    async (config: VoiceClientConfig) => {
+      if (isConnected) {
+        await leaveChannel();
+      }
+
+      try {
+        // Store agent UIDs from backend
+        if (config.agentUid) setAgentUid(config.agentUid);
+        if (config.agentRtmUid) setAgentRtmUid(config.agentRtmUid);
+
+        // Create RTC client
+        const rtcClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+        rtcClientRef.current = rtcClient;
+
+        // Create RTM client
+        const rtmUid = config.rtmUid || `${config.uid}`;
+        const rtmClient = new AgoraRTM.RTM(config.appId, rtmUid);
+        rtmClientRef.current = rtmClient;
+
+        // Initialize AgoraVoiceAI
+        const voiceAI = await AgoraVoiceAI.init({
+          rtcEngine: rtcClient,
+          rtmConfig: { rtmEngine: rtmClient },
+          renderMode: TranscriptHelperMode.AUTO,
+          enableLog: true,
+        });
+
+        // Listen to transcript updates
+        voiceAI.on(
+          AgoraVoiceAIEvents.TRANSCRIPT_UPDATED,
+          (messages: TranscriptHelperItem[]) => {
+            const convertedMessages = messages.map((m) => ({
+              turn_id: m.turn_id,
+              uid: m.uid,
+              text: m.text,
+              status: m.status,
+              timestamp: m.timestamp,
+            }));
+
+            const completedMessages = convertedMessages
+              .filter((msg) => msg.status !== TurnStatus.IN_PROGRESS)
+              .sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
+
+            const inProgress = convertedMessages.find(
+              (msg) => msg.status === TurnStatus.IN_PROGRESS,
+            );
+
+            setMessageList(completedMessages);
+            setCurrentInProgressMessage(inProgress || null);
+          },
+        );
+
+        voiceAIRef.current = voiceAI;
+
+        // Login RTM and join RTC channel
+        await rtmClient.login({ token: config.token ?? undefined });
+        await rtcClient.join(
+          config.appId,
+          config.channel,
+          config.token,
+          config.uid,
+        );
+
+        // Create and publish audio track
+        const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
+          encoderConfig: "high_quality_stereo",
+          AEC: true,
+          ANS: true,
+          AGC: true,
+          ...(config.microphoneId
+            ? { microphoneId: config.microphoneId }
+            : {}),
+        });
+        await rtcClient.publish([audioTrack]);
+
+        // Subscribe to AI messages on the channel
+        voiceAI.subscribeMessage(config.channel);
+
+        setLocalAudioTrack(audioTrack);
+        setIsConnected(true);
+        setMicState("listening");
+      } catch (error) {
+        console.error("Error joining channel:", error);
+        throw error;
+      }
+    },
+    [isConnected, leaveChannel],
+  );
+
   const toggleMute = useCallback(async () => {
-    const rtcHelper = rtcHelperRef.current;
-    if (!rtcHelper) return;
+    const track = localAudioTrack;
+    if (!track) return;
 
     try {
-      await rtcHelper.setMuted(!isMuted);
+      await track.setEnabled(isMuted);
       setIsMuted(!isMuted);
       setMicState(!isMuted ? "idle" : "listening");
     } catch (error) {
       console.error("Error toggling mute:", error);
     }
-  }, [isMuted]);
+  }, [isMuted, localAudioTrack]);
 
   const sendMessage = useCallback(
-    async (message: string, agentUid: string = "100") => {
-      const api = apiRef.current;
-      if (!api) {
-        console.error("Cannot send message: API not initialized");
+    async (message: string, targetUid?: string) => {
+      const voiceAI = voiceAIRef.current;
+      if (!voiceAI) {
+        console.error("Cannot send message: AgoraVoiceAI not initialized");
+        return false;
+      }
+
+      const uid = targetUid || agentRtmUid;
+      if (!uid) {
+        console.error("Cannot send message: no agent RTM UID available");
         return false;
       }
 
       try {
-        await api.sendMessage(message, agentUid, "APPEND");
+        await voiceAI.chat(uid, {
+          messageType: ChatMessageType.TEXT,
+          text: message,
+          priority: ChatMessagePriority.INTERRUPTED,
+          responseInterruptable: true,
+        });
         return true;
       } catch (error) {
         console.error("Error sending message:", error);
         return false;
       }
     },
-    [],
+    [agentRtmUid],
   );
 
   return {
@@ -305,6 +322,8 @@ export function useAgoraVideoClient() {
     leaveChannel,
     toggleMute,
     sendMessage,
-    rtcHelperRef,
+    agentUid,
+    rtcClientRef,
+    rtmClientRef,
   };
 }

@@ -25,7 +25,7 @@ import { ShenPanel } from "@agora/agent-ui-kit";
 import { ThymiaPanel, useThymia } from "@agora/agent-ui-kit/thymia";
 import { useShenai } from "@/hooks/useShenai";
 import type { RTMEventSource } from "@agora/agent-ui-kit/thymia";
-import { RTMHelper } from "@agora/conversational-ai/helper/rtm";
+import AgoraRTC from "agora-rtc-sdk-ng";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -64,7 +64,6 @@ function redactSensitiveFields(obj: any): any {
 
 export function VideoAvatarClient() {
   const [backendUrl, setBackendUrl] = useState(DEFAULT_BACKEND_URL);
-  const [agentUID, setAgentUID] = useState<string | undefined>(undefined);
   const [agentId, setAgentId] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
@@ -119,7 +118,9 @@ export function VideoAvatarClient() {
     leaveChannel,
     toggleMute,
     sendMessage,
-    rtcHelperRef,
+    agentUid,
+    rtcClientRef,
+    rtmClientRef,
   } = useAgoraVideoClient();
 
   // Removed verbose logging - see useAgoraVideoClient for agent message logs
@@ -148,13 +149,24 @@ export function VideoAvatarClient() {
   );
 
   // RTM event source adapter for Thymia hooks
-  const rtmSource = useMemo<RTMEventSource>(
-    () => ({
-      on: (e, fn) => RTMHelper.getInstance().on(e, fn),
-      off: (e, fn) => RTMHelper.getInstance().off(e, fn),
-    }),
-    [],
-  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rtmSource = useMemo<RTMEventSource | null>(() => {
+    const rtm = rtmClientRef.current;
+    if (!rtm) return null;
+    return {
+      on: (event: string, handler: (...args: any[]) => void) => {
+        if (event === "message") {
+          (rtm as any).addEventListener("message", handler);
+        }
+      },
+      off: (event: string, handler: (...args: any[]) => void) => {
+        if (event === "message") {
+          (rtm as any).removeEventListener("message", handler);
+        }
+      },
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rtmClientRef.current]);
 
   // Thymia voice biomarker data (opt-in via NEXT_PUBLIC_ENABLE_THYMIA)
   const {
@@ -169,22 +181,19 @@ export function VideoAvatarClient() {
   // RTM publish function for Shen to push vitals to server
   const shenRtmPublish = useMemo(() => {
     if (!SHEN_ENABLED) return null;
+    const rtm = rtmClientRef.current;
+    if (!rtm) return null;
     return async (message: string): Promise<boolean> => {
       try {
-        const rtm = RTMHelper.getInstance();
-        if (rtm && (rtm as any).client) {
-          const channel = (rtm as any).channel;
-          if (channel) {
-            await (rtm as any).client.publish(channel, message);
-            return true;
-          }
-        }
-        return false;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (rtm as any).publish?.("shen_vitals", message);
+        return true;
       } catch {
         return false;
       }
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rtmClientRef.current]);
 
   const shenState = useShenai(
     SHEN_ENABLED && isConnected,
@@ -223,31 +232,10 @@ export function VideoAvatarClient() {
     return () => mql.removeEventListener("change", moveCanvas);
   }, [isConnected]);
 
-  // Local video state - managed by RTCHelper
+  // Local video state - managed directly via AgoraRTC
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [localVideoTrack, setLocalVideoTrack] = useState<any>(null);
   const [isLocalVideoActive, setIsLocalVideoActive] = useState(false);
-
-  // Sync local video track from RTCHelper
-  useEffect(() => {
-    const rtcHelper = rtcHelperRef.current;
-    if (!rtcHelper) return;
-
-    // Update local state when RTCHelper's video track changes
-    const interval = setInterval(() => {
-      const currentTrack = rtcHelper.localVideoTrack;
-      const currentEnabled = rtcHelper.getVideoEnabled();
-
-      // Check if track object reference changed (new track created)
-      if (currentTrack !== localVideoTrack) {
-        console.log("[VideoAvatarClient] Track changed, updating state");
-        setLocalVideoTrack(currentTrack);
-        setIsLocalVideoActive(currentEnabled);
-      }
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [rtcHelperRef.current, localVideoTrack]);
 
   const handleStart = async () => {
     setIsLoading(true);
@@ -285,10 +273,6 @@ export function VideoAvatarClient() {
 
       const data = await tokenResponse.json();
 
-      if (data.agent?.uid) {
-        setAgentUID(data.agent.uid);
-      }
-
       // Phase 2: Join channel first so RTM is ready for greeting
       await joinChannel({
         appId: data.appid,
@@ -296,23 +280,18 @@ export function VideoAvatarClient() {
         token: data.token || null,
         uid: parseInt(data.uid),
         rtmUid: data.user_rtm_uid, // Channel-scoped RTM UID for multi-session support
+        agentUid: data.agent?.uid ? String(data.agent.uid) : undefined,
+        agentRtmUid: data.agent_rtm_uid,
         ...(selectedMic ? { microphoneId: selectedMic } : {}),
       });
 
       // Auto-enable local video if checkbox was checked
-      if (enableLocalVideo && rtcHelperRef.current) {
-        const rtcHelper = rtcHelperRef.current;
-
-        // Create video track using RTCHelper
-        await rtcHelper.createVideoTrack({ encoderConfig: "720p_2" });
-
-        // Publish video track
-        if (rtcHelper.localVideoTrack && rtcHelper.client) {
-          await rtcHelper.client.publish(rtcHelper.localVideoTrack);
-        }
-
-        // Update local state
-        setLocalVideoTrack(rtcHelper.localVideoTrack);
+      if (enableLocalVideo && rtcClientRef.current) {
+        const videoTrack = await AgoraRTC.createCameraVideoTrack({
+          encoderConfig: "720p_2",
+        });
+        await rtcClientRef.current.publish(videoTrack);
+        setLocalVideoTrack(videoTrack);
         setIsLocalVideoActive(true);
       }
 
@@ -368,7 +347,13 @@ export function VideoAvatarClient() {
   }, [autoConnect]);
 
   const handleStop = async () => {
-    // RTCHelper.leave() will cleanup video track automatically
+    // Stop and close local video track to release camera hardware
+    if (localVideoTrack) {
+      localVideoTrack.stop();
+      localVideoTrack.close();
+      setLocalVideoTrack(null);
+      setIsLocalVideoActive(false);
+    }
     await leaveChannel();
     setSessionAgentId(null);
     setSessionPayload(null);
@@ -381,7 +366,7 @@ export function VideoAvatarClient() {
   const handleSendMessage = async () => {
     if (!chatMessage.trim() || !isConnected) return;
 
-    const success = await sendMessage(chatMessage, agentUID || "100");
+    const success = await sendMessage(chatMessage);
 
     if (success) {
       setChatMessage("");
@@ -396,18 +381,30 @@ export function VideoAvatarClient() {
   };
 
   const toggleVideo = async () => {
-    const rtcHelper = rtcHelperRef.current;
-    if (!rtcHelper) return;
-
-    const newState = !isLocalVideoActive;
-    await rtcHelper.setVideoEnabled(newState);
-    setIsLocalVideoActive(newState);
+    if (isLocalVideoActive && localVideoTrack) {
+      // Turn off: unpublish, stop, and close to release camera hardware
+      if (rtcClientRef.current) {
+        await rtcClientRef.current.unpublish(localVideoTrack);
+      }
+      localVideoTrack.stop();
+      localVideoTrack.close();
+      setLocalVideoTrack(null);
+      setIsLocalVideoActive(false);
+    } else if (!isLocalVideoActive && rtcClientRef.current) {
+      // Turn on: create new track and publish
+      const videoTrack = await AgoraRTC.createCameraVideoTrack({
+        encoderConfig: "720p_2",
+      });
+      await rtcClientRef.current.publish(videoTrack);
+      setLocalVideoTrack(videoTrack);
+      setIsLocalVideoActive(true);
+    }
   };
 
   // Helper to determine if message is from agent
-  // Agent messages have uid: 0 (stream_id: 0)
-  const isAgentMessage = (uid: number) => {
-    return uid === 0;
+  // Agent messages have uid matching the agent's RTC UID (provided by backend)
+  const isAgentMessage = (uid: string) => {
+    return agentUid ? uid === agentUid : false;
   };
 
   const formatTime = (ts?: number) => {

@@ -22,7 +22,6 @@ import { cn } from "@/lib/utils";
 import { MobileTabs } from "@agora/agent-ui-kit";
 import { ThymiaPanel, useThymia } from "@agora/agent-ui-kit/thymia";
 import type { RTMEventSource } from "@agora/agent-ui-kit/thymia";
-import { RTMHelper } from "@agora/conversational-ai/helper/rtm";
 import { ThemeToggle } from "./ThemeToggle";
 
 const DEFAULT_BACKEND_URL =
@@ -58,7 +57,6 @@ function redactSensitiveFields(obj: any): any {
 
 export function VoiceClient() {
   const [backendUrl, setBackendUrl] = useState(DEFAULT_BACKEND_URL);
-  const [agentUID, setAgentUID] = useState<string | undefined>(undefined);
   const [agentId, setAgentId] = useState<string | undefined>(undefined);
   const [channelName, setChannelName] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
@@ -110,18 +108,31 @@ export function VoiceClient() {
     leaveChannel,
     toggleMute,
     sendMessage,
+    agentUid,
+    rtmClientRef,
   } = useAgoraVoiceClient();
 
   // RTM event source adapter for Thymia hooks
-  // Not memoized — RTMHelper.getInstance() must be called fresh each time
-  // because destroy() nullifies the singleton between calls
-  const rtmSource = useMemo<RTMEventSource>(
-    () => ({
-      on: (e, fn) => RTMHelper.getInstance().on(e, fn),
-      off: (e, fn) => RTMHelper.getInstance().off(e, fn),
-    }),
-    [],
-  );
+  // Bridges AgoraRTM.RTM events to the RTMEventSource interface
+  const rtmSource = useMemo<RTMEventSource | null>(() => {
+    const rtm = rtmClientRef.current;
+    if (!rtm) return null;
+    return {
+      on: (event: string, handler: (evt: { message: string | Uint8Array }) => void) => {
+        if (event === "message") {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (rtm as any).addEventListener("message", handler);
+        }
+      },
+      off: (event: string, handler: (evt: { message: string | Uint8Array }) => void) => {
+        if (event === "message") {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (rtm as any).removeEventListener("message", handler);
+        }
+      },
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rtmClientRef.current]);
 
   // Thymia voice biomarker data (opt-in via NEXT_PUBLIC_ENABLE_THYMIA)
   const {
@@ -190,10 +201,6 @@ export function VoiceClient() {
 
       const data = await tokenResponse.json();
 
-      if (data.agent?.uid) {
-        setAgentUID(data.agent.uid);
-      }
-
       setChannelName(data.channel);
 
       // Phase 2: Join channel first so RTM is ready for greeting
@@ -202,6 +209,9 @@ export function VoiceClient() {
         channel: data.channel,
         token: data.token || null,
         uid: parseInt(data.uid),
+        rtmUid: data.user_rtm_uid,
+        agentUid: data.agent?.uid ? String(data.agent.uid) : undefined,
+        agentRtmUid: data.agent_rtm_uid,
         ...(selectedMic ? { microphoneId: selectedMic } : {}),
       });
 
@@ -282,7 +292,7 @@ export function VoiceClient() {
   const handleSendMessage = async () => {
     if (!chatMessage.trim() || !isConnected) return;
 
-    const success = await sendMessage(chatMessage, agentUID || "100");
+    const success = await sendMessage(chatMessage);
     if (success) {
       setChatMessage("");
     }
@@ -305,9 +315,9 @@ export function VoiceClient() {
   };
 
   // Helper to determine if message is from agent
-  // Agent messages have uid: 0 (stream_id: 0)
-  const isAgentMessage = (uid: number) => {
-    return uid === 0;
+  // Agent messages have uid matching the agent's RTC UID (provided by backend)
+  const isAgentMessage = (uid: string) => {
+    return agentUid ? uid === agentUid : false;
   };
 
   const formatTime = (ts?: number) => {
@@ -432,7 +442,6 @@ export function VoiceClient() {
                 <AgentVisualizer
                   state={getAgentState()}
                   size="sm"
-                  lottieBasePath={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/agora-uikit/lottie`}
                 />
                 <p className="mt-2 text-xs text-center text-muted-foreground">
                   {isAgentSpeaking ? "Agent Speaking" : "Agent Listening"}
@@ -472,10 +481,10 @@ export function VoiceClient() {
               {/* Status */}
               <div className="rounded-lg border bg-card p-4 shadow-lg flex-1 flex flex-col justify-center">
                 <div className="space-y-2 text-sm">
-                  {agentUID && (
+                  {agentUid && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Agent:</span>
-                      <span className="font-mono font-medium">{agentUID}</span>
+                      <span className="font-mono font-medium">{agentUid}</span>
                     </div>
                   )}
                   <div className="flex justify-between">

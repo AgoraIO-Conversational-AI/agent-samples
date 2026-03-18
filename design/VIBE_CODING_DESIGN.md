@@ -36,15 +36,15 @@ Vibe-coding takes the agent-samples "shadcn for generic UI" principle further: *
 Both packages are installed from GitHub, not npm:
 
 ```json
-"@agora/conversational-ai": "github:AgoraIO-Conversational-AI/agent-toolkit#main",
+"agora-agent-client-toolkit": "^1.1.0",
 "@agora/agent-ui-kit": "github:AgoraIO-Conversational-AI/agent-ui-kit#main"
 ```
 
-v0 and Lovable cannot reliably install GitHub-hosted packages. Their build environments expect public npm registry packages. **If the toolkit and ui-kit were published to npm, this constraint would disappear** — but today they aren't, so vibe-coding can't use them.
+The toolkit is now published on npm as `agora-agent-client-toolkit`, but the ui-kit is still GitHub-only. v0 and Lovable cannot reliably install GitHub-hosted packages. Their build environments expect public npm registry packages. **The toolkit constraint has been removed**, but the ui-kit still can't be used on these platforms.
 
 ### 2. AI platforms can't see into node_modules
 
-When v0 or Lovable regenerates or debugs code, it reads the project's source files. It cannot read into `node_modules/@agora/conversational-ai/helper/rtc.ts` to understand what `RTCHelper.join()` does internally. The abstraction that helps human developers (hide complexity, expose clean API) hurts AI platforms (hide context, reduce ability to debug and modify).
+When v0 or Lovable regenerates or debugs code, it reads the project's source files. It cannot read into `node_modules/agora-agent-client-toolkit/dist/` to understand what `AgoraVoiceAI.connect()` does internally. The abstraction that helps human developers (hide complexity, expose clean API) hurts AI platforms (hide context, reduce ability to debug and modify).
 
 With inline code, the platform sees every RTC event handler, every RTM message callback, and every transcript assembly step. When a user says "fix the transcript not updating," the AI can trace the entire flow.
 
@@ -130,11 +130,11 @@ vibe-coding:    "shadcn for everything — the AI platform is the developer"
 ```
 
 Vibe-coding drops even the domain components because:
-1. The packages aren't on npm (so v0/Lovable can't install them)
+1. The ui-kit isn't on npm (so v0/Lovable can't install it) — the toolkit IS now on npm
 2. The AI platform can't see into node_modules (so it can't debug them)
 3. The AI platform can generate them (so they're not saving effort)
 
-If the packages were published to npm, #1 would go away. But #2 and #3 would remain for v0/Lovable. Note that Claude Code has none of these constraints — it can install GitHub packages, read into node_modules, and understand the abstractions.
+With the toolkit now on npm, #1 is partially resolved. But #2 and #3 still apply for v0/Lovable. Note that Claude Code has none of these constraints — it can install any package, read into node_modules, and understand the abstractions.
 
 ---
 
@@ -167,7 +167,7 @@ If the packages were published to npm, #1 would go away. But #2 and #3 would rem
 |--------|--------------|-------------|
 | **Target** | Developers | AI coding platforms (v0, Lovable) |
 | **Architecture** | Three packages (SDK / UI / App) | Single self-contained repo |
-| **SDK wrapper** | `@agora/conversational-ai` (RTCHelper, RTMHelper, SubRenderController) | Raw `agora-rtc-sdk-ng` + `agora-rtm` in a custom hook |
+| **SDK wrapper** | `agora-agent-client-toolkit` (AgoraVoiceAI) | Raw `agora-rtc-sdk-ng` + `agora-rtm` in a custom hook |
 | **UI: generic** | shadcn/Tailwind locally (same as vibe-coding) | shadcn/Tailwind locally |
 | **UI: domain** | `@agora/agent-ui-kit` (AgentVisualizer, Conversation, etc.) | Built from scratch by the AI platform |
 | **Token generation** | Inline Python v007 builder (stdlib only) | Inline JS v007 builder (Web APIs, Deno-compatible) |
@@ -185,12 +185,9 @@ If the packages were published to npm, #1 would go away. But #2 and #3 would rem
 
 | Toolkit Feature | Vibe-Coding Equivalent |
 |----------------|----------------------|
-| `RTCHelper` singleton (join, publish, mute, volume monitoring) | Direct `AgoraRTC.createClient()` in custom hook |
-| `RTMHelper` singleton (login, subscribe, send) | Direct `AgoraRTM.RTM()` in custom hook |
-| `ConversationalAIAPI` orchestration (wires RTC + RTM + transcripts) | Hook manages both lifecycles directly |
-| `SubRenderController` (turn dedup, word dedup, PTS sync, render modes) | Simplified transcript assembly in hook (pipe-delimited base64 protocol v2) |
+| `AgoraVoiceAI` (manages RTC + RTM + transcripts) | Direct `AgoraRTC.createClient()` + `AgoraRTM.RTM()` in custom hook |
+| Built-in transcript processing (turn dedup, PTS sync) | Simplified transcript assembly in hook (pipe-delimited base64 protocol v2) |
 | Dual transport (RTC stream messages + RTM) | Both transports handled inline |
-| React hooks (`useLocalVideo`, `useRemoteVideo`) | Not needed (voice-only, no video) |
 
 ### From agent-ui-kit
 
@@ -205,18 +202,19 @@ If the packages were published to npm, #1 would go away. But #2 and #3 would rem
 
 ---
 
-## What Would Change If Packages Were on npm
+## What Would Change If All Packages Were on npm
 
-If `@agora/conversational-ai` and `@agora/agent-ui-kit` were published to the npm registry:
+The toolkit is now published on npm as `agora-agent-client-toolkit`. If `@agora/agent-ui-kit` were also published:
 
 | Constraint | Status |
 |-----------|--------|
-| **Can't install on AI platforms** | **Removed** — npm packages work on v0 and Lovable |
+| **Can't install toolkit on AI platforms** | **Removed** — `agora-agent-client-toolkit` is on npm |
+| **Can't install ui-kit on AI platforms** | **Remains** — ui-kit is still GitHub-only |
 | **AI can't see into node_modules** | **Remains** — platforms still can't read/modify package internals |
 | **AI generates UI better from source** | **Remains** — platforms work better with code they own |
 | **Deno token gen** | **Unrelated** — token gen is server-side, toolkit is client-side |
 
-Publishing to npm would make it *possible* to use the toolkit on v0/Lovable, but the black-box and AI-modifiability arguments still favor inline code for those platforms. Claude Code is the exception — it can use the three-package model directly since it has full filesystem access and can read package internals.
+The toolkit being on npm makes it *possible* to use it on v0/Lovable, but the black-box and AI-modifiability arguments still favor inline code for those platforms. Claude Code is the exception — it can use the three-package model directly since it has full filesystem access and can read package internals.
 
 ---
 
@@ -274,7 +272,7 @@ Key payload choices:
 
 **Claude Code as primary AI workflow** — With Claude Code, developers get the benefits of AI-assisted coding (natural language modifications, automated debugging) without the platform constraints that drove the vibe-coding design. Agent-samples + Claude Code may reduce the need for separate vibe-coding repos over time.
 
-**npm publishing** — If the toolkit and ui-kit are published to npm, constraint #1 (can't install on AI platforms) disappears. The vibe-coding repos would still be justified by constraints #2 and #3, but the gap narrows.
+**Publish ui-kit to npm** — The toolkit is now on npm as `agora-agent-client-toolkit`. If the ui-kit is also published, constraint #1 fully disappears for both packages. The vibe-coding repos would still be justified by constraints #2 and #3, but the gap narrows further.
 
 **Shared token builder** — Both repos inline v007 token generation independently (Python stdlib vs Web APIs). A shared, Web-standard token module published to npm and Deno registries would eliminate this duplication while remaining platform-agnostic.
 

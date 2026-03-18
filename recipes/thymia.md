@@ -33,7 +33,7 @@ This recipe uses the standard sample apps — no special Thymia variants needed.
 | --------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | `react-video-client-avatar`             | agent-samples                                                                       | Video avatar UI with Thymia tab (`NEXT_PUBLIC_ENABLE_THYMIA`) |
 | `simple-backend`                        | agent-samples                                                                       | Python backend — routes calls to Agora ConvoAI                |
-| `agent-toolkit`                         | [agent-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-toolkit)         | Core SDK with RTC/RTM helpers and React hooks                 |
+| `agent-client-toolkit`                  | [agent-client-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-client-toolkit-ts) | Core client toolkit (`agora-agent-client-toolkit` on npm)     |
 | `agent-ui-kit`                          | [agent-ui-kit](https://github.com/AgoraIO-Conversational-AI/agent-ui-kit)           | React UI components for voice, chat, video, and Thymia panel  |
 | `server-custom-llm/node`                | [server-custom-llm](https://github.com/AgoraIO-Conversational-AI/server-custom-llm) | Custom LLM proxy with Thymia module and RTM integration       |
 | `server-custom-llm/go-audio-subscriber` | server-custom-llm                                                                   | Go binary that captures RTC audio and pipes PCM to Node       |
