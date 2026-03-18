@@ -18,7 +18,7 @@ import urllib.request
 from flask import Flask, request, jsonify
 from core.config import initialize_constants
 from core.tokens import build_token_with_rtm
-from core.agent import create_agent_payload, send_agent_to_channel, hangup_agent
+from core.agent import create_agent_payload, send_agent_to_channel, hangup_agent, build_auth_header
 from core.utils import generate_random_channel
 import copy
 import re
@@ -99,9 +99,10 @@ def start_agent():
     # Check if we have APP_CERTIFICATE for token generation
     has_certificate = bool(constants["APP_CERTIFICATE"] and constants["APP_CERTIFICATE"].strip())
 
-    # Generate tokens
+    # Generate tokens (RTM UID includes channel for uniqueness, like agent does)
+    user_rtm_uid = f"{constants['USER_UID']}-{channel}"
     if has_certificate:
-        user_token_data = build_token_with_rtm(channel, constants["USER_UID"], constants)
+        user_token_data = build_token_with_rtm(channel, constants["USER_UID"], constants, rtm_uid=user_rtm_uid)
         agent_video_token_data = build_token_with_rtm(channel, constants["AGENT_VIDEO_UID"], constants)
     else:
         user_token_data = {"token": constants["APP_ID"], "uid": constants["USER_UID"]}
@@ -121,6 +122,7 @@ def start_agent():
                 "uid": constants["AGENT_UID"]
             },
             "agent_rtm_uid": f"{constants['AGENT_UID']}-{channel}",
+            "user_rtm_uid": user_rtm_uid,
             "enable_string_uid": False,
             "token_generation_method": "v007 tokens with RTC+RTM services" if has_certificate else "APP_ID only (no APP_CERTIFICATE)",
             "agent_response": {
@@ -161,7 +163,7 @@ def start_agent():
                     "app_id": app_id_to_use,
                     "channel": channel,
                     "agent_id": agent_id,
-                    "auth_header": constants.get("AGENT_AUTH_HEADER", ""),
+                    "auth_header": build_auth_header(constants),
                     "agent_endpoint": constants.get("AGENT_ENDPOINT",
                         "https://api.agora.io/api/conversational-ai-agent/v2/projects"),
                     "prompt": constants.get("DEFAULT_PROMPT", ""),
@@ -195,6 +197,7 @@ def start_agent():
             "uid": constants["AGENT_UID"]
         },
         "agent_rtm_uid": f"{constants['AGENT_UID']}-{channel}",
+        "user_rtm_uid": user_rtm_uid,
         "enable_string_uid": False,
         "agent_response": agent_response
     }

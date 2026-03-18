@@ -216,10 +216,10 @@ export function useAgoraVoiceClient() {
             timestamp: m.timestamp,
           }));
 
-          // Filter out in-progress messages
-          const completedMessages = convertedMessages.filter(
-            (msg) => msg.status !== TurnStatus.IN_PROGRESS,
-          );
+          // Filter out in-progress messages and sort by timestamp
+          const completedMessages = convertedMessages
+            .filter((msg) => msg.status !== TurnStatus.IN_PROGRESS)
+            .sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
 
           // Log message ordering for debugging
           completedMessages.forEach((msg) => {
