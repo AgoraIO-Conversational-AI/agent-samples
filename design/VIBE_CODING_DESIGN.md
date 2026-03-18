@@ -36,7 +36,7 @@ Vibe-coding takes the agent-samples "shadcn for generic UI" principle further: *
 Both packages are installed from GitHub, not npm:
 
 ```json
-"agora-agent-client-toolkit": "github:AgoraIO-Conversational-AI/agent-client-toolkit-ts#main",
+"@agora/conversational-ai": "github:AgoraIO-Conversational-AI/agent-toolkit#main",
 "@agora/agent-ui-kit": "github:AgoraIO-Conversational-AI/agent-ui-kit#main"
 ```
 
@@ -44,7 +44,7 @@ v0 and Lovable cannot reliably install GitHub-hosted packages. Their build envir
 
 ### 2. AI platforms can't see into node_modules
 
-When v0 or Lovable regenerates or debugs code, it reads the project's source files. It cannot read into `node_modules/agora-agent-client-toolkit/src/voice-ai.ts` to understand what `AgoraVoiceAI.connect()` does internally. The abstraction that helps human developers (hide complexity, expose clean API) hurts AI platforms (hide context, reduce ability to debug and modify).
+When v0 or Lovable regenerates or debugs code, it reads the project's source files. It cannot read into `node_modules/@agora/conversational-ai/helper/rtc.ts` to understand what `RTCHelper.join()` does internally. The abstraction that helps human developers (hide complexity, expose clean API) hurts AI platforms (hide context, reduce ability to debug and modify).
 
 With inline code, the platform sees every RTC event handler, every RTM message callback, and every transcript assembly step. When a user says "fix the transcript not updating," the AI can trace the entire flow.
 
@@ -167,7 +167,7 @@ If the packages were published to npm, #1 would go away. But #2 and #3 would rem
 |--------|--------------|-------------|
 | **Target** | Developers | AI coding platforms (v0, Lovable) |
 | **Architecture** | Three packages (SDK / UI / App) | Single self-contained repo |
-| **SDK wrapper** | `agora-agent-client-toolkit` (AgoraVoiceAI, TranscriptHelper) | Raw `agora-rtc-sdk-ng` + `agora-rtm` in a custom hook |
+| **SDK wrapper** | `@agora/conversational-ai` (RTCHelper, RTMHelper, SubRenderController) | Raw `agora-rtc-sdk-ng` + `agora-rtm` in a custom hook |
 | **UI: generic** | shadcn/Tailwind locally (same as vibe-coding) | shadcn/Tailwind locally |
 | **UI: domain** | `@agora/agent-ui-kit` (AgentVisualizer, Conversation, etc.) | Built from scratch by the AI platform |
 | **Token generation** | Inline Python v007 builder (stdlib only) | Inline JS v007 builder (Web APIs, Deno-compatible) |
@@ -181,12 +181,14 @@ If the packages were published to npm, #1 would go away. But #2 and #3 would rem
 
 ## What agent-samples Gets From the Packages That We Reimplement
 
-### From agent-client-toolkit-ts
+### From agent-toolkit
 
 | Toolkit Feature | Vibe-Coding Equivalent |
 |----------------|----------------------|
-| `AgoraVoiceAI` (manages RTC + RTM connections, transcript processing) | Direct `AgoraRTC.createClient()` + `AgoraRTM.RTM()` in custom hook |
-| `TranscriptHelper` (turn dedup, message assembly, in-progress tracking) | Simplified transcript assembly in hook (pipe-delimited base64 protocol v2) |
+| `RTCHelper` singleton (join, publish, mute, volume monitoring) | Direct `AgoraRTC.createClient()` in custom hook |
+| `RTMHelper` singleton (login, subscribe, send) | Direct `AgoraRTM.RTM()` in custom hook |
+| `ConversationalAIAPI` orchestration (wires RTC + RTM + transcripts) | Hook manages both lifecycles directly |
+| `SubRenderController` (turn dedup, word dedup, PTS sync, render modes) | Simplified transcript assembly in hook (pipe-delimited base64 protocol v2) |
 | Dual transport (RTC stream messages + RTM) | Both transports handled inline |
 | React hooks (`useLocalVideo`, `useRemoteVideo`) | Not needed (voice-only, no video) |
 
@@ -205,7 +207,7 @@ If the packages were published to npm, #1 would go away. But #2 and #3 would rem
 
 ## What Would Change If Packages Were on npm
 
-If `agora-agent-client-toolkit` and `@agora/agent-ui-kit` were published to the npm registry:
+If `@agora/conversational-ai` and `@agora/agent-ui-kit` were published to the npm registry:
 
 | Constraint | Status |
 |-----------|--------|
@@ -278,4 +280,4 @@ Key payload choices:
 
 ---
 
-**Last Updated**: 2026-03-14
+**Last Updated**: 2026-03-05

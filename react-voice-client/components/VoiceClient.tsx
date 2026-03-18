@@ -18,8 +18,11 @@ import { Message, MessageContent } from "@agora/agent-ui-kit";
 import { Response } from "@agora/agent-ui-kit";
 import { AgoraLogo } from "@agora/agent-ui-kit";
 import { SettingsDialog } from "@agora/agent-ui-kit";
-import { MobileTabs, ThymiaPanel, useThymia, cn } from "@agora/agent-ui-kit";
-import type { RTMEventSource } from "@agora/agent-ui-kit";
+import { cn } from "@/lib/utils";
+import { MobileTabs } from "@agora/agent-ui-kit";
+import { ThymiaPanel, useThymia } from "@agora/agent-ui-kit/thymia";
+import type { RTMEventSource } from "@agora/agent-ui-kit/thymia";
+import { RTMHelper } from "@agora/conversational-ai/helper/rtm";
 import { ThemeToggle } from "./ThemeToggle";
 
 const DEFAULT_BACKEND_URL =
@@ -107,17 +110,17 @@ export function VoiceClient() {
     leaveChannel,
     toggleMute,
     sendMessage,
-    rtmClient,
   } = useAgoraVoiceClient();
 
   // RTM event source adapter for Thymia hooks
-  // Maps RTMClient's addEventListener/removeEventListener to the RTMEventSource interface
+  // Not memoized — RTMHelper.getInstance() must be called fresh each time
+  // because destroy() nullifies the singleton between calls
   const rtmSource = useMemo<RTMEventSource>(
     () => ({
-      on: (e, fn) => rtmClient?.addEventListener(e, fn),
-      off: (e, fn) => rtmClient?.removeEventListener(e, fn),
+      on: (e, fn) => RTMHelper.getInstance().on(e, fn),
+      off: (e, fn) => RTMHelper.getInstance().off(e, fn),
     }),
-    [rtmClient],
+    [],
   );
 
   // Thymia voice biomarker data (opt-in via NEXT_PUBLIC_ENABLE_THYMIA)
@@ -187,9 +190,7 @@ export function VoiceClient() {
 
       const data = await tokenResponse.json();
 
-      if (data.agent_rtm_uid) {
-        setAgentUID(data.agent_rtm_uid);
-      } else if (data.agent?.uid) {
+      if (data.agent?.uid) {
         setAgentUID(data.agent.uid);
       }
 
@@ -304,9 +305,9 @@ export function VoiceClient() {
   };
 
   // Helper to determine if message is from agent
-  // Toolkit convention: uid 0 = self (user), non-zero = remote (agent)
+  // Agent messages have uid: 0 (stream_id: 0)
   const isAgentMessage = (uid: number) => {
-    return uid !== 0;
+    return uid === 0;
   };
 
   const formatTime = (ts?: number) => {
