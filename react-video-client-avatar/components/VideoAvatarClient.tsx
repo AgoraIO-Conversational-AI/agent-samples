@@ -78,6 +78,7 @@ export function VideoAvatarClient() {
   const _conversationRef = useRef<HTMLDivElement>(null);
   const [autoConnect, setAutoConnect] = useState(false);
   const [returnUrl, setReturnUrl] = useState<string | null>(null);
+  const channelRef = useRef<string | null>(null);
   const [selectedMic, setSelectedMic] = useState(() =>
     typeof window !== "undefined"
       ? localStorage.getItem("selectedMicId") || ""
@@ -163,8 +164,10 @@ export function VideoAvatarClient() {
     if (!rtm) return null;
     return async (message: string): Promise<boolean> => {
       try {
+        const ch = channelRef.current;
+        if (!ch) return false;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (rtm as any).publish?.("shen_vitals", message);
+        await (rtm as any).publish?.(ch, message);
         return true;
       } catch {
         return false;
@@ -252,6 +255,7 @@ export function VideoAvatarClient() {
       const data = await tokenResponse.json();
 
       // Phase 2: Join channel first so RTM is ready for greeting
+      channelRef.current = data.channel;
       await joinChannel({
         appId: data.appid,
         channel: data.channel,

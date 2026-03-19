@@ -127,6 +127,10 @@ export function useShenai(
         // Load SDK from public/ via native ES module import to bypass webpack
         // bundling (webpack incorrectly bundles SDK code into worker chunks
         // where `window` is undefined)
+        // Load from root /shenai-sdk/ (served by nginx alias with correct
+        // MIME types and COOP/COEP headers). Using the basePath proxy breaks
+        // Emscripten pthread workers because Next.js proxy doesn't serve
+        // .mjs/.wasm with the right headers for worker module imports.
         const sdkModule = await import(
           /* webpackIgnore: true */ "/shenai-sdk/index.mjs"
         );

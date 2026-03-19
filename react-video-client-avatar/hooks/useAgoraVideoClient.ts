@@ -246,7 +246,7 @@ export function useAgoraVideoClient() {
         // Login RTM, subscribe to channel for server-pushed messages (e.g. Thymia biomarkers),
         // and join RTC channel
         await rtmClient.login({ token: config.token ?? undefined });
-        await rtmClient.subscribe(config.channel, { withMessage: true });
+        await rtmClient.subscribe(config.channel, { withMessage: true, withPresence: false });
 
         // Single RTM message listener — fans out to all registered handlers.
         // Also logs incoming messages for debugging.
