@@ -90,24 +90,16 @@ This adds both the Shen tab (camera vitals) and Thymia tab (voice biomarkers) to
 - **Node.js 20+** (custom LLM server) — use `nvm use 20`
 - **Node.js 22+** (React client) — use `nvm use 22`
 - **Python 3.x** (backend)
-- **Shen.AI SDK files** in `react-video-client-avatar/public/shenai-sdk/` (WASM + JS bindings, ~35MB)
+- **Shen.AI SDK files** — included in git under `react-video-client-avatar/public/shenai-sdk/` (WASM + JS bindings, ~35MB). Arrives with `git pull`, no manual copy needed.
 - **HTTPS or localhost** — the SDK requires SharedArrayBuffer, which needs COOP/COEP headers (configured in `next.config.ts`)
 
 ## Setup
 
-### 1. Shen.AI SDK Files (one-time)
+### 1. Shen.AI SDK Files
 
-The Shen.AI Web SDK must be placed in the `public/` directory to bypass webpack bundling (the 34MB WASM file causes bundler issues):
+The Shen.AI Web SDK (~35MB) is checked into git under `react-video-client-avatar/public/shenai-sdk/`. It arrives with `git pull` — no manual copy needed.
 
-```bash
-cd agent-samples/react-video-client-avatar/public/
-# Copy the shenai-sdk directory here
-# Required files: index.mjs, shenai_sdk_bg.wasm, and supporting JS files
-ls shenai-sdk/
-# index.mjs  shenai_sdk_bg.wasm  shenai_sdk.mjs  ...
-```
-
-The SDK is loaded at runtime via `import(/* webpackIgnore: true */ "/shenai-sdk/index.mjs")` to avoid webpack trying to bundle the large WASM file.
+The SDK is loaded at runtime via `import(/* webpackIgnore: true */ "/shenai-sdk/index.mjs")` to avoid webpack trying to bundle the large WASM file. In production with a basePath, the SDK must be served from the root `/shenai-sdk/` path via an nginx alias (see [Production Deployment](#production-deployment) below).
 
 ### 2. Custom LLM Server
 
@@ -296,12 +288,13 @@ The Shen.AI WASM SDK requires `SharedArrayBuffer`, which browsers only enable wi
 
 ```typescript
 headers: [
+  { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-  { key: "Cross-Origin-Embedder-Policy", value: "credentialless" },
+  { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
 ]
 ```
 
-`credentialless` is used instead of `require-corp` because the latter blocks Agora CDN resources.
+`require-corp` is required for Safari 17+ / iOS 17+ support. The `Cross-Origin-Resource-Policy` header is needed so same-origin subresources (WASM, workers) load correctly under `require-corp`.
 
 ### SDK Canvas Rendering
 
@@ -317,6 +310,25 @@ The SDK runs continuous 30-second measurement cycles using `THIRTY_SECONDS_ALL_M
 ### Webpack vs Turbopack
 
 The dev script must use `--webpack` flag (`next dev --webpack`). Turbopack hangs when processing the 34MB `shenai_sdk.mjs` file, even though it's loaded at runtime via `webpackIgnore: true`.
+
+## Production Deployment
+
+When the React client is deployed with a `basePath` (e.g. `/react-video-client-avatar-thymia`), the Shen SDK's Emscripten pthread workers construct their own URLs from the root path. They won't find the SDK files under the basePath prefix.
+
+Add an nginx alias to serve the SDK files at root `/shenai-sdk/`, with the required COOP/COEP headers:
+
+```nginx
+location ^~ /shenai-sdk/ {
+    alias /home/ubuntu/agent-samples/react-video-client-avatar/public/shenai-sdk/;
+    add_header Cross-Origin-Opener-Policy same-origin;
+    add_header Cross-Origin-Embedder-Policy require-corp;
+    add_header Cross-Origin-Resource-Policy same-origin;
+}
+```
+
+Place this block **before** the Next.js proxy location blocks in your nginx config. Without it, the SDK will fail to load workers and the Shen tab will hang on "Loading Shen.AI SDK...".
+
+Not needed for local development (no basePath, Next.js serves everything directly).
 
 ## Troubleshooting
 
