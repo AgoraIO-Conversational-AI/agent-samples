@@ -124,24 +124,26 @@ export function useShenai(
 
     (async () => {
       try {
-        // Load SDK from public/ via native ES module import to bypass webpack
-        // bundling (webpack incorrectly bundles SDK code into worker chunks
-        // where `window` is undefined)
+        const t0 = performance.now();
+        console.log("[Shen] Loading SDK module from /shenai-sdk/index.mjs...");
         // Load from root /shenai-sdk/ (served by nginx alias with correct
         // MIME types and COOP/COEP headers). Using the basePath proxy breaks
-        // Emscripten pthread workers because Next.js proxy doesn't serve
-        // .mjs/.wasm with the right headers for worker module imports.
+        // Emscripten pthread workers.
         const sdkModule = await import(
           /* webpackIgnore: true */ "/shenai-sdk/index.mjs"
         );
+        console.log(`[Shen] SDK module imported (${Math.round(performance.now() - t0)}ms)`);
         const LoadSDK = sdkModule.default;
+        const t1 = performance.now();
+        console.log("[Shen] Initializing WASM runtime...");
         const sdk = await LoadSDK({
           enableErrorReporting: false,
           enablePreloadDisplay: false,
           onRuntimeInitialized: () => {
-            // WASM runtime ready
+            console.log(`[Shen] WASM runtime initialized (${Math.round(performance.now() - t1)}ms)`);
           },
         });
+        console.log(`[Shen] SDK ready (total ${Math.round(performance.now() - t0)}ms)`);
         sdkRef.current = sdk;
         setState((s) => ({ ...s, sdkLoaded: true }));
       } catch (err) {
@@ -162,11 +164,13 @@ export function useShenai(
 
     const canvas = document.getElementById(canvasId);
     if (!canvas) {
-      // Canvas not found yet, retrying...
+      console.log(`[Shen] Canvas #${canvasId} not found, retrying in 200ms...`);
       setTimeout(initialize, 200);
       return;
     }
 
+    console.log(`[Shen] Canvas found, calling sdk.initialize()...`);
+    const tInit = performance.now();
     sdk.initialize(
       apiKey,
       "",
@@ -189,13 +193,21 @@ export function useShenai(
         enableSummaryScreen: false,
         enableHealthRisks: false,
         showDisclaimer: false,
+        showInfoButton: false,
+        showStartStopButton: false,
+        showSignalQualityIndicator: false,
+        showSignalTile: false,
+        blockingMeasurementConditions: [],
+        warningMeasurementConditions: [],
         enableFullFrameProcessing: false,
         language: "auto",
       },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (res: any) => {
+        console.log(`[Shen] Initialize callback: result=${res} OK=${sdk.InitializationResult?.OK} (${Math.round(performance.now() - tInit)}ms)`);
         if (res === sdk.InitializationResult.OK) {
           sdk.attachToCanvas(`#${canvasId}`);
+          console.log(`[Shen] Attached to canvas #${canvasId} — camera should be visible now`);
           setState((s) => ({ ...s, initialized: true }));
         } else {
           console.error("[Shen] Initialization failed:", res);
