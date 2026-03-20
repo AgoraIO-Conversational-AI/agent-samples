@@ -19,12 +19,14 @@ Copy `.env.example` to `.env` and fill in your credentials. See [Configuration](
 **3. Run server:**
 
 ```bash
-python3 local_server.py
+python3 -u local_server.py
 # Or specify custom port:
-PORT=8082 python3 local_server.py
+PORT=8082 python3 -u local_server.py
 ```
 
 Server runs on http://localhost:8082 (default).
+
+> **Important:** Always use the `-u` flag (unbuffered output). Without it, Python buffers stdout and critical log lines (agent IDs, API response status, curl dumps) may not appear in the terminal or log files until much later — or not at all if the process is killed. Alternatively, set `PYTHONUNBUFFERED=1` in your environment.
 
 ## Configuration
 
@@ -164,6 +166,23 @@ When curl dump is enabled (`VOICE_ENABLE_CURL_DUMP=true` or `VIDEO_ENABLE_CURL_D
 - Examples: `agora_curl_voice_20260120_143022.sh`, `agora_curl_video_20260120_143045.sh`
 
 This is useful for debugging API requests. The curl dump includes full request headers and payload.
+
+**Viewing logs:** The backend logs agent IDs and API response status to stdout. To see them reliably:
+
+```bash
+# Always use -u for unbuffered output
+python3 -u local_server.py
+
+# View most recent curl dump
+ls -lt /tmp/agora_curl_*.sh | head -1
+
+# Check agent ID and response status in logs
+# Look for lines like:
+#   Response status: 200
+#   Response body: {"agent_id":"A42A...","create_ts":...,"status":"RUNNING"}
+```
+
+> **Gotcha:** Without `-u`, Python buffers stdout. Agent IDs and API responses will be silently buffered and may never appear in log files or process managers (PM2, systemd, etc.). Always start the backend with `python3 -u` or set `PYTHONUNBUFFERED=1`.
 
 ## Usage
 

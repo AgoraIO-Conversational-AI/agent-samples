@@ -299,11 +299,11 @@ def build_avatar_config(avatar_vendor, constants, channel, agent_video_token, qu
             "vendor": "anam",
             "enable": True,
             "params": {
-                "anam_api_key": constants["AVATAR_API_KEY"],
+                "api_key": constants["AVATAR_API_KEY"],
                 "agora_uid": constants["AGENT_VIDEO_UID"],
                 "agora_token": agora_token_value,
-                "anam_avatar_id": constants["AVATAR_ID"],
-                "anam_base_url": "https://api.anam.ai/v1"
+                "avatar_id": constants["AVATAR_ID"],
+                "sample_rate": 24000
             }
         }
     else:
@@ -715,8 +715,8 @@ curl -X POST '{agent_api_url}' \\
     status_code = response.status
     response_text = response.read().decode('utf-8')
 
-    print(f"Response status: {status_code}")
-    print(f"Response body: {response_text}")
+    print(f"Response status: {status_code}", flush=True)
+    print(f"Response body: {response_text}", flush=True)
 
     conn.close()
 

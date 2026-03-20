@@ -77,6 +77,5 @@ def test_constants():
         "AVATAR_ID": "",
         "HEYGEN_QUALITY": "high",
         "HEYGEN_ACTIVITY_IDLE_TIMEOUT": 60,
-        "ANAM_AGENT_ENDPOINT": "https://api-test.agora.io/api/conversational-ai-agent/v2/projects",
-        "ANAM_BASE_URL": "https://api.anam.ai/v1"
+        "ANAM_AGENT_ENDPOINT": "https://api-test.agora.io/api/conversational-ai-agent/v2/projects"
     }

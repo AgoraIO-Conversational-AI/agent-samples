@@ -241,8 +241,7 @@ class TestCreateAgentPayload:
             "AVATAR_VENDOR": "anam",
             "AVATAR_API_KEY": "",  # Missing
             "AVATAR_ID": "test_avatar",
-            "ANAM_AGENT_ENDPOINT": "https://test.endpoint.com",
-            "ANAM_BASE_URL": "https://api.anam.ai/v1"
+            "ANAM_AGENT_ENDPOINT": "https://test.endpoint.com"
         })
 
         with pytest.raises(ValueError, match="AVATAR_API_KEY is required"):
@@ -270,8 +269,7 @@ class TestCreateAgentPayload:
             "AVATAR_VENDOR": "anam",
             "AVATAR_API_KEY": "test_key",
             "AVATAR_ID": "",  # Missing
-            "ANAM_AGENT_ENDPOINT": "https://test.endpoint.com",
-            "ANAM_BASE_URL": "https://api.anam.ai/v1"
+            "ANAM_AGENT_ENDPOINT": "https://test.endpoint.com"
         })
 
         with pytest.raises(ValueError, match="AVATAR_ID is required"):

@@ -27,7 +27,7 @@ app = Flask(__name__)
 
 # Keys in agent payload that contain secrets and must be redacted
 _SENSITIVE_KEYS = re.compile(
-    r'(key|token|api_key|anam_api_key|secret|certificate|password|authorization|credentials)',
+    r'(key|token|api_key|secret|certificate|password|authorization|credentials)',
     re.IGNORECASE
 )
 

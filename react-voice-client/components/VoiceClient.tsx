@@ -37,7 +37,6 @@ const SENSITIVE_KEYS = [
   "subscriber_token",
   "rtm_token",
   "ticket",
-  "anam_api_key",
 ];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

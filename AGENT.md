@@ -68,6 +68,8 @@ VOICE_MLLM_MLLM_VENDOR=vertexai
 - Invalid GCP credentials
 - Wrong model name or region
 
+**Logs not appearing?** The backend must be started with `python3 -u` (unbuffered stdout). Without this flag, Python buffers `print()` output and agent IDs, response codes, and error messages will not appear in terminal output or log capture files. This is the most common reason for "missing" logs.
+
 ### Required MLLM Variables
 
 MLLM mode supports two vendors: **Gemini Live** (VertexAI) and **OpenAI Realtime**. The backend builds vendor-specific payloads — no null fields leak across vendors.
@@ -268,8 +270,10 @@ python3 -m venv venv && source venv/bin/activate
 pip install -r requirements-local.txt
 cp .env.example .env
 # Edit .env — fill in credentials (see Backend Configuration section above)
-python3 local_server.py
+python3 -u local_server.py
 ```
+
+> **Important:** Always use `python3 -u` (unbuffered stdout). Without `-u`, Python buffers output and critical logs — agent IDs, API response codes, error messages — will be delayed or lost entirely. This applies to local dev, PM2, systemd, and any process manager that captures stdout.
 
 ### Step 2: Start a frontend client
 
@@ -354,7 +358,7 @@ Create `simple-backend/start.sh` (PM2 workaround for Python):
 #!/bin/bash
 cd /home/ubuntu/agent-samples/simple-backend
 source venv/bin/activate
-PORT=8082 exec python3 local_server.py
+PORT=8082 exec python3 -u local_server.py
 ```
 
 ```bash
