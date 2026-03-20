@@ -159,6 +159,9 @@ def start_agent():
                 else:
                     llm_base = llm_url.rstrip("/")
                 register_url = f"{llm_base}/register-agent"
+                # Extract custom LLM params (tokens, UIDs, API keys)
+                # so custom-llm can start audio subscriber + Thymia immediately
+                llm_params = (agent_payload.get("properties", {}).get("llm", {}).get("params", {}))
                 register_payload = {
                     "app_id": app_id_to_use,
                     "channel": channel,
@@ -167,6 +170,11 @@ def start_agent():
                     "agent_endpoint": constants.get("AGENT_ENDPOINT",
                         "https://api.agora.io/api/conversational-ai-agent/v2/projects"),
                     "prompt": constants.get("DEFAULT_PROMPT", ""),
+                    "user_uid": llm_params.get("user_uid"),
+                    "subscriber_token": llm_params.get("subscriber_token"),
+                    "rtm_token": llm_params.get("rtm_token"),
+                    "rtm_uid": llm_params.get("rtm_uid"),
+                    "thymia_api_key": llm_params.get("thymia_api_key"),
                 }
                 def _register():
                     try:
