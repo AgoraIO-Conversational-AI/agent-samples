@@ -17,7 +17,7 @@ import { Conversation, ConversationContent } from "@agora/agent-ui-kit";
 import { Message, MessageContent } from "@agora/agent-ui-kit";
 import { Response } from "@agora/agent-ui-kit";
 import { AgoraLogo } from "@agora/agent-ui-kit";
-import { SettingsDialog } from "@agora/agent-ui-kit";
+import { SettingsDialog, SessionPanel } from "@agora/agent-ui-kit";
 import { cn } from "@/lib/utils";
 import { MobileTabs } from "@agora/agent-ui-kit";
 import { ThymiaPanel, useThymia } from "@agora/agent-ui-kit/thymia";
@@ -667,7 +667,9 @@ export function VoiceClient() {
         disabled={isConnected}
         selectedMicId={selectedMic}
         onMicChange={handleMicChange}
-      />
+      >
+        <SessionPanel agentId={sessionAgentId} payload={sessionPayload} />
+      </SettingsDialog>
     </div>
   );
 }

@@ -20,7 +20,7 @@ import { Response } from "@agora/agent-ui-kit";
 import { AvatarVideoDisplay, LocalVideoPreview } from "@agora/agent-ui-kit";
 import { VideoGrid, MobileTabs } from "@agora/agent-ui-kit";
 import { AgoraLogo } from "@agora/agent-ui-kit";
-import { SettingsDialog } from "@agora/agent-ui-kit";
+import { SettingsDialog, SessionPanel } from "@agora/agent-ui-kit";
 import { ShenPanel } from "@agora/agent-ui-kit";
 import { ThymiaPanel, useThymia } from "@agora/agent-ui-kit/thymia";
 import { useShenai } from "@/hooks/useShenai";
@@ -990,7 +990,9 @@ export function VideoAvatarClient() {
         disabled={isConnected}
         selectedMicId={selectedMic}
         onMicChange={handleMicChange}
-      />
+      >
+        <SessionPanel agentId={sessionAgentId} payload={sessionPayload} />
+      </SettingsDialog>
     </div>
   );
 }
