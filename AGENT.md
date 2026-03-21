@@ -131,7 +131,26 @@ VOICE_DEFAULT_GREETING=Hello!
 - The `pipeline_id` query parameter overrides the env var: `/start-agent?channel=test&pipeline_id=xxx`
 - Only `prompt` and `greeting` are passed as `overrides.llm` — the pipeline owns ASR, AIVAD, TTS, and LLM config
 - Avatar config is still sent separately (not part of the pipeline)
-- The payload contains no `advanced_features`, `llm`, `tts`, `asr`, `parameters`, or `turn_detection` — just `name`, `pipeline_id`, `properties`, and optional `overrides`
+- **Transcript delivery requires `parameters.transcript`** — see note below
+
+**Transcript delivery in pipeline mode:**
+
+The pipeline configures LLM/TTS/ASR/AIVAD, but `parameters.transcript` is a **connection-level setting** that must be sent in the join payload. Without it, the Agora engine does not deliver agent transcript messages via RTM — user transcripts may still appear (from ASR events) but agent responses will be missing from the client UI.
+
+The backend always sends this in pipeline mode:
+
+```json
+"parameters": {
+  "transcript": {
+    "enable": true,
+    "protocol_version": "v2",
+    "enable_words": false
+  },
+  "enable_dump": true
+}
+```
+
+In non-pipeline (standard TTS+LLM) mode, this is also sent automatically. In MLLM mode (Gemini Live / OpenAI Realtime), transcription is handled internally by the model so `parameters.transcript` is not needed.
 
 ### Pipeline + Custom LLM Override
 

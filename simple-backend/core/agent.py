@@ -407,6 +407,16 @@ def _create_pipeline_payload(channel, pipeline_id, constants, query_params=None,
         if overrides:
             properties["overrides"] = overrides
 
+    # Enable transcript delivery so clients receive agent messages via RTM
+    properties["parameters"] = {
+        "transcript": {
+            "enable": True,
+            "protocol_version": "v2",
+            "enable_words": False
+        },
+        "enable_dump": True,
+    }
+
     # Add avatar config if needed (avatar isn't part of pipeline)
     if avatar_vendor:
         avatar_config = build_avatar_config(
