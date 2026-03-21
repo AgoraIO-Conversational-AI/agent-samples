@@ -161,7 +161,8 @@ def start_agent():
                 register_url = f"{llm_base}/register-agent"
                 # Extract custom LLM params (tokens, UIDs, API keys)
                 # so custom-llm can start audio subscriber + Thymia immediately
-                llm_params = (agent_payload.get("properties", {}).get("llm", {}).get("params", {}))
+                llm_params = (agent_payload.get("properties", {}).get("llm", {}).get("params", {})
+                    or agent_payload.get("properties", {}).get("overrides", {}).get("llm", {}).get("params", {}))
                 register_payload = {
                     "app_id": app_id_to_use,
                     "channel": channel,

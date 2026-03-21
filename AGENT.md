@@ -129,9 +129,61 @@ VOICE_DEFAULT_GREETING=Hello!
 - Only `APP_ID`, `APP_CERTIFICATE`, and `PIPELINE_ID` are required — no `LLM_API_KEY`, `TTS_KEY`, `TTS_VENDOR`, or `TTS_VOICE_ID` needed
 - Uses token auth (v007 token from `APP_CERTIFICATE`), not Basic auth — no `AGENT_AUTH_HEADER` needed
 - The `pipeline_id` query parameter overrides the env var: `/start-agent?channel=test&pipeline_id=xxx`
-- Only `prompt` and `greeting` are passed as overrides — the pipeline owns ASR, AIVAD, TTS, and LLM config
+- Only `prompt` and `greeting` are passed as `overrides.llm` — the pipeline owns ASR, AIVAD, TTS, and LLM config
 - Avatar config is still sent separately (not part of the pipeline)
 - The payload contains no `advanced_features`, `llm`, `tts`, `asr`, `parameters`, or `turn_detection` — just `name`, `pipeline_id`, `properties`, and optional `overrides`
+
+### Pipeline + Custom LLM Override
+
+You can use a pipeline for TTS/ASR/AIVAD while pointing the LLM to your own server. This lets the pipeline handle voice processing while you intercept and proxy all LLM requests (for RAG, logging, tool calling, etc.).
+
+**Critical:** Custom LLM config must go in `properties.llm` as a full LLM block — **NOT** in `overrides.llm`. The `overrides.llm` block only accepts lightweight tweaks (`system_messages`, `greeting_message`). The API silently ignores `url`, `vendor`, and `style` inside overrides — no error is returned, but the pipeline's built-in LLM is used instead. You must supply a complete `properties.llm` with `url`, `api_key`, `vendor`, `style`, `system_messages`, `greeting_message`, `failure_message`, `max_history`, and `params`.
+
+**`.env` for pipeline + custom LLM:**
+
+```bash
+VIDEO_CLLM_APP_ID=your_app_id
+VIDEO_CLLM_APP_CERTIFICATE=your_app_certificate
+VIDEO_CLLM_PIPELINE_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# Custom LLM — must use a publicly reachable URL (Agora cloud calls it)
+# Use a tunnel (cloudflared, ngrok) for local dev
+VIDEO_CLLM_LLM_URL=https://your-tunnel.trycloudflare.com/chat/completions
+VIDEO_CLLM_LLM_API_KEY=sk-...
+VIDEO_CLLM_LLM_MODEL=gpt-4o-mini
+VIDEO_CLLM_LLM_VENDOR=custom
+VIDEO_CLLM_LLM_STYLE=openai
+```
+
+**What the backend sends (simplified):**
+
+```json
+{
+  "name": "channel",
+  "pipeline_id": "xxx",
+  "properties": {
+    "channel": "...",
+    "token": "...",
+    "llm": {
+      "url": "https://your-tunnel.../chat/completions",
+      "api_key": "sk-...",
+      "vendor": "custom",
+      "style": "openai",
+      "system_messages": [{"role": "system", "content": "..."}],
+      "greeting_message": "...",
+      "failure_message": "...",
+      "max_history": 32,
+      "params": {"model": "gpt-4o-mini", "channel": "...", ...}
+    }
+  }
+}
+```
+
+**Key gotchas:**
+
+- `LLM_URL` must be reachable from Agora's cloud — `localhost` won't work. Use `cloudflared tunnel --url http://localhost:8101` or ngrok
+- The `local_server.py` register-agent flow extracts tokens from `properties.llm.params` OR `overrides.llm.params` to send to the custom LLM server
+- `vendor: "custom"` causes Agora to add `turn_id` and `timestamp` to each LLM request, which the custom LLM server can use for conversation tracking
 
 ---
 

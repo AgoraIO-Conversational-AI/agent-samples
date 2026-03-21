@@ -354,22 +354,58 @@ def _create_pipeline_payload(channel, pipeline_id, constants, query_params=None,
         ("enable_string_uid", False),
     ])
 
-    # Allow query param overrides for prompt and greeting only.
-    # asr_language and enable_aivad are NOT included — the pipeline owns those
-    # settings. The client always sends them as defaults which would conflict
-    # with the pipeline's own config.
-    prompt = query_params.get('prompt')
-    greeting = query_params.get('greeting')
+    # Custom LLM: when LLM_VENDOR=custom and LLM_URL are set,
+    # supply a full properties.llm block (same as non-pipeline mode).
+    # Pipeline provides TTS/ASR/AIVAD; we provide the LLM directly.
+    llm_vendor = constants.get("LLM_VENDOR")
+    llm_url = constants.get("LLM_URL")
+    if llm_vendor == "custom" and llm_url:
+        prompt = query_params.get('prompt', constants.get("DEFAULT_PROMPT", "You are a friendly assistant."))
+        greeting = query_params.get('greeting', constants.get("DEFAULT_GREETING", "hi there"))
+        failure_message = constants.get("DEFAULT_FAILURE_MESSAGE", "Sorry, something went wrong")
+        max_history = int(constants.get("MAX_HISTORY", "32"))
 
-    overrides = {}
-    if prompt:
-        overrides["llm"] = {"system_messages": [{"role": "system", "content": prompt}]}
-    if greeting:
-        overrides["llm"] = overrides.get("llm", {})
-        overrides["llm"]["greeting_message"] = greeting
+        # Generate subscriber token (UID 5000) for audio capture
+        sub_token_info = build_token_with_rtm(channel, "5000", constants)
+        # Generate RTM token (UID 5001) for messaging
+        llm_rtm_uid = f"5001-{channel}"
+        rtm_token_info = build_token_with_rtm(channel, "5001", constants, rtm_uid=llm_rtm_uid)
 
-    if overrides:
-        properties["overrides"] = overrides
+        properties["llm"] = {
+            "url": llm_url,
+            "api_key": constants.get("LLM_API_KEY", ""),
+            "vendor": "custom",
+            "style": constants.get("LLM_STYLE", "openai"),
+            "system_messages": [{"role": "system", "content": prompt}],
+            "greeting_message": greeting,
+            "failure_message": failure_message,
+            "max_history": max_history,
+            "params": {
+                "model": constants.get("LLM_MODEL", "gpt-4o-mini"),
+                "channel": channel,
+                "app_id": constants["APP_ID"],
+                "user_uid": constants["USER_UID"],
+                "agent_uid": constants["AGENT_UID"],
+                "subscriber_token": sub_token_info["token"],
+                "rtm_token": rtm_token_info["token"],
+                "rtm_uid": llm_rtm_uid,
+            },
+        }
+    else:
+        # No custom LLM — allow query param overrides for prompt and greeting only.
+        # asr_language and enable_aivad are NOT included — the pipeline owns those.
+        prompt = query_params.get('prompt')
+        greeting = query_params.get('greeting')
+
+        overrides = {}
+        if prompt:
+            overrides["llm"] = {"system_messages": [{"role": "system", "content": prompt}]}
+        if greeting:
+            overrides["llm"] = overrides.get("llm", {})
+            overrides["llm"]["greeting_message"] = greeting
+
+        if overrides:
+            properties["overrides"] = overrides
 
     # Add avatar config if needed (avatar isn't part of pipeline)
     if avatar_vendor:
