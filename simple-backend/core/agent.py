@@ -288,7 +288,8 @@ def build_avatar_config(avatar_vendor, constants, channel, agent_video_token, qu
                 "agora_token": agora_token_value,
                 "avatar_id": constants["AVATAR_ID"],
                 "disable_idle_timeout": False,
-                "activity_idle_timeout": int(query_params.get('heygen_idle_timeout', constants["HEYGEN_ACTIVITY_IDLE_TIMEOUT"]))
+                "activity_idle_timeout": int(query_params.get('heygen_idle_timeout', constants["HEYGEN_ACTIVITY_IDLE_TIMEOUT"])),
+                "video_encoding": "AV1"
             }
         }
     elif avatar_vendor == "anam":
@@ -303,7 +304,8 @@ def build_avatar_config(avatar_vendor, constants, channel, agent_video_token, qu
                 "agora_uid": constants["AGENT_VIDEO_UID"],
                 "agora_token": agora_token_value,
                 "avatar_id": constants["AVATAR_ID"],
-                "sample_rate": 24000
+                "sample_rate": 24000,
+                "video_encoding": "AV1"
             }
         }
     else:

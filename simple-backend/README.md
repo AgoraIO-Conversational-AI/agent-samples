@@ -365,6 +365,12 @@ VOICE_LLM_STYLE=openai
 
 The custom server proxies requests to your LLM provider and supports endpoints for basic chat (`/chat/completions`), RAG-enhanced chat (`/rag/chat/completions`), and multimodal audio (`/audio/chat/completions`).
 
+## Authentication + Session Memory (Optional)
+
+Optional Google OAuth + SMS 2FA authentication with encrypted per-user session memory for use cases like AI therapy where conversation history must be protected and persistent.
+
+See: [auth.md](auth.md) for full design plan and implementation details.
+
 ## MCP Memory Server (Optional)
 
 An MCP memory server gives agents persistent per-user memory via tool calling, allowing the agent to remember context across conversations.
