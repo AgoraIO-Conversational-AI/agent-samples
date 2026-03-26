@@ -134,6 +134,39 @@
   }
 }
 
+/* Move Safety Analysis to bottom of Thymia voice biomarkers panel.
+   SafetySection is the only child with a space-y-1.5 inner div. */
+.thymia-safety-last > div > div:has(> .space-y-1\.5) {
+  order: 99;
+}
+
+/* Hide Thymia progress counters once biomarker scores are showing.
+   The progress section (first child with flex-wrap) is hidden when
+   followed by score sections (siblings with h3 headings). */
+.thymia-safety-last > div > div:first-child:has(> .flex-wrap):has(~ div > h3) {
+  display: none;
+}
+
+/* Scale Shen panel text to match Thymia's compact sizing */
+.shen-compact .text-sm {
+  font-size: 11px !important;
+  line-height: 1 !important;
+}
+.shen-compact .text-xs {
+  font-size: 10px !important;
+  line-height: 1 !important;
+}
+.shen-compact .py-0\.5 {
+  padding-top: 1px !important;
+  padding-bottom: 1px !important;
+}
+.shen-compact .p-4 {
+  padding: 0.75rem !important;
+}
+.shen-compact .gap-3 {
+  gap: 0.5rem !important;
+}
+
 @layer base {
   button, [role="tab"] {
     cursor: pointer;

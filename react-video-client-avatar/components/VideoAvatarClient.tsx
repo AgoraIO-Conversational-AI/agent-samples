@@ -397,16 +397,17 @@ export function VideoAvatarClient() {
   return (
     <div className="flex h-screen flex-col bg-background overflow-hidden">
       {/* Header */}
-      <header className="flex-shrink-0 px-4 py-3 md:py-4">
+      <header className="flex-shrink-0 px-4 py-1 md:py-1.5">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg md:text-xl font-bold flex items-center gap-2">
-              <AgoraLogo size={28} />
-              <span className="hidden md:inline">Agora Convo AI </span>Video Agent
-            </h1>
-            <p className="text-xs md:text-sm text-muted-foreground ml-10">
-              React with Agora AI UIKit - Video + Avatar
-            </p>
+          <div className="flex items-center gap-2">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2C12 2 12.7 4.5 14.1 6.5C15.5 8.5 18 10 18 10C18 10 15.5 10.7 13.5 12.1C11.5 13.5 10 16 10 16C10 16 9.3 13.5 7.9 11.5C6.5 9.5 4 8 4 8C4 8 6.5 7.3 8.5 5.9C10.5 4.5 12 2 12 2Z" fill="#E8734A"/>
+              <path d="M18 14C18 14 18.5 15.5 19.5 16.5C20.5 17.5 22 18 22 18C22 18 20.5 18.5 19.5 19.5C18.5 20.5 18 22 18 22C18 22 17.5 20.5 16.5 19.5C15.5 18.5 14 18 14 18C14 18 15.5 17.5 16.5 16.5C17.5 15.5 18 14 18 14Z" fill="#E8734A"/>
+            </svg>
+            <div>
+              <h1 className="text-sm md:text-base font-bold leading-tight hidden md:block">Claude Hackathon at Imperial College</h1>
+              <p className="text-[10px] md:text-xs text-muted-foreground leading-tight">By Ben, Nick, Beejal, Anton, Tan</p>
+            </div>
           </div>
           <div className="flex items-center gap-1">
             <ThemeToggle />
@@ -422,7 +423,7 @@ export function VideoAvatarClient() {
       </header>
 
       {/* Main Content */}
-      <main className="flex flex-1 px-4 py-1 md:py-6 min-h-0 overflow-hidden min-w-0">
+      <main className="flex flex-1 px-4 py-0 md:py-1 min-h-0 overflow-hidden min-w-0">
         {!isConnected ? (
           /* Connection Form - Centered (same as original) */
           <div className="flex flex-1 items-center justify-center">
@@ -612,62 +613,46 @@ export function VideoAvatarClient() {
               }
               avatar={
                 <div className="flex flex-col h-full">
-                  {/* Avatar Video + optional Thymia/Shen tabs */}
+                  {/* Avatar Video + optional Thymia/Shen panels */}
                   {THYMIA_ENABLED || SHEN_ENABLED ? (
-                    <MobileTabs
-                      tabs={[
-                        {
-                          id: "avatar",
-                          label: "Avatar",
-                          content: (
-                            <div className="flex-1 flex items-center justify-center bg-muted/20 p-2 h-full">
-                              <AvatarVideoDisplay
-                                videoTrack={avatarVideoTrack}
-                                state={
-                                  avatarVideoTrack
-                                    ? "connected"
-                                    : "disconnected"
-                                }
-                                className="h-full w-full"
-                                useMediaStream={true}
-                              />
-                            </div>
-                          ),
-                        },
-                        ...(THYMIA_ENABLED
-                          ? [
-                              {
-                                id: "thymia",
-                                label: "Thymia",
-                                content: (
-                                  <ThymiaPanel
-                                    biomarkers={biomarkers}
-                                    wellness={wellness}
-                                    clinical={clinical}
-                                    progress={thymiaProgress}
-                                    safety={thymiaSafety}
-                                    isConnected={isConnected}
-                                  />
-                                ),
-                              },
-                            ]
-                          : []),
-                        ...(SHEN_ENABLED
-                          ? [
-                              {
-                                id: "shen",
-                                label: "Shen",
-                                content: (
-                                  <ShenPanel
-                                    shenState={shenState}
-                                    isConnected={isConnected}
-                                  />
-                                ),
-                              },
-                            ]
-                          : []),
-                      ]}
-                    />
+                    <div className="flex-1 flex min-h-0 gap-3">
+                      {/* Left column: Avatar above Video Biometrics (Shen) */}
+                      <div className="flex flex-col flex-1 min-h-0 gap-3">
+                        <div className="flex-1 flex items-center justify-center bg-muted/20 rounded-lg overflow-hidden min-h-0">
+                          <AvatarVideoDisplay
+                            videoTrack={avatarVideoTrack}
+                            state={
+                              avatarVideoTrack
+                                ? "connected"
+                                : "disconnected"
+                            }
+                            className="h-full w-full"
+                            useMediaStream={true}
+                          />
+                        </div>
+                        {SHEN_ENABLED && (
+                          <div className="flex-1 min-h-0 overflow-auto rounded-lg border shen-compact">
+                            <ShenPanel
+                              shenState={shenState}
+                              isConnected={isConnected}
+                            />
+                          </div>
+                        )}
+                      </div>
+                      {/* Right column: Voice Biometrics (Thymia) */}
+                      {THYMIA_ENABLED && (
+                        <div className="flex flex-col w-[340px] flex-shrink-0 min-h-0 overflow-auto rounded-lg border thymia-safety-last">
+                          <ThymiaPanel
+                            biomarkers={biomarkers}
+                            wellness={wellness}
+                            clinical={clinical}
+                            progress={thymiaProgress}
+                            safety={thymiaSafety}
+                            isConnected={isConnected}
+                          />
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <div className="flex-1 flex items-center justify-center bg-muted/20 p-2">
                       <AvatarVideoDisplay
