@@ -308,6 +308,20 @@ def build_avatar_config(avatar_vendor, constants, channel, agent_video_token, qu
                 "video_encoding": "AV1"
             }
         }
+    elif avatar_vendor == "akool":
+        # Akool avatars only support 16kHz audio — set TTS_SAMPLE_RATE=16000
+        agora_token_value = agent_video_token if agent_video_token else constants["APP_ID"]
+
+        return {
+            "vendor": "akool",
+            "enable": True,
+            "params": {
+                "api_key": constants["AVATAR_API_KEY"],
+                "agora_uid": constants["AGENT_VIDEO_UID"],
+                "agora_token": agora_token_value,
+                "avatar_id": constants["AVATAR_ID"],
+            }
+        }
     else:
         # Placeholder for future avatar vendors
         return None

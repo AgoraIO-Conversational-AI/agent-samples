@@ -256,8 +256,9 @@ Two profiles are required for the clients to work out of the box:
 **2. `VIDEO` profile** - Used by the video client (`VIDEO_*` prefixed variables)
 
 - **Architecture**: Traditional TTS + LLM stack with avatar
-- **Key features**: Separate TTS (ElevenLabs), LLM (GPT-4o), avatar (HeyGen)
+- **Key features**: Separate TTS (ElevenLabs), LLM (GPT-4o), avatar (HeyGen, Anam, or Akool)
 - **Transcript delivery**: RTM stream messages
+- **Akool avatar note**: Akool avatars only support 16kHz audio. Set `TTS_SAMPLE_RATE=16000` when using `AVATAR_VENDOR=akool`.
 
 **Note**: Profile names are **case-insensitive**. The server normalizes all profile names to lowercase, so `VOICE`, `voice`, or `Voice` all work identically. Clients default to uppercase (`VOICE`, `VIDEO`) but any case is accepted.
 
