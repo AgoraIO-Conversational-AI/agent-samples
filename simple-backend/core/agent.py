@@ -789,6 +789,48 @@ curl -X POST '{agent_api_url}' \\
     }
 
 
+def speak_to_agent(agent_id, text, constants, priority="APPEND"):
+    """
+    Pushes text to an agent's TTS pipeline via the Agora Speak API.
+
+    Args:
+        agent_id: The unique identifier for the agent
+        text: The text for the agent to speak
+        constants: Dictionary of constants
+        priority: "INTERRUPT" to cut off current speech, "APPEND" to queue
+
+    Returns:
+        Dictionary with the status code, response body, and success flag
+    """
+    speak_api_url = f"{constants['AGENT_ENDPOINT']}/{constants['APP_ID']}/agents/{agent_id}/speak"
+
+    url_parts = urllib.parse.urlparse(speak_api_url)
+    host = url_parts.netloc
+    path = url_parts.path
+
+    conn = http.client.HTTPSConnection(host, timeout=15)
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": build_auth_header(constants)
+    }
+
+    payload = json.dumps({"text": text, "priority": priority})
+    conn.request("POST", path, payload, headers)
+
+    response = conn.getresponse()
+    status_code = response.status
+    response_text = response.read().decode('utf-8')
+
+    conn.close()
+
+    return {
+        "status_code": status_code,
+        "response": response_text,
+        "success": status_code == 200
+    }
+
+
 def hangup_agent(agent_id, constants):
     """
     Sends a hangup request to disconnect the agent.

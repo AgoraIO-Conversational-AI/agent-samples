@@ -204,6 +204,23 @@ curl "http://localhost:8082/start-agent?channel=test&profile=VIDEO"
 curl "http://localhost:8082/hangup-agent?agent_id=abc123"
 ```
 
+**Speak (push text to agent's TTS):**
+
+```bash
+curl -X POST http://localhost:8082/speak \
+  -H "Content-Type: application/json" \
+  -d '{"agent_id": "abc123", "text": "Hello world!", "priority": "APPEND"}'
+```
+
+The `/speak` endpoint pushes text directly to a running agent's TTS pipeline via the [Agora Speak API](https://docs.agora.io/en/conversational-ai/rest-api/agent/speak). This bypasses the LLM — the agent speaks the exact text provided.
+
+| Parameter  | Required | Description |
+|------------|----------|-------------|
+| `agent_id` | Yes      | The agent ID (returned by `/start-agent`) |
+| `text`     | Yes      | Text for the agent to speak |
+| `priority` | No       | `"APPEND"` (default) queues after current speech. `"INTERRUPT"` cuts off current speech immediately. |
+| `profile`  | No       | Profile for auth credentials (default: `"video"`) |
+
 **Health check:**
 
 ```bash
@@ -214,6 +231,7 @@ curl "http://localhost:8082/health"
 
 - [Start agent REST API](https://docs.agora.io/en/conversational-ai/rest-api/agent/join)
 - [Stop agent REST API](https://docs.agora.io/en/conversational-ai/rest-api/agent/leave)
+- [Speak REST API](https://docs.agora.io/en/conversational-ai/rest-api/agent/speak)
 
 ## Running Tests
 
@@ -341,7 +359,7 @@ simple-backend/
 ├── core/              # Shared business logic
 │   ├── config.py     # Environment variables & profiles
 │   ├── tokens.py     # Token generation
-│   ├── agent.py      # Agent API calls
+│   ├── agent.py      # Agent API calls (create, speak, hangup)
 │   └── utils.py      # Utilities
 ├── lambda_handler.py # AWS Lambda wrapper
 ├── local_server.py   # Flask development server

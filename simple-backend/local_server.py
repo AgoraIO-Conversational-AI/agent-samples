@@ -18,7 +18,7 @@ import urllib.request
 from flask import Flask, request, jsonify
 from core.config import initialize_constants
 from core.tokens import build_token_with_rtm
-from core.agent import create_agent_payload, send_agent_to_channel, hangup_agent, build_auth_header
+from core.agent import create_agent_payload, send_agent_to_channel, hangup_agent, speak_to_agent, build_auth_header
 from core.utils import generate_random_channel
 import copy
 import re
@@ -286,6 +286,47 @@ def hangup_agent_route():
     })
 
 
+@app.route('/speak', methods=['POST'])
+def speak():
+    """
+    Push text to an agent's TTS pipeline via the Agora Speak API.
+
+    JSON Body:
+        agent_id: The agent ID to speak to (required)
+        text: The text to speak (required)
+        profile: Profile name for env var overrides (optional, defaults to "video")
+        priority: "INTERRUPT" or "APPEND" (optional, defaults to "APPEND")
+
+    Example:
+        POST /speak
+        {"agent_id": "abc123", "text": "Goal! 1-0!", "priority": "INTERRUPT"}
+    """
+    data = request.get_json(force=True, silent=True) or {}
+
+    agent_id = data.get('agent_id')
+    text = data.get('text')
+
+    if not agent_id:
+        return jsonify({"error": "Missing agent_id"}), 400
+    if not text:
+        return jsonify({"error": "Missing text"}), 400
+
+    profile = (data.get('profile') or 'video').lower()
+    priority = data.get('priority', 'APPEND').upper()
+    if priority not in ('INTERRUPT', 'APPEND'):
+        priority = 'APPEND'
+
+    constants = initialize_constants(profile)
+    result = speak_to_agent(agent_id, text, constants, priority)
+
+    print(f"[Speak] agent={agent_id} priority={priority} status={result['status_code']} text={text[:80]}")
+
+    if not result['success']:
+        return jsonify({"error": result['response'], "status_code": result['status_code']}), result['status_code']
+
+    return jsonify(result)
+
+
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint"""
@@ -300,9 +341,10 @@ if __name__ == '__main__':
     print("=" * 60)
     print(f"Starting Flask server on http://0.0.0.0:{port}")
     print("\nEndpoints:")
-    print("  GET /start-agent?channel=test")
-    print("  GET /hangup-agent?agent_id=xxx")
-    print("  GET /health")
+    print("  GET  /start-agent?channel=test")
+    print("  GET  /hangup-agent?agent_id=xxx")
+    print("  POST /speak  {agent_id, text, priority}")
+    print("  GET  /health")
     print("\nPress CTRL+C to stop")
     print("=" * 60)
     app.run(host='0.0.0.0', port=port, debug=True)
