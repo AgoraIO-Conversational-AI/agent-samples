@@ -204,7 +204,7 @@ curl "http://localhost:8082/start-agent?channel=test&profile=VIDEO"
 curl "http://localhost:8082/hangup-agent?agent_id=abc123"
 ```
 
-**Speak (push text to agent's TTS):**
+### Speak (Push Text to Agent TTS)
 
 ```bash
 curl -X POST http://localhost:8082/speak \
