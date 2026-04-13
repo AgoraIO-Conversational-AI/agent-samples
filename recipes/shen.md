@@ -103,11 +103,25 @@ The SDK is loaded at runtime via `import(/* webpackIgnore: true */ "/shenai-sdk/
 
 ### 2. Custom LLM Server
 
+This profile uses both Shen and Thymia. Shen itself is browser-side only, but Thymia still needs the Go audio subscriber binary so the custom LLM can capture RTC audio and forward PCM to Thymia.
+
 ```bash
 cd server-custom-llm/node
 nvm use 20
 npm install --legacy-peer-deps
 ```
+
+Build the Go audio subscriber once before starting the Node server:
+
+```bash
+cd ../go-audio-subscriber
+cd sdk && bash scripts/install_agora_sdk.sh && cd ..
+make build
+```
+
+This should produce `go-audio-subscriber/bin/audio_subscriber`.
+
+**Important:** Run the SDK install command exactly as shown above from inside `go-audio-subscriber/sdk/`. Running `bash sdk/scripts/install_agora_sdk.sh` from the repo root can place `agora_sdk/` and `agora_sdk_mac/` in the wrong directory, which causes the Go build to fail or the custom LLM to log `ENOENT` when it tries to spawn `bin/audio_subscriber`.
 
 Start with both Shen and Thymia enabled (this profile uses both):
 
@@ -115,7 +129,7 @@ Start with both Shen and Thymia enabled (this profile uses both):
 PORT=8100 SHEN_ENABLED=true THYMIA_ENABLED=true node custom_llm.js
 ```
 
-No `.env` file needed — the custom LLM receives the OpenAI API key, Thymia API key, and RTC params from the backend in each request via `llm_config.params`.
+No Thymia API key env var is needed on the custom LLM for this recipe — it receives the OpenAI API key, Thymia API key, and RTC params from the backend in each request via `llm_config.params`. Memory/auth settings still belong in `server-custom-llm/node/.env` if you enable session memory.
 
 ### 3. Backend .env — Add VIDEO_THYMIA_SHEN Profile
 
