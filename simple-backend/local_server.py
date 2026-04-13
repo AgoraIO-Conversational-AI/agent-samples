@@ -21,6 +21,7 @@ from core.config import initialize_constants
 from core.tokens import build_token_with_rtm
 from core.agent import create_agent_payload, send_agent_to_channel, hangup_agent, speak_to_agent, build_auth_header
 from core.auth import auth_bp, get_authenticated_user_id
+from core.consultant_dashboard import fetch_dashboard_context
 from core.utils import generate_random_channel
 import copy
 import re
@@ -104,6 +105,11 @@ def start_agent():
     query_params['user_id'] = user_id
     if user_name:
         query_params['user_name'] = user_name
+
+    dashboard_context = fetch_dashboard_context(constants, user_id)
+    if dashboard_context and dashboard_context.get('prompt_addition'):
+        base_prompt = query_params.get('prompt', constants["DEFAULT_PROMPT"])
+        query_params['prompt'] = f"{base_prompt}\n\n{dashboard_context['prompt_addition']}"
 
     # Get or generate channel
     channel = query_params.get('channel') or generate_random_channel(10)
@@ -201,6 +207,15 @@ def start_agent():
                     "user_name": query_params.get('user_name', ''),
                     "max_session_duration": int(constants.get("MAX_SESSION_DURATION") or 0),
                 }
+                if dashboard_context:
+                    register_payload.update({
+                        "client_id": dashboard_context.get("client_id", ""),
+                        "consultant_id": dashboard_context.get("consultant_id", ""),
+                        "consultant_name": dashboard_context.get("consultant_name", ""),
+                        "consultant_dashboard_url": constants.get("CONSULTANT_DASHBOARD_URL", ""),
+                        "consultant_dashboard_shared_secret": constants.get("CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET", ""),
+                        "profile_name": constants.get("PROFILE_NAME", "default"),
+                    })
                 def _register():
                     try:
                         req_data = json.dumps(register_payload).encode('utf-8')

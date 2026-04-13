@@ -173,6 +173,11 @@ def initialize_constants(profile=None):
         "MAX_SESSION_DURATION": get_env_var('MAX_SESSION_DURATION', profile),
         "ALLOWED_RETURN_ORIGINS": get_env_var('ALLOWED_RETURN_ORIGINS', profile),
 
+        # Optional consultant-dashboard integration
+        "CONSULTANT_DASHBOARD_URL": get_env_var('CONSULTANT_DASHBOARD_URL', profile),
+        "CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET": get_env_var('CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET', profile),
+        "CONSULTANT_DASHBOARD_TIMEOUT_SECONDS": get_env_var('CONSULTANT_DASHBOARD_TIMEOUT_SECONDS', profile, "5"),
+
         # MCP settings (JSON array of MCP server configs)
         "MCP_SERVERS": get_env_var('MCP_SERVERS', profile),
 
