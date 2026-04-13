@@ -68,6 +68,27 @@ export function useAgoraVideoClient() {
     off: (event: string, handler: RTMHandler) => void;
   } | null>(null);
 
+  // The web RTM SDK can log a presence-collection error even when we subscribe
+  // with `withPresence: false` and plain channel messaging is working.
+  // This app does not use client-side presence, so drop just that noisy warning.
+  useEffect(() => {
+    const origConsoleError = console.error;
+    console.error = (...args: unknown[]) => {
+      const msg = args.map((a) => String(a)).join(" ");
+      if (
+        msg.includes("joinPresenceColl error") &&
+        msg.includes("Presence service not connected")
+      ) {
+        return;
+      }
+      origConsoleError.apply(console, args);
+    };
+
+    return () => {
+      console.error = origConsoleError;
+    };
+  }, []);
+
   // Setup RTC event listeners for both audio and video
   useEffect(() => {
     const rtcClient = rtcClientRef.current;

@@ -56,6 +56,8 @@ export function useShenai(
   // The SDK uses both thrown errors AND console.error for its abort path, so we need to
   // intercept both window error events and console.error calls.
   useEffect(() => {
+    if (!enabled) return;
+
     const handler = (e: ErrorEvent) => {
       if (destroyedRef.current && (
         e.message?.includes("unreachable") ||
@@ -79,8 +81,18 @@ export function useShenai(
     // Patch console.error to swallow WASM abort messages after cleanup
     const origConsoleError = console.error;
     console.error = (...args: unknown[]) => {
+      const msg = args.map(a => String(a)).join(" ");
+
+      // Agora RTM presence can log this even when message delivery is working.
+      // This client only uses RTM messaging here, not presence collection state.
+      if (
+        msg.includes("joinPresenceColl error") &&
+        msg.includes("Presence service not connected")
+      ) {
+        return;
+      }
+
       if (destroyedRef.current) {
-        const msg = args.map(a => String(a)).join(" ");
         if (msg.includes("Aborted") || msg.includes("unreachable") ||
             msg.includes("shenai") || msg.includes("RuntimeError") ||
             msg.includes("Error ingesting") || msg.includes("Error reading frame") ||
@@ -98,7 +110,7 @@ export function useShenai(
       window.removeEventListener("unhandledrejection", rejectionHandler, true);
       console.error = origConsoleError;
     };
-  }, []);
+  }, [enabled]);
 
   // Shared cleanup helper — stop polling and release SDK reference.
   // We intentionally do NOT call deinitialize() or destroyRuntime() because:
