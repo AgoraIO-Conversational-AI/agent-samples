@@ -161,6 +161,18 @@ def initialize_constants(profile=None):
         # Integration API keys (passed to custom LLM via register-agent)
         "THYMIA_API_KEY": get_env_var('THYMIA_API_KEY', profile),
 
+        # Auth settings (optional — omit to disable auth for this profile)
+        "AUTH_JWT_SECRET": get_env_var('AUTH_JWT_SECRET', profile),
+        "GOOGLE_CLIENT_ID": get_env_var('GOOGLE_CLIENT_ID', profile),
+        "GOOGLE_CLIENT_SECRET": get_env_var('GOOGLE_CLIENT_SECRET', profile),
+        "TWILIO_ACCOUNT_SID": get_env_var('TWILIO_ACCOUNT_SID', profile),
+        "TWILIO_AUTH_TOKEN": get_env_var('TWILIO_AUTH_TOKEN', profile),
+        "TWILIO_VERIFY_SERVICE_SID": get_env_var('TWILIO_VERIFY_SERVICE_SID', profile),
+        "ENCRYPTION_KEY": get_env_var('ENCRYPTION_KEY', profile),
+        "AUTH_DATA_DIR": get_env_var('AUTH_DATA_DIR', profile, './data'),
+        "MAX_SESSION_DURATION": get_env_var('MAX_SESSION_DURATION', profile),
+        "ALLOWED_RETURN_ORIGINS": get_env_var('ALLOWED_RETURN_ORIGINS', profile),
+
         # MCP settings (JSON array of MCP server configs)
         "MCP_SERVERS": get_env_var('MCP_SERVERS', profile),
 

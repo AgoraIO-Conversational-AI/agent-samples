@@ -387,6 +387,22 @@ def _create_pipeline_payload(channel, pipeline_id, constants, query_params=None,
         llm_rtm_uid = f"5001-{channel}"
         rtm_token_info = build_token_with_rtm(channel, "5001", constants, rtm_uid=llm_rtm_uid)
 
+        llm_params = {
+                "model": constants.get("LLM_MODEL", "gpt-4o-mini"),
+                "channel": channel,
+                "app_id": constants["APP_ID"],
+                "user_uid": constants["USER_UID"],
+                "agent_uid": constants["AGENT_UID"],
+                "subscriber_token": sub_token_info["token"],
+                "rtm_token": rtm_token_info["token"],
+                "rtm_uid": llm_rtm_uid,
+        }
+        # Pass authenticated user_id and user_name to custom LLM if available
+        if query_params.get('user_id'):
+            llm_params["user_id"] = query_params["user_id"]
+        if query_params.get('user_name'):
+            llm_params["user_name"] = query_params["user_name"]
+
         properties["llm"] = {
             "url": llm_url,
             "api_key": constants.get("LLM_API_KEY", ""),
@@ -396,16 +412,7 @@ def _create_pipeline_payload(channel, pipeline_id, constants, query_params=None,
             "greeting_message": greeting,
             "failure_message": failure_message,
             "max_history": max_history,
-            "params": {
-                "model": constants.get("LLM_MODEL", "gpt-4o-mini"),
-                "channel": channel,
-                "app_id": constants["APP_ID"],
-                "user_uid": constants["USER_UID"],
-                "agent_uid": constants["AGENT_UID"],
-                "subscriber_token": sub_token_info["token"],
-                "rtm_token": rtm_token_info["token"],
-                "rtm_uid": llm_rtm_uid,
-            },
+            "params": llm_params,
         }
     else:
         # No custom LLM — allow query param overrides for prompt and greeting only.
@@ -514,6 +521,12 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
         prompt = query_params.get('prompt', constants["DEFAULT_PROMPT"])
         greeting = query_params.get('greeting', constants["DEFAULT_GREETING"])
         failure_message = query_params.get('failure_message', constants["DEFAULT_FAILURE_MESSAGE"])
+
+        # Personalize prompt and greeting with user's name
+        user_name = query_params.get('user_name', '')
+        if user_name:
+            prompt += f"\n\nThe user's name is {user_name}. Use their name naturally in conversation."
+            greeting = greeting.replace("Hey there!", f"Hey {user_name}!").replace("Hi there!", f"Hi {user_name}!")
         max_history = int(query_params.get('max_history', constants["MAX_HISTORY"]))
 
         # Get Custom LLM parameters
@@ -559,6 +572,11 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
                 thymia_api_key = constants.get("THYMIA_API_KEY")
                 if thymia_api_key:
                     llm_config["params"]["thymia_api_key"] = thymia_api_key
+                # Pass authenticated user_id and user_name to custom LLM if available
+                if query_params.get('user_id'):
+                    llm_config["params"]["user_id"] = query_params["user_id"]
+                if query_params.get('user_name'):
+                    llm_config["params"]["user_name"] = query_params["user_name"]
 
         # Optional: greeting behavior configuration
         if greeting_mode:

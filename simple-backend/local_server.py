@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 load_dotenv(override=True)  # Load .env file before importing core modules, override existing env vars
 
 import json
+import os
 import threading
 import urllib.request
 
@@ -19,11 +20,14 @@ from flask import Flask, request, jsonify
 from core.config import initialize_constants
 from core.tokens import build_token_with_rtm
 from core.agent import create_agent_payload, send_agent_to_channel, hangup_agent, speak_to_agent, build_auth_header
+from core.auth import auth_bp, get_authenticated_user_id
 from core.utils import generate_random_channel
 import copy
 import re
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-key-change-in-production')
+app.register_blueprint(auth_bp)
 
 # Keys in agent payload that contain secrets and must be redacted
 _SENSITIVE_KEYS = re.compile(
@@ -49,8 +53,17 @@ def _redact_payload(obj):
 
 @app.after_request
 def after_request(response):
-    """Add CORS headers to all responses"""
-    response.headers.add('Access-Control-Allow-Origin', '*')
+    """Add CORS headers to all responses.
+
+    Uses explicit origin (not '*') when an Authorization header is present,
+    since browsers require a specific origin for credentialed requests.
+    """
+    origin = request.headers.get('Origin', '')
+    if origin:
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+    else:
+        response.headers['Access-Control-Allow-Origin'] = '*'
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
     return response
@@ -83,6 +96,14 @@ def start_agent():
 
     # Initialize constants with profile
     constants = initialize_constants(profile)
+
+    # Auth check — returns 'anonymous' when auth is not configured
+    user_id, user_name, auth_error = get_authenticated_user_id(request, constants)
+    if auth_error:
+        return jsonify({"error": auth_error}), 401
+    query_params['user_id'] = user_id
+    if user_name:
+        query_params['user_name'] = user_name
 
     # Get or generate channel
     channel = query_params.get('channel') or generate_random_channel(10)
@@ -176,6 +197,9 @@ def start_agent():
                     "rtm_token": llm_params.get("rtm_token"),
                     "rtm_uid": llm_params.get("rtm_uid"),
                     "thymia_api_key": llm_params.get("thymia_api_key"),
+                    "user_id": user_id,
+                    "user_name": query_params.get('user_name', ''),
+                    "max_session_duration": int(constants.get("MAX_SESSION_DURATION") or 0),
                 }
                 def _register():
                     try:

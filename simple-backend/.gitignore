@@ -50,3 +50,6 @@ lambda-package/
 
 # SQLite runtime databases
 *.db
+
+# Encrypted user data (auth + session memory)
+data/

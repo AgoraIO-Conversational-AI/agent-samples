@@ -85,8 +85,25 @@ export function VideoAvatarClient() {
   );
   const [sessionAgentId, setSessionAgentId] = useState<string | null>(null);
   const [sessionPayload, setSessionPayload] = useState<object | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [authUser, setAuthUser] = useState<string | null>(null);
+  // Token held in memory only — never persisted to sessionStorage/localStorage/cookies.
+  // On page refresh the user must re-authenticate. This prevents a second person on
+  // the same machine from accessing a previous user's session.
+  const authTokenRef = useRef<string | null>(null);
 
-  // Read URL parameters on mount
+  // Helper — sends Authorization header if token exists in memory
+  const fetchWithAuth = (url: string, options?: RequestInit) => {
+    const headers: Record<string, string> = {
+      ...(options?.headers as Record<string, string> || {}),
+    };
+    if (authTokenRef.current) {
+      headers["Authorization"] = `Bearer ${authTokenRef.current}`;
+    }
+    return fetch(url, { ...options, headers });
+  };
+
+  // Read URL parameters on mount + auth check
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
@@ -101,6 +118,49 @@ export function VideoAvatarClient() {
       if (ru) {
         setReturnUrl(ru);
       }
+
+      // Handle auth_token from URL (returned from auth flow)
+      const authToken = params.get("auth_token");
+      if (authToken) {
+        // Store in memory only — not sessionStorage
+        authTokenRef.current = authToken;
+        params.delete("auth_token");
+        const cleanUrl = `${window.location.pathname}${params.toString() ? "?" + params.toString() : ""}`;
+        window.history.replaceState({}, "", cleanUrl);
+      }
+
+      // Auth check — determine if this profile requires authentication
+      const effectiveProfile = urlProfile || DEFAULT_PROFILE;
+      const effectiveBackend = DEFAULT_BACKEND_URL;
+      const token = authTokenRef.current;
+      const currentUrl = window.location.href;
+      const authHeaders: Record<string, string> = {};
+      if (token) authHeaders["Authorization"] = `Bearer ${token}`;
+
+      fetch(
+        `${effectiveBackend}/auth-check?profile=${encodeURIComponent(effectiveProfile)}&return_url=${encodeURIComponent(currentUrl)}`,
+        { headers: authHeaders },
+      )
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.auth_required && !data.authenticated) {
+            // Not authenticated — redirect to auth flow
+            if (data.auth_url) {
+              window.location.href = data.auth_url.startsWith("http")
+                ? data.auth_url
+                : `${effectiveBackend}${data.auth_url}`;
+              return;
+            }
+          }
+          if (data.authenticated) {
+            setAuthUser(data.user_name || "User");
+          }
+          setAuthChecked(true);
+        })
+        .catch(() => {
+          // Backend unreachable — proceed without auth (graceful degradation)
+          setAuthChecked(true);
+        });
     }
   }, []);
 
@@ -245,7 +305,7 @@ export function VideoAvatarClient() {
       // Phase 1: Get tokens only (don't start agent yet)
       params.append("connect", "false");
       const tokenUrl = `${backendUrl}/start-agent?${params.toString()}`;
-      const tokenResponse = await fetch(tokenUrl);
+      const tokenResponse = await fetchWithAuth(tokenUrl);
 
       if (!tokenResponse.ok) {
         throw new Error(`Backend error: ${tokenResponse.statusText}`);
@@ -281,7 +341,7 @@ export function VideoAvatarClient() {
       params.append("channel", data.channel);
       params.append("debug", "true");
       const agentUrl = `${backendUrl}/start-agent?${params.toString()}`;
-      const agentResponse = await fetch(agentUrl);
+      const agentResponse = await fetchWithAuth(agentUrl);
 
       if (!agentResponse.ok) {
         throw new Error(`Agent start error: ${agentResponse.statusText}`);
@@ -319,13 +379,13 @@ export function VideoAvatarClient() {
     }
   };
 
-  // Auto-connect after state is committed
+  // Auto-connect after state is committed AND auth check is complete
   useEffect(() => {
-    if (autoConnect) {
+    if (autoConnect && authChecked) {
       setAutoConnect(false);
       handleStart();
     }
-  }, [autoConnect]);
+  }, [autoConnect, authChecked]);
 
   const handleStop = async () => {
     // Stop and close local video track to release camera hardware
@@ -335,6 +395,19 @@ export function VideoAvatarClient() {
       setLocalVideoTrack(null);
       setIsLocalVideoActive(false);
     }
+
+    // Tell backend to hangup agent + unregister from custom LLM (triggers memory save)
+    if (sessionAgentId) {
+      const params = new URLSearchParams({ agent_id: sessionAgentId });
+      if (channelRef.current) params.append("channel", channelRef.current);
+      if (profile) params.append("profile", profile);
+      try {
+        await fetchWithAuth(`${backendUrl}/hangup-agent?${params.toString()}`);
+      } catch (e) {
+        console.error("Hangup failed:", e);
+      }
+    }
+
     await leaveChannel();
     setSessionAgentId(null);
     setSessionPayload(null);
@@ -394,6 +467,15 @@ export function VideoAvatarClient() {
     return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
   };
 
+  // Don't render UI until auth check completes
+  if (!authChecked) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <p className="text-lg text-muted-foreground animate-pulse">Loading...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen flex-col bg-background overflow-hidden">
       {/* Header */}
@@ -406,6 +488,7 @@ export function VideoAvatarClient() {
             </h1>
             <p className="text-xs md:text-sm text-muted-foreground ml-10">
               React with Agora AI UIKit - Video + Avatar
+              {authUser && <span className="ml-2">({authUser})</span>}
             </p>
           </div>
           <div className="flex items-center gap-1">

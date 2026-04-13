@@ -262,6 +262,107 @@ This recipe is designed to work alongside Thymia voice biomarkers. When both `NE
 
 The custom LLM server injects both data sources into the LLM prompt, giving the assistant a complete picture of the user's emotional and physiological state.
 
+## Adding Auth + Session Memory
+
+You can add Google OAuth + Twilio 2FA authentication and encrypted session memory to any profile. This enables:
+
+- **Name personalization** — greeting and prompt use the user's first name from auth
+- **Session memory** — conversation summaries + biomarker averages are encrypted and saved per user, then injected into the prompt on reconnect so the assistant recalls previous sessions
+- **Three-factor user identity** — `sha256(google_sub + '|' + name + '|' + phone)` ties memory to all three auth factors
+
+### Additional Keys Required
+
+| Key | Where to get it | Backend `.env` var |
+|-----|-----------------|-------------------|
+| **Google OAuth Client ID** | [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials → OAuth 2.0 | `{PROFILE}_GOOGLE_CLIENT_ID` |
+| **Google OAuth Client Secret** | Same as above | `{PROFILE}_GOOGLE_CLIENT_SECRET` |
+| **Twilio Account SID** | [Twilio Console](https://console.twilio.com/) | `{PROFILE}_TWILIO_ACCOUNT_SID` |
+| **Twilio Auth Token** | Twilio Console | `{PROFILE}_TWILIO_AUTH_TOKEN` |
+| **Twilio Verify Service SID** | Twilio Console → Verify → Services → Create | `{PROFILE}_TWILIO_VERIFY_SERVICE_SID` |
+
+### Backend `.env` — Auth + Memory Variables
+
+Add these to your profile section in `simple-backend/.env`:
+
+```bash
+# Auth
+{PROFILE}_AUTH_JWT_SECRET=<random-secret-string>
+{PROFILE}_GOOGLE_CLIENT_ID=<your-google-client-id>.apps.googleusercontent.com
+{PROFILE}_GOOGLE_CLIENT_SECRET=<your-google-client-secret>
+{PROFILE}_TWILIO_ACCOUNT_SID=<your-twilio-sid>
+{PROFILE}_TWILIO_AUTH_TOKEN=<your-twilio-token>
+{PROFILE}_TWILIO_VERIFY_SERVICE_SID=<your-twilio-verify-sid>
+{PROFILE}_ENCRYPTION_KEY=<64-hex-char-key>
+{PROFILE}_AUTH_DATA_DIR=./data
+{PROFILE}_MAX_SESSION_DURATION=3600
+{PROFILE}_ALLOWED_RETURN_ORIGINS=http://localhost:8084
+```
+
+Generate `ENCRYPTION_KEY` with: `python3 -c "import secrets; print(secrets.token_hex(32))"`
+
+Generate `AUTH_JWT_SECRET` with any random string (e.g. `openssl rand -base64 32`).
+
+### Custom LLM Server `.env` — Memory Variables
+
+The memory module in `server-custom-llm/node` needs its own encryption key to read/write session files:
+
+```bash
+# server-custom-llm/node/.env (or pass as env vars)
+ENCRYPTION_KEY=<same-64-hex-char-key-as-backend>
+DATA_DIR=./data
+MAX_HISTORY_SESSIONS=5
+```
+
+The `ENCRYPTION_KEY` must match the backend's — both derive per-user keys from it.
+
+### Python Dependencies
+
+The backend venv needs the `twilio` package:
+
+```bash
+cd agent-samples/simple-backend
+source venv/bin/activate
+pip install twilio
+```
+
+### Google OAuth Setup
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials
+2. Create an OAuth 2.0 Client ID (Web application type)
+3. Add `http://localhost:8082/auth/google/callback` to **Authorized redirect URIs**
+4. Copy the Client ID and Client Secret to your backend `.env`
+
+### How It Works
+
+1. User opens `http://localhost:8084?profile={PROFILE}&autoconnect=true`
+2. Client checks `/auth-check` → backend returns `auth_required: true`
+3. Client redirects to Google OAuth → user signs in
+4. Backend shows identity form (first name + phone number)
+5. Backend sends Twilio SMS verification code → user enters PIN
+6. Backend mints JWT with `user_id` (hash of google_sub + name + phone) and `name`
+7. Client receives JWT, calls `/start-agent` with Bearer token
+8. Backend personalizes greeting: "Hey {name}! Welcome back..." and appends name to prompt
+9. Custom LLM memory module loads encrypted session history for this `user_id` and injects it into the system prompt
+10. On session end (hangup or RTM presence disconnect), memory module summarizes the conversation via LLM, computes biomarker averages, encrypts and saves to disk
+
+### Autoconnect
+
+Add `autoconnect=true` to the URL to skip the Start button — the client connects automatically after auth completes:
+
+```
+http://localhost:8084?profile={PROFILE}&autoconnect=true
+```
+
+### Verification
+
+1. Connect and chat for ~1 minute
+2. Hang up — check custom LLM logs for `Saved session summary for user ...`
+3. Check `server-custom-llm/node/data/users/<hash>/sessions/` for `.enc` files
+4. Reconnect with same identity — the assistant should reference your previous conversation
+5. The greeting should use your first name
+
+See `auth.md` for full auth architecture details. See `server-custom-llm/node/README.md` for memory module implementation.
+
 ## What to Expect
 
 1. **0-5s:** SDK loads (WASM, ~35MB) — "Loading Shen.AI SDK..." shown in Shen tab
