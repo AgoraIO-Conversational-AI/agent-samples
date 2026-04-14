@@ -87,6 +87,7 @@ export function VideoAvatarClient() {
   const [sessionPayload, setSessionPayload] = useState<object | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [authUser, setAuthUser] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
   // Token held in memory only — never persisted to sessionStorage/localStorage/cookies.
   // On page refresh the user must re-authenticate. This prevents a second person on
   // the same machine from accessing a previous user's session.
@@ -151,9 +152,13 @@ export function VideoAvatarClient() {
                 : `${effectiveBackend}${data.auth_url}`;
               return;
             }
+            if (data.error) {
+              setAuthError(data.error);
+            }
           }
           if (data.authenticated) {
             setAuthUser(data.user_name || "User");
+            setAuthError(null);
           }
           setAuthChecked(true);
         })
@@ -278,6 +283,10 @@ export function VideoAvatarClient() {
   const [isLocalVideoActive, setIsLocalVideoActive] = useState(false);
 
   const handleStart = async () => {
+    if (authError) {
+      alert(authError);
+      return;
+    }
     setIsLoading(true);
     try {
       // Build query params for backend
@@ -381,11 +390,11 @@ export function VideoAvatarClient() {
 
   // Auto-connect after state is committed AND auth check is complete
   useEffect(() => {
-    if (autoConnect && authChecked) {
+    if (autoConnect && authChecked && !authError) {
       setAutoConnect(false);
       handleStart();
     }
-  }, [autoConnect, authChecked]);
+  }, [autoConnect, authChecked, authError]);
 
   const handleStop = async () => {
     // Stop and close local video track to release camera hardware
@@ -490,6 +499,11 @@ export function VideoAvatarClient() {
               React with Agora AI UIKit - Video + Avatar
               {authUser && <span className="ml-2">({authUser})</span>}
             </p>
+            {authError && (
+              <p className="text-xs md:text-sm text-red-600 ml-10 mt-1">
+                {authError}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-1">
             <ThemeToggle />

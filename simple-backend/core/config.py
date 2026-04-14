@@ -168,6 +168,7 @@ def initialize_constants(profile=None):
         "TWILIO_ACCOUNT_SID": get_env_var('TWILIO_ACCOUNT_SID', profile),
         "TWILIO_AUTH_TOKEN": get_env_var('TWILIO_AUTH_TOKEN', profile),
         "TWILIO_VERIFY_SERVICE_SID": get_env_var('TWILIO_VERIFY_SERVICE_SID', profile),
+        "AUTH_BRAND_NAME": get_env_var('AUTH_BRAND_NAME', profile, "your session"),
         "ENCRYPTION_KEY": get_env_var('ENCRYPTION_KEY', profile),
         "AUTH_DATA_DIR": get_env_var('AUTH_DATA_DIR', profile, './data'),
         "MAX_SESSION_DURATION": get_env_var('MAX_SESSION_DURATION', profile),
@@ -177,6 +178,7 @@ def initialize_constants(profile=None):
         "CONSULTANT_DASHBOARD_URL": get_env_var('CONSULTANT_DASHBOARD_URL', profile),
         "CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET": get_env_var('CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET', profile),
         "CONSULTANT_DASHBOARD_TIMEOUT_SECONDS": get_env_var('CONSULTANT_DASHBOARD_TIMEOUT_SECONDS', profile, "5"),
+        "REQUIRE_CONSULTANT_DASHBOARD_CLIENT": get_env_var('REQUIRE_CONSULTANT_DASHBOARD_CLIENT', profile, "false"),
 
         # MCP settings (JSON array of MCP server configs)
         "MCP_SERVERS": get_env_var('MCP_SERVERS', profile),

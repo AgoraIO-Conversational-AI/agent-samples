@@ -21,7 +21,7 @@ from core.config import initialize_constants
 from core.tokens import build_token_with_rtm
 from core.agent import create_agent_payload, send_agent_to_channel, hangup_agent, speak_to_agent, build_auth_header
 from core.auth import auth_bp, get_authenticated_user_id
-from core.consultant_dashboard import fetch_dashboard_context
+from core.consultant_dashboard import fetch_dashboard_context, dashboard_client_required
 from core.utils import generate_random_channel
 import copy
 import re
@@ -107,6 +107,10 @@ def start_agent():
         query_params['user_name'] = user_name
 
     dashboard_context = fetch_dashboard_context(constants, user_id)
+    if dashboard_client_required(constants) and not dashboard_context:
+        return jsonify({
+            "error": "Account not found. Please contact your consultant."
+        }), 403
     if dashboard_context and dashboard_context.get('prompt_addition'):
         base_prompt = query_params.get('prompt', constants["DEFAULT_PROMPT"])
         query_params['prompt'] = f"{base_prompt}\n\n{dashboard_context['prompt_addition']}"
@@ -375,6 +379,8 @@ def health():
 if __name__ == '__main__':
     import os
     port = int(os.environ.get('PORT', 8082))
+    debug_enabled = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+    use_reloader = os.environ.get('FLASK_USE_RELOADER', 'false').lower() == 'true'
     print("=" * 60)
     print("Agora ConvoAI Local Server")
     print("=" * 60)
@@ -386,4 +392,4 @@ if __name__ == '__main__':
     print("  GET  /health")
     print("\nPress CTRL+C to stop")
     print("=" * 60)
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=debug_enabled, use_reloader=use_reloader)

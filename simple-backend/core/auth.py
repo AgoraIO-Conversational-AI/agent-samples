@@ -19,6 +19,7 @@ import urllib.parse
 from datetime import datetime, timezone
 
 from flask import Blueprint, request, jsonify, redirect, session, render_template
+from core.phone_numbers import country_options, normalize_phone as normalize_supported_phone
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -38,6 +39,10 @@ def _get_profile_constants():
     return initialize_constants(profile)
 
 
+def _get_brand_name(constants):
+    return (constants.get('AUTH_BRAND_NAME') or 'your session').strip()
+
+
 def _hash(value):
     """SHA-256 hash a string."""
     return hashlib.sha256(value.encode('utf-8')).hexdigest()
@@ -49,18 +54,55 @@ def _normalize_name(name):
     return re.sub(r'\s+', ' ', name.strip().lower())
 
 
-def _normalize_phone(phone):
-    """Normalize phone to digits + optional leading +."""
-    import re
-    digits = re.sub(r'[^\d+]', '', phone.strip())
-    # Ensure leading +
-    if not digits.startswith('+'):
-        # Assume US if 10 digits
-        if len(digits) == 10:
-            digits = '+1' + digits
-        elif len(digits) == 11 and digits.startswith('1'):
-            digits = '+' + digits
-    return digits
+def _client_user_id_hash(client_id):
+    return _hash(f'client|{client_id}')
+
+
+def _save_dashboard_profile(constants, client_id, email, display_name, phone_number, google_sub=''):
+    normalized_phone = phone_number.strip()
+    normalized_name = _normalize_name(display_name or '')
+    profile_data = {
+        'client_id': client_id,
+        'google_sub': google_sub,
+        'email': (email or '').strip().lower(),
+        'name_hash': _hash(normalized_name) if normalized_name else '',
+        'phone_hash': _hash(normalized_phone) if normalized_phone else '',
+        'created_at': datetime.now(timezone.utc).isoformat(),
+        'last_login': datetime.now(timezone.utc).isoformat(),
+    }
+    user_id_hash = _client_user_id_hash(client_id)
+    existing = _load_user_profile(constants, user_id_hash) or {}
+    existing.update({k: v for k, v in profile_data.items() if v})
+    existing['last_login'] = datetime.now(timezone.utc).isoformat()
+    if 'created_at' not in existing:
+        existing['created_at'] = profile_data['created_at']
+    _save_user_profile(constants, user_id_hash, existing)
+    return user_id_hash
+
+
+def _send_verification_code(constants, normalized_phone):
+    if AUTH_DEV_MODE:
+        print(f'[Auth] DEV MODE: skipping Twilio SMS to {normalized_phone}, use PIN 000000')
+        return None
+
+    twilio_sid = constants.get('TWILIO_ACCOUNT_SID')
+    twilio_token = constants.get('TWILIO_AUTH_TOKEN')
+    verify_sid = constants.get('TWILIO_VERIFY_SERVICE_SID')
+
+    if not all([twilio_sid, twilio_token, verify_sid]):
+        return 'SMS verification not configured.'
+
+    try:
+        from twilio.rest import Client
+        client = Client(twilio_sid, twilio_token)
+        client.verify.v2.services(verify_sid).verifications.create(
+            to=normalized_phone,
+            channel='sms'
+        )
+        return None
+    except Exception as e:
+        print(f"[Auth] Twilio send failed: {e}")
+        return 'Failed to send verification code.'
 
 
 def _get_data_dir(constants):
@@ -214,6 +256,17 @@ def auth_check():
         try:
             import jwt
             claims = jwt.decode(auth_header[7:], jwt_secret, algorithms=['HS256'])
+            from core.consultant_dashboard import dashboard_client_required, resolve_dashboard_client
+
+            if dashboard_client_required(constants):
+                dashboard_result = resolve_dashboard_client(constants, user_id_hash=claims.get('user_id'))
+                if dashboard_result.get('status') != 'resolved':
+                    return jsonify({
+                        'auth_required': True,
+                        'authenticated': False,
+                        'auth_url': '',
+                        'error': dashboard_result.get('error', 'Account not found. Please contact your consultant.'),
+                    }), 403
             return jsonify({
                 'auth_required': True,
                 'authenticated': True,
@@ -237,14 +290,62 @@ def auth_check():
 
 @auth_bp.route('/auth/login', methods=['GET'])
 def auth_login():
-    """Store profile and return URL in session, serve Google sign-in page."""
+    """Store profile and return URL in session, serve auth entry page."""
     profile = request.args.get('profile', '')
     return_url = request.args.get('return', '')
 
     session['auth_profile'] = profile
     session['auth_return_url'] = return_url
+    constants = _get_profile_constants()
 
-    return render_template('auth/login.html')
+    show_password_login = bool(constants.get('CONSULTANT_DASHBOARD_URL'))
+    show_google_login = bool(constants.get('GOOGLE_CLIENT_ID')) or AUTH_DEV_MODE
+    return render_template(
+        'auth/login.html',
+        brand_name=_get_brand_name(constants),
+        show_password_login=show_password_login,
+        show_google_login=show_google_login,
+    )
+
+
+@auth_bp.route('/auth/password-login', methods=['POST'])
+def auth_password_login():
+    """Authenticate a dashboard-backed client by email/password, then send SMS."""
+    constants = _get_profile_constants()
+    email = request.form.get('email', '').strip().lower()
+    password = request.form.get('password', '')
+    if not email or not password:
+        return jsonify({'error': 'Email and password are required.'}), 400
+
+    from core.consultant_dashboard import verify_dashboard_client_password
+
+    dashboard_result = verify_dashboard_client_password(constants, email, password)
+    if dashboard_result.get('status') != 'verified':
+        return jsonify({'error': dashboard_result.get('error', 'Invalid email or password.')}), 403
+
+    phone_number = (dashboard_result.get('phone_number') or '').strip()
+    if not phone_number:
+        return jsonify({'error': 'This account is missing a 2FA phone number. Please contact your consultant.'}), 403
+
+    user_id_hash = _save_dashboard_profile(
+        constants,
+        dashboard_result.get('client_id', ''),
+        dashboard_result.get('email', email),
+        dashboard_result.get('display_name', ''),
+        phone_number,
+    )
+    session['auth_name'] = dashboard_result.get('display_name', '')
+    session['auth_email'] = dashboard_result.get('email', email)
+    session['auth_phone'] = phone_number
+    session['auth_user_id_hash'] = user_id_hash
+    session['auth_client_id'] = dashboard_result.get('client_id', '')
+    session['auth_via_password'] = True
+
+    send_error = _send_verification_code(constants, phone_number)
+    if send_error:
+        return jsonify({'error': send_error}), 500
+
+    return jsonify({'success': True, 'redirect': '/auth/verify'})
 
 
 @auth_bp.route('/auth/google', methods=['GET'])
@@ -335,8 +436,14 @@ def auth_identity():
     if not session.get('google_sub'):
         return redirect('/auth/login?profile=' + urllib.parse.quote(session.get('auth_profile', '')))
 
+    constants = _get_profile_constants()
     google_name = session.get('google_name', '')
-    return render_template('auth/identity.html', google_name=google_name)
+    return render_template(
+        'auth/identity.html',
+        google_name=google_name,
+        brand_name=_get_brand_name(constants),
+        phone_countries=country_options(),
+    )
 
 
 @auth_bp.route('/auth/send-code', methods=['POST'])
@@ -349,26 +456,55 @@ def auth_send_code():
     constants = _get_profile_constants()
     name = request.form.get('name', '').strip()
     phone = request.form.get('phone', '').strip()
+    phone_country_code = request.form.get('phone_country_code', 'US').strip().upper()
 
     if not name or not phone:
         return jsonify({'error': 'Name and phone are required.'}), 400
 
     normalized_name = _normalize_name(name)
-    normalized_phone = _normalize_phone(phone)
+    try:
+        normalized_phone = normalize_supported_phone(phone, phone_country_code)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
     name_hash = _hash(normalized_name)
     phone_hash = _hash(normalized_phone)
     user_id_hash = _hash(google_sub + '|' + normalized_name + '|' + normalized_phone)
 
+    from core.consultant_dashboard import dashboard_client_required, resolve_dashboard_client
+
+    dashboard_result = None
+    if dashboard_client_required(constants):
+        dashboard_result = resolve_dashboard_client(
+            constants,
+            profile_data={
+                'google_sub': google_sub,
+                'email': session.get('google_email', ''),
+                'name_hash': name_hash,
+                'phone_hash': phone_hash,
+            },
+        )
+        if dashboard_result.get('status') != 'resolved':
+            return jsonify({'error': dashboard_result.get('error', 'Account not found. Please contact your consultant.')}), 403
+        user_id_hash = _save_dashboard_profile(
+            constants,
+            dashboard_result.get('client_id', ''),
+            session.get('google_email', ''),
+            name,
+            normalized_phone,
+            google_sub=google_sub,
+        )
+
     # Check if user exists
     existing = _load_user_profile(constants, user_id_hash)
-    if existing:
+    if existing and not dashboard_result:
         # Verify all three factors match
         if existing.get('name_hash') != name_hash or existing.get('phone_hash') != phone_hash:
             # Generic error — don't reveal which factor failed
             return jsonify({'error': 'Unable to verify your identity.'}), 403
-    else:
+    elif not existing:
         # New user — create profile
         profile_data = {
+            'client_id': dashboard_result.get('client_id', '') if dashboard_result else '',
             'google_sub': google_sub,
             'email': session.get('google_email', ''),
             'name_hash': name_hash,
@@ -380,30 +516,15 @@ def auth_send_code():
 
     # Store for later verification
     session['auth_name'] = name
+    session['auth_email'] = session.get('google_email', '')
     session['auth_phone'] = normalized_phone
     session['auth_user_id_hash'] = user_id_hash
+    session['auth_client_id'] = dashboard_result.get('client_id', '') if dashboard_result else ''
+    session['auth_via_password'] = False
 
-    # Send Twilio verification (skipped in dev mode)
-    if AUTH_DEV_MODE:
-        print(f'[Auth] DEV MODE: skipping Twilio SMS to {normalized_phone}, use PIN 000000')
-    else:
-        twilio_sid = constants.get('TWILIO_ACCOUNT_SID')
-        twilio_token = constants.get('TWILIO_AUTH_TOKEN')
-        verify_sid = constants.get('TWILIO_VERIFY_SERVICE_SID')
-
-        if not all([twilio_sid, twilio_token, verify_sid]):
-            return jsonify({'error': 'SMS verification not configured.'}), 500
-
-        try:
-            from twilio.rest import Client
-            client = Client(twilio_sid, twilio_token)
-            client.verify.v2.services(verify_sid).verifications.create(
-                to=normalized_phone,
-                channel='sms'
-            )
-        except Exception as e:
-            print(f"[Auth] Twilio send failed: {e}")
-            return jsonify({'error': 'Failed to send verification code.'}), 500
+    send_error = _send_verification_code(constants, normalized_phone)
+    if send_error:
+        return jsonify({'error': send_error}), 500
 
     return jsonify({'success': True, 'redirect': '/auth/verify'})
 
@@ -414,7 +535,8 @@ def auth_verify():
     if not session.get('auth_user_id_hash'):
         return redirect('/auth/login?profile=' + urllib.parse.quote(session.get('auth_profile', '')))
 
-    return render_template('auth/verify.html')
+    constants = _get_profile_constants()
+    return render_template('auth/verify.html', brand_name=_get_brand_name(constants))
 
 
 @auth_bp.route('/auth/verify-pin', methods=['POST'])
@@ -461,13 +583,21 @@ def auth_verify_pin():
         existing['last_login'] = datetime.now(timezone.utc).isoformat()
         _save_user_profile(constants, user_id_hash, existing)
 
+    from core.consultant_dashboard import dashboard_client_required, resolve_dashboard_client
+
+    if dashboard_client_required(constants):
+        dashboard_result = resolve_dashboard_client(constants, user_id_hash=user_id_hash)
+        if dashboard_result.get('status') != 'resolved':
+            return jsonify({'error': dashboard_result.get('error', 'Account not found. Please contact your consultant.')}), 403
+
     # Mint JWT
     import jwt as pyjwt
     jwt_secret = constants.get('AUTH_JWT_SECRET')
     now = int(time.time())
     token = pyjwt.encode({
         'user_id': user_id_hash,
-        'email': session.get('google_email', ''),
+        'client_id': session.get('auth_client_id', ''),
+        'email': session.get('auth_email', session.get('google_email', '')),
         'name': session.get('auth_name', ''),
         'iat': now,
         'exp': now + 4 * 3600,  # 4 hours
@@ -484,7 +614,8 @@ def auth_verify_pin():
 
     # Clear auth session data
     for key in ['google_sub', 'google_email', 'google_name', 'auth_name',
-                'auth_phone', 'auth_user_id_hash', 'auth_profile', 'auth_return_url']:
+                'auth_email', 'auth_phone', 'auth_user_id_hash', 'auth_client_id',
+                'auth_via_password', 'auth_profile', 'auth_return_url']:
         session.pop(key, None)
 
     return jsonify({'success': True, 'redirect': redirect_url})

@@ -1,25 +1,40 @@
-# Shen.AI Camera Vitals Wellness Demo
+# Therapist Wellness Demo
 
-Real-time camera-based physiological measurement during a therapeutic conversation. The AI wellness assistant uses live heart rate, HRV, stress, breathing rate, and blood pressure data — captured entirely from the user's webcam — to guide the session.
+Real-time therapeutic conversation demo using the standard sample stack. The core path is voice + avatar, with optional Voice Biomarkers (Thymia) and optional Video Biomarkers (Shen) layered on top when enabled.
+
+This recipe focuses on the session stack:
+
+- `react-video-client-avatar`
+- `simple-backend`
+- `server-custom-llm`
+
+If you are also running the separate consultant/admin product service, keep the detailed dashboard and product documentation in `consultant-dashboard/docs/ai/`. This recipe should stay focused on how to boot and troubleshoot the live conversation stack.
+
+If a profile should only allow clients that exist in `consultant-dashboard`, enable that in `simple-backend` with:
+
+```bash
+THERAPY_REQUIRE_CONSULTANT_DASHBOARD_CLIENT=true
+```
+
+With that enabled, the client must authenticate with a dashboard-backed identity. That can be either email/password + verified phone number, or Google + verified phone number for a matching email. The auth form currently supports United States and United Kingdom phone numbers only.
 
 ## What It Does
 
-1. User speaks to the AI wellness assistant via voice (with video avatar)
-2. The Shen.AI WASM SDK runs in the browser, analyzing the user's face via webcam
-3. Camera vitals (HR, HRV, stress, breathing, BP, estimated age) are:
-   - Displayed in the client's Shen tab for the user/operator to see
-   - Published to the server via RTM every 2 seconds
-   - Injected into the LLM system prompt so the assistant can reference them
-4. The assistant actively uses the camera vitals to guide the wellness conversation
+1. User speaks to the AI wellness assistant via voice with the avatar client
+2. Thymia can analyze voice biomarkers server-side when enabled
+3. Shen can analyze camera vitals client-side when enabled
+4. Live biomarker updates are injected as system messages so the assistant can reference them during the conversation
+5. The assistant uses those signals to guide the wellness conversation when they are available
 
 ## Architecture
 
 ```
 react-video-client-avatar → simple-backend → Agora ConvoAI → server-custom-llm/node
-        │                                                          ├── Shen module (RTM listener)
-        │                                                          └── Agent Update API (vitals → LLM)
+        │                                                          ├── Shen module (RTM listener, optional)
+        │                                                          ├── Thymia module (audio subscriber + websocket, optional)
+        │                                                          └── Agent Update API (biomarkers → LLM)
         │
-        └── Shen.AI WASM SDK (browser-side)
+        └── Shen.AI WASM SDK (browser-side, optional)
               ├── Camera capture + face detection
               ├── 30-second measurement cycles (auto-restart)
               └── RTM publish (shen.vitals) → server
@@ -27,21 +42,29 @@ react-video-client-avatar → simple-backend → Agora ConvoAI → server-custom
 
 **Key difference from Thymia:** Thymia processes audio server-side (Go audio subscriber → Thymia API). Shen processes video client-side (WASM SDK in browser → RTM → server). No server-side media processing is needed for Shen.
 
-**Data flow:** The Shen.AI SDK runs entirely in the browser. It captures the user's webcam, measures vitals from facial blood flow patterns, and publishes `shen.vitals` RTM messages every 2 seconds. The `server-custom-llm/node` Shen module receives these via RTM, stores the latest values, and injects them into the LLM system prompt via Agent Update API.
+**Data flow:** The Shen.AI SDK runs entirely in the browser when enabled. It captures the user's webcam, measures vitals from facial blood flow patterns, and publishes `shen.vitals` RTM messages every 2 seconds. The `server-custom-llm/node` Shen module receives these via RTM, stores the latest values, and injects them into the LLM system messages.
 
 **Cleanup flow:** When the user ends a call, the standard hangup flow calls `/unregister-agent` on `server-custom-llm/node`. The Shen module clears stored vitals and agent registration for that channel.
 
 ## Shared Projects
 
-This recipe uses the standard sample apps — no special Shen variants needed. Shen is enabled via environment variables on the existing projects.
+This recipe uses the standard sample apps — no special therapist variants needed. Shen and Thymia are enabled via environment variables on the existing projects.
 
 | Project                     | Repo                                                                                | Role                                                                     |
 | --------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `react-video-client-avatar` | agent-samples                                                                       | Video avatar UI with Shen tab and camera overlay (`NEXT_PUBLIC_ENABLE_SHEN`) |
+| `react-video-client-avatar` | agent-samples                                                                       | Video avatar UI with optional Voice Biomarkers and Video Biomarkers tabs |
 | `simple-backend`            | agent-samples                                                                       | Python backend — routes calls to Agora ConvoAI                           |
 | `agent-client-toolkit`      | [agent-client-toolkit](https://github.com/AgoraIO-Conversational-AI/agent-client-toolkit-ts) | Core client toolkit (`agora-agent-client-toolkit` on npm)                |
 | `agent-ui-kit`              | [agent-ui-kit](https://github.com/AgoraIO-Conversational-AI/agent-ui-kit)           | React UI components including ShenPanel                                  |
-| `server-custom-llm/node`    | [server-custom-llm](https://github.com/AgoraIO-Conversational-AI/server-custom-llm) | Custom LLM proxy with Shen module (RTM listener + Agent Update API)      |
+| `server-custom-llm/node`    | [server-custom-llm](https://github.com/AgoraIO-Conversational-AI/server-custom-llm) | Custom LLM proxy with Shen/Thymia modules and memory hooks               |
+
+Optional product layer:
+
+| Project                 | Repo                                                | Role                                                           |
+| ----------------------- | --------------------------------------------------- | -------------------------------------------------------------- |
+| `consultant-dashboard`  | `BenWeekes/consultant_dashboard`                    | Separate consultant/admin service for client records, session review, and internal APIs |
+
+For dashboard setup, auth behavior, internal API contracts, and product workflows, use the docs in `consultant-dashboard/docs/ai/`.
 
 ## Keys Required
 

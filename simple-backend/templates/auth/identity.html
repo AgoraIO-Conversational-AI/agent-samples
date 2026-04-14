@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verify Identity</title>
+  <title>{{ brand_name }} | Verify Your Identity</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -26,7 +26,7 @@
     h1 { font-size: 24px; margin-bottom: 8px; text-align: center; }
     .subtitle { color: #666; margin-bottom: 24px; font-size: 14px; text-align: center; }
     label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; }
-    input[type="text"], input[type="tel"] {
+    input[type="text"], input[type="tel"], select {
       width: 100%;
       padding: 10px 12px;
       border: 1px solid #ddd;
@@ -37,6 +37,18 @@
       transition: border-color 0.2s;
     }
     input:focus { border-color: #4285F4; }
+    .phone-row {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 12px;
+      align-items: end;
+    }
+    .field-help {
+      margin-top: -10px;
+      margin-bottom: 16px;
+      color: #666;
+      font-size: 12px;
+    }
     .btn-submit {
       width: 100%;
       padding: 12px;
@@ -63,8 +75,8 @@
 </head>
 <body>
   <div class="card">
-    <h1>Verify Your Identity</h1>
-    <p class="subtitle">We'll send a verification code to your phone</p>
+    <h1>{{ brand_name }}</h1>
+    <p class="subtitle">Verify Your Identity</p>
 
     <div id="error" class="error"></div>
 
@@ -73,7 +85,21 @@
       <input type="text" id="name" name="name" required autocomplete="given-name" placeholder="">
 
       <label for="phone">Phone Number</label>
-      <input type="tel" id="phone" name="phone" required autocomplete="tel" placeholder="+1 555 123 4567">
+      <div class="phone-row">
+        <div>
+          <label for="phone_country_code">Country</label>
+          <select id="phone_country_code" name="phone_country_code">
+            {% for phone_country in phone_countries %}
+              <option value="{{ phone_country.code }}">{{ phone_country.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="phone">Number</label>
+          <input type="tel" id="phone" name="phone" required autocomplete="tel" placeholder="7700900111 or 07700900111">
+        </div>
+      </div>
+      <div class="field-help">Only United States and United Kingdom phone numbers are supported right now.</div>
 
       <button type="submit" class="btn-submit" id="submit-btn">Send Verification Code</button>
     </form>

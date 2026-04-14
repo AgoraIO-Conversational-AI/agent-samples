@@ -1,45 +1,136 @@
 """Tests for optional consultant-dashboard integration."""
 
-from core.consultant_dashboard import _build_identity_query, build_prompt_addition
+import hashlib
+import unittest
+from unittest.mock import patch
+
+import core.consultant_dashboard as consultant_dashboard
+
+from core.consultant_dashboard import (
+    _build_identity_query,
+    build_prompt_addition,
+    dashboard_client_required,
+    resolve_dashboard_client,
+    verify_dashboard_client_password,
+)
 
 
-def test_build_identity_query_from_profile_data():
-    profile = {
-        "google_sub": "google-sub-123",
-        "email": "alex@example.com",
-        "name_hash": "namehash",
-        "phone_hash": "phonehash",
-    }
+class ConsultantDashboardTest(unittest.TestCase):
+    def test_build_identity_query_from_profile_data(self):
+        profile = {
+            "google_sub": "google-sub-123",
+            "email": "alex@example.com",
+            "name_hash": "namehash",
+            "phone_hash": "phonehash",
+        }
 
-    query = _build_identity_query(profile)
+        query = _build_identity_query(profile)
 
-    assert query["normalized_name_hash"] == "namehash"
-    assert query["phone_hash"] == "phonehash"
-    assert "google_sub_hash" in query
-    assert "email_hash" in query
+        self.assertEqual(query["normalized_name_hash"], "namehash")
+        self.assertEqual(query["phone_hash"], "phonehash")
+        self.assertIn("google_sub_hash", query)
+        self.assertIn("email_hash", query)
 
+    def test_build_prompt_addition_includes_dashboard_context(self):
+        prompt = build_prompt_addition({
+            "notes": "Generalized background notes.",
+            "direction": "Focus on routines.",
+            "latest_summary": {
+                "overview": "Client discussed stress at work.",
+                "biomarker_summary": "Stress remained elevated.",
+            },
+            "baseline": {
+                "averages": {
+                    "hrv": 31.0,
+                    "stress_index": 52.5,
+                }
+            },
+            "alerts": [
+                {"severity": "warning", "title": "Elevated stress"},
+            ],
+        })
 
-def test_build_prompt_addition_includes_dashboard_context():
-    prompt = build_prompt_addition({
-        "notes": "Generalized background notes.",
-        "direction": "Focus on routines.",
-        "latest_summary": {
-            "overview": "Client discussed stress at work.",
-            "biomarker_summary": "Stress remained elevated.",
-        },
-        "baseline": {
-            "averages": {
-                "hrv": 31.0,
-                "stress_index": 52.5,
+        self.assertIn("Background notes", prompt)
+        self.assertIn("Focus on routines.", prompt)
+        self.assertIn("Client discussed stress at work.", prompt)
+        self.assertIn("stress_index=52.5", prompt)
+        self.assertIn("warning: Elevated stress", prompt)
+
+    def test_dashboard_client_required_only_when_flag_and_config_present(self):
+        self.assertTrue(dashboard_client_required({
+            "CONSULTANT_DASHBOARD_URL": "http://127.0.0.1:8090",
+            "CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET": "secret",
+            "REQUIRE_CONSULTANT_DASHBOARD_CLIENT": "true",
+        }))
+        self.assertFalse(dashboard_client_required({
+            "CONSULTANT_DASHBOARD_URL": "http://127.0.0.1:8090",
+            "CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET": "secret",
+            "REQUIRE_CONSULTANT_DASHBOARD_CLIENT": "false",
+        }))
+        self.assertFalse(dashboard_client_required({
+            "REQUIRE_CONSULTANT_DASHBOARD_CLIENT": "true",
+        }))
+
+    def test_resolve_dashboard_client_uses_email_and_phone_hash(self):
+        calls = []
+
+        def fake_signed_get_json(_base_url, path, query_params, _shared_secret, _timeout_seconds):
+            calls.append((path, query_params))
+            self.assertEqual(path, "/internal/resolve-client")
+            self.assertEqual(
+                query_params["email_hash"],
+                hashlib.sha256(b"alex@example.com").hexdigest(),
+            )
+            self.assertEqual(query_params["phone_hash"], "phonehash")
+            return 200, {"found": True, "client_id": "client-123", "consultant_id": "consultant-456"}
+
+        with patch.object(consultant_dashboard, "_signed_get_json", fake_signed_get_json):
+            result = resolve_dashboard_client(
+                {
+                    "CONSULTANT_DASHBOARD_URL": "http://127.0.0.1:8090",
+                    "CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET": "secret",
+                    "CONSULTANT_DASHBOARD_TIMEOUT_SECONDS": "5",
+                },
+                profile_data={"email": "Alex@Example.com", "phone_hash": "phonehash"},
+            )
+
+        self.assertEqual(result["status"], "resolved")
+        self.assertEqual(result["client_id"], "client-123")
+        self.assertEqual(result["consultant_id"], "consultant-456")
+        self.assertEqual(len(calls), 1)
+
+    def test_verify_dashboard_client_password_returns_verified_client(self):
+        calls = []
+
+        def fake_signed_post_json(_base_url, path, payload, _shared_secret, _timeout_seconds):
+            calls.append((path, payload))
+            self.assertEqual(path, "/internal/verify-client-password")
+            self.assertEqual(payload["email"], "alex@example.com")
+            self.assertEqual(payload["password"], "clientpass123")
+            return 200, {
+                "ok": True,
+                "client_id": "client-123",
+                "consultant_id": "consultant-456",
+                "display_name": "Alex Demo",
+                "email": "alex@example.com",
+                "phone_number": "+447700900111",
             }
-        },
-        "alerts": [
-            {"severity": "warning", "title": "Elevated stress"},
-        ],
-    })
 
-    assert "Background notes" in prompt
-    assert "Focus on routines." in prompt
-    assert "Client discussed stress at work." in prompt
-    assert "stress_index=52.5" in prompt
-    assert "warning: Elevated stress" in prompt
+        with patch.object(consultant_dashboard, "_signed_post_json", fake_signed_post_json):
+            result = verify_dashboard_client_password(
+                {
+                    "CONSULTANT_DASHBOARD_URL": "http://127.0.0.1:8090",
+                    "CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET": "secret",
+                    "CONSULTANT_DASHBOARD_TIMEOUT_SECONDS": "5",
+                },
+                "Alex@Example.com",
+                "clientpass123",
+            )
+
+        self.assertEqual(result["status"], "verified")
+        self.assertEqual(result["client_id"], "client-123")
+        self.assertEqual(len(calls), 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

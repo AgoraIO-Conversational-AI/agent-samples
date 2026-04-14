@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sign In</title>
+  <title>Welcome to {{ brand_name }}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -25,7 +25,27 @@
       text-align: center;
     }
     h1 { font-size: 24px; margin-bottom: 8px; }
-    p { color: #666; margin-bottom: 32px; font-size: 14px; }
+    p { color: #666; margin-bottom: 24px; font-size: 14px; }
+    form { display: grid; gap: 12px; margin-bottom: 20px; text-align: left; }
+    label { font-size: 14px; font-weight: 500; }
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    .btn-primary {
+      width: 100%;
+      padding: 12px;
+      background: #1f7a52;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .btn-primary:hover { background: #17613f; }
     .btn-google {
       display: inline-flex;
       align-items: center;
@@ -42,12 +62,54 @@
     }
     .btn-google:hover { background: #f8f8f8; }
     .btn-google svg { width: 20px; height: 20px; }
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #777;
+      font-size: 13px;
+      margin: 24px 0 20px;
+    }
+    .divider::before, .divider::after {
+      content: "";
+      height: 1px;
+      background: #e0e0e0;
+      flex: 1;
+    }
+    .error {
+      background: #fef2f2;
+      color: #dc2626;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 16px;
+      display: none;
+      text-align: left;
+    }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>Welcome</h1>
-    <p>Sign in to continue to your session</p>
+    <h1>Welcome to {{ brand_name }}</h1>
+    <div id="error" class="error"></div>
+
+    {% if show_password_login %}
+    <form id="password-form" onsubmit="return handlePasswordLogin(event)">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" autocomplete="email" required>
+
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+
+      <button type="submit" class="btn-primary" id="password-btn">Sign in with email</button>
+    </form>
+    {% endif %}
+
+    {% if show_password_login and show_google_login %}
+    <div class="divider">or</div>
+    {% endif %}
+
+    {% if show_google_login %}
     <a href="/auth/google" class="btn-google">
       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
@@ -57,6 +119,36 @@
       </svg>
       Sign in with Google
     </a>
+    {% endif %}
   </div>
+
+  <script>
+    async function handlePasswordLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('password-btn');
+      const errorEl = document.getElementById('error');
+      errorEl.style.display = 'none';
+      btn.disabled = true;
+      btn.textContent = 'Signing in...';
+
+      try {
+        const formData = new FormData(document.getElementById('password-form'));
+        const res = await fetch('/auth/password-login', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.success && data.redirect) {
+          window.location.href = data.redirect;
+          return false;
+        }
+        errorEl.textContent = data.error || 'Sign-in failed.';
+        errorEl.style.display = 'block';
+      } catch (_err) {
+        errorEl.textContent = 'Network error. Please try again.';
+        errorEl.style.display = 'block';
+      }
+      btn.disabled = false;
+      btn.textContent = 'Sign in with email';
+      return false;
+    }
+  </script>
 </body>
 </html>

@@ -1,9 +1,9 @@
 """
 Optional consultant-dashboard integration for simple-backend.
 
-This module is additive and fail-open:
-- if dashboard config is missing, nothing changes
-- if dashboard lookup fails, session startup continues normally
+When REQUIRE_CONSULTANT_DASHBOARD_CLIENT=false, this module is additive and fail-open.
+When REQUIRE_CONSULTANT_DASHBOARD_CLIENT=true, matching a dashboard client becomes
+part of authorization for that profile.
 """
 
 import hashlib
@@ -16,15 +16,27 @@ import urllib.request
 
 from core.auth import _load_user_profile
 
+ACCOUNT_NOT_FOUND_ERROR = 'Account not found. Please contact your consultant.'
+
 
 def _hash(value):
     return hashlib.sha256(value.encode('utf-8')).hexdigest()
+
+
+def _is_truthy(value):
+    return str(value or '').strip().lower() in {'1', 'true', 'yes', 'on'}
 
 
 def _dashboard_enabled(constants):
     return bool(
         constants.get('CONSULTANT_DASHBOARD_URL')
         and constants.get('CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET')
+    )
+
+
+def dashboard_client_required(constants):
+    return _dashboard_enabled(constants) and _is_truthy(
+        constants.get('REQUIRE_CONSULTANT_DASHBOARD_CLIENT')
     )
 
 
@@ -53,19 +65,97 @@ def _signed_get_json(base_url, path, query_params, shared_secret, timeout_second
         return resp.status, json.loads(resp.read().decode('utf-8'))
 
 
+def _signed_post_json(base_url, path, payload, shared_secret, timeout_seconds):
+    body = json.dumps(payload, separators=(',', ':'))
+    headers = _build_signature_headers(shared_secret, 'POST', path, body)
+    headers['Content-Type'] = 'application/json'
+    url = urllib.parse.urljoin(base_url.rstrip('/') + '/', path.lstrip('/'))
+    req = urllib.request.Request(url, data=body.encode('utf-8'), headers=headers, method='POST')
+    with urllib.request.urlopen(req, timeout=timeout_seconds) as resp:
+        return resp.status, json.loads(resp.read().decode('utf-8'))
+
+
 def _build_identity_query(profile_data):
     query = {}
     google_sub = (profile_data or {}).get('google_sub', '')
     email = ((profile_data or {}).get('email', '') or '').strip().lower()
-    if google_sub:
-        query['google_sub_hash'] = _hash(google_sub)
     if email:
         query['email_hash'] = _hash(email)
-    if profile_data.get('name_hash'):
-        query['normalized_name_hash'] = profile_data['name_hash']
     if profile_data.get('phone_hash'):
         query['phone_hash'] = profile_data['phone_hash']
+    if google_sub:
+        query['google_sub_hash'] = _hash(google_sub)
+    if profile_data.get('name_hash'):
+        query['normalized_name_hash'] = profile_data['name_hash']
     return query
+
+
+def _load_resolution_profile(constants, user_id_hash=None, profile_data=None):
+    if profile_data:
+        return profile_data
+    if not user_id_hash or user_id_hash == 'anonymous':
+        return None
+    return _load_user_profile(constants, user_id_hash)
+
+
+def resolve_dashboard_client(constants, user_id_hash=None, profile_data=None, include_context=False):
+    if not _dashboard_enabled(constants):
+        return {'status': 'disabled', 'error': 'Consultant dashboard integration is not configured.'}
+
+    profile_data = _load_resolution_profile(constants, user_id_hash=user_id_hash, profile_data=profile_data)
+    if not profile_data:
+        return {'status': 'missing_identity', 'error': 'No stored identity was found for dashboard authorization.'}
+
+    query = _build_identity_query(profile_data)
+    if not query.get('email_hash') or not query.get('phone_hash'):
+        return {'status': 'missing_identity', 'error': ACCOUNT_NOT_FOUND_ERROR}
+
+    base_url = constants['CONSULTANT_DASHBOARD_URL']
+    shared_secret = constants['CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET']
+    timeout_seconds = int(constants.get('CONSULTANT_DASHBOARD_TIMEOUT_SECONDS') or 5)
+
+    try:
+        status, resolve_data = _signed_get_json(
+            base_url,
+            '/internal/resolve-client',
+            query,
+            shared_secret,
+            timeout_seconds,
+        )
+        if status != 200 or not resolve_data.get('found'):
+            return {'status': 'not_found', 'error': ACCOUNT_NOT_FOUND_ERROR}
+
+        result = {
+            'status': 'resolved',
+            'client_id': resolve_data.get('client_id', ''),
+            'consultant_id': resolve_data.get('consultant_id', ''),
+        }
+
+        if include_context:
+            client_id = result['client_id']
+            context_status, context_data = _signed_get_json(
+                base_url,
+                '/internal/client-context',
+                {'client_id': client_id},
+                shared_secret,
+                timeout_seconds,
+            )
+            if context_status != 200:
+                return {'status': 'lookup_failed', 'error': 'Dashboard client context lookup failed.'}
+
+            result.update({
+                'consultant_name': context_data.get('consultant_name', ''),
+                'context': context_data,
+                'prompt_addition': build_prompt_addition(context_data),
+            })
+
+        return result
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return {'status': 'not_found', 'error': ACCOUNT_NOT_FOUND_ERROR}
+        return {'status': 'lookup_failed', 'error': f'Dashboard authorization failed: {exc.code} {exc.reason}'}
+    except Exception as exc:
+        return {'status': 'lookup_failed', 'error': f'Dashboard authorization failed: {exc}'}
 
 
 def build_prompt_addition(client_context):
@@ -114,64 +204,54 @@ def build_prompt_addition(client_context):
 
 
 def fetch_dashboard_context(constants, user_id_hash):
+    result = resolve_dashboard_client(constants, user_id_hash=user_id_hash, include_context=True)
+    if result.get('status') != 'resolved':
+        if user_id_hash and user_id_hash != 'anonymous':
+            print(f"[ConsultantDashboard] {result.get('error')} user_id={user_id_hash[:8]}...")
+        return None
+    print(
+        f"[ConsultantDashboard] Resolved client_id={result.get('client_id')} "
+        f"consultant_id={result.get('consultant_id') or 'none'}"
+    )
+    return result
+
+
+def verify_dashboard_client_password(constants, email, password):
     if not _dashboard_enabled(constants):
-        return None
-    if not user_id_hash or user_id_hash == 'anonymous':
-        return None
-
-    profile_data = _load_user_profile(constants, user_id_hash)
-    if not profile_data:
-        print(f"[ConsultantDashboard] No local auth profile for user_id={user_id_hash[:8]}...")
-        return None
-
-    query = _build_identity_query(profile_data)
-    if not query:
-        print(f"[ConsultantDashboard] No identity hashes available for user_id={user_id_hash[:8]}...")
-        return None
+        return {'status': 'disabled', 'error': 'Consultant dashboard integration is not configured.'}
 
     base_url = constants['CONSULTANT_DASHBOARD_URL']
     shared_secret = constants['CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET']
     timeout_seconds = int(constants.get('CONSULTANT_DASHBOARD_TIMEOUT_SECONDS') or 5)
 
     try:
-        status, resolve_data = _signed_get_json(
+        status, data = _signed_post_json(
             base_url,
-            '/internal/resolve-client',
-            query,
+            '/internal/verify-client-password',
+            {'email': (email or '').strip().lower(), 'password': password or ''},
             shared_secret,
             timeout_seconds,
         )
-        if status != 200 or not resolve_data.get('found'):
-            print(f"[ConsultantDashboard] resolve-client returned status={status} found={resolve_data.get('found')}")
-            return None
-
-        client_id = resolve_data.get('client_id')
-        context_status, context_data = _signed_get_json(
-            base_url,
-            '/internal/client-context',
-            {'client_id': client_id},
-            shared_secret,
-            timeout_seconds,
-        )
-        if context_status != 200:
-            print(f"[ConsultantDashboard] client-context returned status={context_status} client_id={client_id}")
-            return None
-
-        result = {
-            'client_id': client_id,
-            'consultant_id': resolve_data.get('consultant_id') or context_data.get('consultant_id', ''),
-            'consultant_name': context_data.get('consultant_name', ''),
-            'context': context_data,
-            'prompt_addition': build_prompt_addition(context_data),
+        if status != 200 or not data.get('ok'):
+            return {'status': 'invalid_credentials', 'error': 'Invalid email or password.'}
+        return {
+            'status': 'verified',
+            'client_id': data.get('client_id', ''),
+            'consultant_id': data.get('consultant_id', ''),
+            'display_name': data.get('display_name', ''),
+            'email': data.get('email', ''),
+            'phone_number': data.get('phone_number', ''),
         }
-        print(f"[ConsultantDashboard] Resolved client_id={client_id} consultant_id={result['consultant_id'] or 'none'}")
-        return result
     except urllib.error.HTTPError as exc:
-        if exc.code == 404:
-            print(f"[ConsultantDashboard] No dashboard client mapping for user_id={user_id_hash[:8]}...")
-            return None
-        print(f"[ConsultantDashboard] HTTP error: {exc.code} {exc.reason}")
-        return None
+        if exc.code == 401:
+            return {'status': 'invalid_credentials', 'error': 'Invalid email or password.'}
+        if exc.code == 403:
+            try:
+                payload = json.loads(exc.read().decode('utf-8'))
+            except Exception:
+                payload = {}
+            if payload.get('error') == 'password_login_not_enabled':
+                return {'status': 'password_login_not_enabled', 'error': 'Password login is not enabled for this account.'}
+        return {'status': 'lookup_failed', 'error': f'Client password verification failed: {exc.code} {exc.reason}'}
     except Exception as exc:
-        print(f"[ConsultantDashboard] Lookup failed: {exc}")
-        return None
+        return {'status': 'lookup_failed', 'error': f'Client password verification failed: {exc}'}

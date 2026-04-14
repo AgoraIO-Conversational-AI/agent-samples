@@ -2,7 +2,7 @@
 
 ## Overview
 
-Optional authentication and session memory layer. Entirely additive — existing React clients, backend, and custom LLM work unchanged when auth is not enabled. When enabled, users authenticate via Google + SMS 2FA, and their session history is encrypted and persisted on disk for continuity across sessions.
+Optional authentication and session memory layer. Entirely additive — existing React clients, backend, and custom LLM work unchanged when auth is not enabled. When enabled, users authenticate via either email/password + SMS 2FA or Google + SMS 2FA, and their session history is encrypted and persisted on disk for continuity across sessions.
 
 All auth endpoints live in the existing simple-backend (Flask). No separate auth service needed.
 
@@ -12,7 +12,7 @@ When auth is not configured for a profile, everything works as before (anonymous
 
 ## Quick Setup (Operator Only)
 
-> **Important:** Only the operator (you) sets up Google and Twilio accounts. End users just click "Sign in with Google" — they don't need to configure anything.
+> **Important:** Only the operator (you) sets up Google and Twilio accounts. End users either sign in with an email/password provisioned in the dashboard or click Google sign-in for matching Gmail accounts.
 
 ### 1. Google OAuth (~5 minutes)
 
@@ -133,7 +133,7 @@ Open `http://localhost:8084?profile=video_cllm` (add `&autoconnect=true` to auto
 3. Real SMS arrives with 6-digit PIN → enter it
 4. Redirected back to the app, authenticated
 
-> **Phone format:** Include the country code with `+` prefix. The system strips non-digit characters and assumes US (+1) for bare 10-digit numbers.
+> **Phone format:** The auth form now has a country dropdown and supports United States and United Kingdom numbers only.
 
 ---
 
@@ -162,8 +162,8 @@ VIDEO_CLLM_ALLOWED_RETURN_ORIGINS=http://localhost:8084,http://localhost:8083
 ```
 
 Then open `http://localhost:8084?profile=video_cllm` — you'll see:
-1. Login page → click "Sign in with Google" (skips to identity form)
-2. Enter any name + phone → click "Send Code" (no SMS sent)
+1. Login page → either use dashboard email/password or click "Sign in with Google"
+2. If using Google, enter name + phone and click "Send Code"
 3. Enter `000000` → redirected back with JWT
 
 ### Without auth (verify nothing breaks)
@@ -185,7 +185,7 @@ curl http://localhost:8082/auth-check?profile=video_cllm
 ### Full browser flow
 
 1. Open `http://localhost:8084?profile=video_cllm`
-2. → Redirects to `/auth/login` → Google sign-in → Name/phone form
+2. → Redirects to `/auth/login` → email/password form or Google sign-in → SMS verification flow
 3. → SMS code → PIN entry → Redirect back with JWT
 4. → Normal UI loads, all fetch calls include Authorization header
 

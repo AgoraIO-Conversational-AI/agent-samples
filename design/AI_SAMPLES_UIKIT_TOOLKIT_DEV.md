@@ -359,7 +359,7 @@ agent-samples/           # Sample applications
 ├── simple-voice-client-no-backend/
 ├── simple-voice-client-with-backend/
 ├── simple-backend/
-├── recipes/             # Integration recipes (thymia.md, shen.md)
+├── recipes/             # Integration recipes (thymia.md, therapist.md)
 └── design/              # Architecture docs
 
 agent-client-toolkit/    # Core SDK (agora-agent-client-toolkit on npm)
@@ -565,4 +565,3 @@ done
 
 - [`AI_SAMPLES_DESIGN.md`](./AI_SAMPLES_DESIGN.md) — Architecture rationale for the three-package model
 - [`VIBE_CODING_DESIGN.md`](./VIBE_CODING_DESIGN.md) — Why vibe-coding repos flatten this architecture for AI platforms
-
