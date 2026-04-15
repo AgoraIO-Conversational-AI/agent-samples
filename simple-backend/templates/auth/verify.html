@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Enter Verification Code | {{ brand_name }}</title>
+  <title>{{ brand_name }} | Verify</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -69,8 +69,8 @@
 </head>
 <body>
   <div class="card">
-    <h1>Enter Code</h1>
-    <p class="subtitle">We sent a 6-digit code to your phone for {{ brand_name }}</p>
+    <h1>{{ brand_name }}</h1>
+    <p class="subtitle">We sent a 6-digit code to your phone</p>
 
     <div id="error" class="error"></div>
 
@@ -88,6 +88,18 @@
 
   <script>
     const inputs = document.querySelectorAll('.pin-input input');
+    let attemptedAutoSubmit = false;
+
+    function currentPin() {
+      return Array.from(inputs).map(i => i.value).join('');
+    }
+
+    function maybeAutoSubmit() {
+      if (!attemptedAutoSubmit && currentPin().length === 6) {
+        attemptedAutoSubmit = true;
+        handleVerify();
+      }
+    }
 
     // Auto-advance on input
     inputs.forEach((input, idx) => {
@@ -97,6 +109,7 @@
         if (val && idx < inputs.length - 1) {
           inputs[idx + 1].focus();
         }
+        maybeAutoSubmit();
       });
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Backspace' && !e.target.value && idx > 0) {
@@ -113,13 +126,14 @@
         if (text.length >= inputs.length) {
           inputs[inputs.length - 1].focus();
         }
+        maybeAutoSubmit();
       });
     });
 
     inputs[0].focus();
 
     async function handleVerify() {
-      const pin = Array.from(inputs).map(i => i.value).join('');
+      const pin = currentPin();
       if (pin.length !== 6) {
         showError('Please enter all 6 digits.');
         return;

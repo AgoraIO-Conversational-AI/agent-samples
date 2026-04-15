@@ -107,11 +107,11 @@ def start_agent():
         query_params['user_name'] = user_name
 
     dashboard_context = fetch_dashboard_context(constants, user_id)
-    if dashboard_client_required(constants) and not dashboard_context:
+    if dashboard_client_required(constants) and dashboard_context.get('status') != 'resolved':
         return jsonify({
-            "error": "Account not found. Please contact your consultant."
+            "error": dashboard_context.get('error', 'Account not found. Please contact your consultant.')
         }), 403
-    if dashboard_context and dashboard_context.get('prompt_addition'):
+    if dashboard_context.get('status') == 'resolved' and dashboard_context.get('prompt_addition'):
         base_prompt = query_params.get('prompt', constants["DEFAULT_PROMPT"])
         query_params['prompt'] = f"{base_prompt}\n\n{dashboard_context['prompt_addition']}"
 

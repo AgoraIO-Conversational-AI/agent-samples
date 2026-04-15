@@ -17,6 +17,7 @@ import urllib.request
 from core.auth import _load_user_profile
 
 ACCOUNT_NOT_FOUND_ERROR = 'Account not found. Please contact your consultant.'
+DASHBOARD_UNAVAILABLE_ERROR = 'Dashboard authorization is temporarily unavailable. Please try again.'
 
 
 def _hash(value):
@@ -141,7 +142,7 @@ def resolve_dashboard_client(constants, user_id_hash=None, profile_data=None, in
                 timeout_seconds,
             )
             if context_status != 200:
-                return {'status': 'lookup_failed', 'error': 'Dashboard client context lookup failed.'}
+                return {'status': 'lookup_failed', 'error': DASHBOARD_UNAVAILABLE_ERROR}
 
             result.update({
                 'consultant_name': context_data.get('consultant_name', ''),
@@ -153,9 +154,11 @@ def resolve_dashboard_client(constants, user_id_hash=None, profile_data=None, in
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             return {'status': 'not_found', 'error': ACCOUNT_NOT_FOUND_ERROR}
-        return {'status': 'lookup_failed', 'error': f'Dashboard authorization failed: {exc.code} {exc.reason}'}
+        print(f"[ConsultantDashboard] Dashboard authorization failed: {exc.code} {exc.reason}")
+        return {'status': 'lookup_failed', 'error': DASHBOARD_UNAVAILABLE_ERROR}
     except Exception as exc:
-        return {'status': 'lookup_failed', 'error': f'Dashboard authorization failed: {exc}'}
+        print(f"[ConsultantDashboard] Dashboard authorization failed: {exc}")
+        return {'status': 'lookup_failed', 'error': DASHBOARD_UNAVAILABLE_ERROR}
 
 
 def build_prompt_addition(client_context):
@@ -178,12 +181,29 @@ def build_prompt_addition(client_context):
 
     latest_summary = client_context.get('latest_summary') or {}
     if isinstance(latest_summary, dict):
-        overview = (latest_summary.get('overview') or latest_summary.get('summary') or '').strip()
+        overview = (
+            latest_summary.get('brief_overview')
+            or latest_summary.get('overview')
+            or latest_summary.get('summary')
+            or ''
+        ).strip()
+        full_summary = (latest_summary.get('full_summary') or '').strip()
         biomarker_summary = (latest_summary.get('biomarker_summary') or '').strip()
         if overview:
             lines.append(f"- Previous session summary: {overview}")
+        if full_summary:
+            lines.append(f"- Previous session full summary: {full_summary}")
         if biomarker_summary:
             lines.append(f"- Previous biomarker summary: {biomarker_summary}")
+
+    recent_summaries = client_context.get('recent_summaries') or []
+    if recent_summaries:
+        lines.append('- Recent full session summaries:')
+        for summary in recent_summaries[:5]:
+            full_summary = (summary.get('full_summary') or '').strip()
+            ended_at = summary.get('ended_at') or 'recent session'
+            if full_summary:
+                lines.append(f"  * {ended_at}: {full_summary}")
 
     baseline = client_context.get('baseline') or {}
     averages = baseline.get('averages') or {}
@@ -208,7 +228,7 @@ def fetch_dashboard_context(constants, user_id_hash):
     if result.get('status') != 'resolved':
         if user_id_hash and user_id_hash != 'anonymous':
             print(f"[ConsultantDashboard] {result.get('error')} user_id={user_id_hash[:8]}...")
-        return None
+        return result
     print(
         f"[ConsultantDashboard] Resolved client_id={result.get('client_id')} "
         f"consultant_id={result.get('consultant_id') or 'none'}"
@@ -225,6 +245,8 @@ def verify_dashboard_client_password(constants, email, password):
     timeout_seconds = int(constants.get('CONSULTANT_DASHBOARD_TIMEOUT_SECONDS') or 5)
 
     try:
+        # This endpoint receives the raw password for verification, so the internal dashboard URL
+        # must stay on localhost or HTTPS-protected infrastructure outside local development.
         status, data = _signed_post_json(
             base_url,
             '/internal/verify-client-password',
@@ -254,4 +276,5 @@ def verify_dashboard_client_password(constants, email, password):
                 return {'status': 'password_login_not_enabled', 'error': 'Password login is not enabled for this account.'}
         return {'status': 'lookup_failed', 'error': f'Client password verification failed: {exc.code} {exc.reason}'}
     except Exception as exc:
-        return {'status': 'lookup_failed', 'error': f'Client password verification failed: {exc}'}
+        print(f"[ConsultantDashboard] Client password verification failed: {exc}")
+        return {'status': 'lookup_failed', 'error': 'Password verification is temporarily unavailable. Please try again.'}

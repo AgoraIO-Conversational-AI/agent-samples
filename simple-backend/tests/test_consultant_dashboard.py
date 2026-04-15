@@ -2,6 +2,7 @@
 
 import hashlib
 import unittest
+import urllib.error
 from unittest.mock import patch
 
 import core.consultant_dashboard as consultant_dashboard
@@ -36,9 +37,16 @@ class ConsultantDashboardTest(unittest.TestCase):
             "notes": "Generalized background notes.",
             "direction": "Focus on routines.",
             "latest_summary": {
-                "overview": "Client discussed stress at work.",
+                "brief_overview": "Client discussed stress at work.",
+                "full_summary": "Client discussed stress at work and difficulty switching off at night.",
                 "biomarker_summary": "Stress remained elevated.",
             },
+            "recent_summaries": [
+                {
+                    "ended_at": "2026-04-13T18:05:00Z",
+                    "full_summary": "Older recent summary for continuity.",
+                }
+            ],
             "baseline": {
                 "averages": {
                     "hrv": 31.0,
@@ -53,6 +61,8 @@ class ConsultantDashboardTest(unittest.TestCase):
         self.assertIn("Background notes", prompt)
         self.assertIn("Focus on routines.", prompt)
         self.assertIn("Client discussed stress at work.", prompt)
+        self.assertIn("difficulty switching off at night", prompt)
+        self.assertIn("Older recent summary for continuity.", prompt)
         self.assertIn("stress_index=52.5", prompt)
         self.assertIn("warning: Elevated stress", prompt)
 
@@ -130,6 +140,27 @@ class ConsultantDashboardTest(unittest.TestCase):
         self.assertEqual(result["status"], "verified")
         self.assertEqual(result["client_id"], "client-123")
         self.assertEqual(len(calls), 1)
+
+    def test_resolve_dashboard_client_returns_dashboard_unavailable_for_network_errors(self):
+        with patch.object(
+            consultant_dashboard,
+            "_signed_get_json",
+            side_effect=urllib.error.URLError("connection refused"),
+        ):
+            result = resolve_dashboard_client(
+                {
+                    "CONSULTANT_DASHBOARD_URL": "http://127.0.0.1:8090",
+                    "CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET": "secret",
+                    "CONSULTANT_DASHBOARD_TIMEOUT_SECONDS": "5",
+                },
+                profile_data={"email": "Alex@Example.com", "phone_hash": "phonehash"},
+            )
+
+        self.assertEqual(result["status"], "lookup_failed")
+        self.assertEqual(
+            result["error"],
+            "Dashboard authorization is temporarily unavailable. Please try again.",
+        )
 
 
 if __name__ == "__main__":
