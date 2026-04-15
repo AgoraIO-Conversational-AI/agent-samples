@@ -155,8 +155,10 @@
           window.location.href = data.redirect;
           return;
         }
+        attemptedAutoSubmit = false;
         showError(data.error || 'Verification failed.');
       } catch (err) {
+        attemptedAutoSubmit = false;
         showError('Network error. Please try again.');
       }
       btn.disabled = false;

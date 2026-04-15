@@ -18,6 +18,8 @@ from core.auth import _load_user_profile
 
 ACCOUNT_NOT_FOUND_ERROR = 'Account not found. Please contact your consultant.'
 DASHBOARD_UNAVAILABLE_ERROR = 'Dashboard authorization is temporarily unavailable. Please try again.'
+MAX_RECENT_SUMMARIES = 3
+MAX_RECENT_SUMMARY_CHARS = 280
 
 
 def _hash(value):
@@ -199,10 +201,12 @@ def build_prompt_addition(client_context):
     recent_summaries = client_context.get('recent_summaries') or []
     if recent_summaries:
         lines.append('- Recent full session summaries:')
-        for summary in recent_summaries[:5]:
+        for summary in recent_summaries[:MAX_RECENT_SUMMARIES]:
             full_summary = (summary.get('full_summary') or '').strip()
             ended_at = summary.get('ended_at') or 'recent session'
             if full_summary:
+                if len(full_summary) > MAX_RECENT_SUMMARY_CHARS:
+                    full_summary = full_summary[: MAX_RECENT_SUMMARY_CHARS - 1].rstrip() + '…'
                 lines.append(f"  * {ended_at}: {full_summary}")
 
     baseline = client_context.get('baseline') or {}

@@ -66,6 +66,23 @@ class ConsultantDashboardTest(unittest.TestCase):
         self.assertIn("stress_index=52.5", prompt)
         self.assertIn("warning: Elevated stress", prompt)
 
+    def test_build_prompt_addition_truncates_recent_full_summaries(self):
+        long_summary = "A" * 400
+        prompt = build_prompt_addition({
+            "recent_summaries": [
+                {"ended_at": "2026-04-13T18:05:00Z", "full_summary": long_summary},
+                {"ended_at": "2026-04-12T18:05:00Z", "full_summary": "Second summary"},
+                {"ended_at": "2026-04-11T18:05:00Z", "full_summary": "Third summary"},
+                {"ended_at": "2026-04-10T18:05:00Z", "full_summary": "Fourth summary"},
+            ],
+        })
+
+        self.assertIn("Recent full session summaries:", prompt)
+        self.assertIn("A" * 50, prompt)
+        self.assertNotIn(long_summary, prompt)
+        self.assertIn("…", prompt)
+        self.assertNotIn("Fourth summary", prompt)
+
     def test_dashboard_client_required_only_when_flag_and_config_present(self):
         self.assertTrue(dashboard_client_required({
             "CONSULTANT_DASHBOARD_URL": "http://127.0.0.1:8090",
