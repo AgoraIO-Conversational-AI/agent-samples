@@ -15,6 +15,7 @@ This repository uses progressive disclosure documentation. Docs live under
 
 - **Format:** `type: description` or `type(scope): description`
 - **Types:** `feat:` (new feature), `fix:` (bug fix), `chore:` (maintenance, version bumps), `test:` (test additions/changes), `docs:` (documentation)
+- **Scoped variant:** `feat(scope):`, `fix(scope):` — e.g. `feat(auth): add token refresh`
 - **Lowercase after prefix** — `feat: add feature`, not `feat: Add feature`
 - **Present tense** — "add feature", not "added feature"
 
@@ -22,6 +23,7 @@ This repository uses progressive disclosure documentation. Docs live under
 
 - **Format:** `type/short-description` — lowercase, hyphen-separated
 - **Types match commit types:** `feat/`, `fix/`, `chore/`, `test/`, `docs/`
+- **Examples:** `feat/token-refresh`, `fix/null-pointer`, `docs/progressive-disclosure`
 
 ### General rules
 
