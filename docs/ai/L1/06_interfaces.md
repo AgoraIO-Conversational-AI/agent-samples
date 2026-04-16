@@ -40,16 +40,25 @@ Creates an Agora Conversational AI agent and returns connection details.
 
 ### POST /speak
 
-Push text to agent TTS.
+Push text directly to an agent's TTS pipeline via the Agora Speak API, bypassing the LLM entirely — the agent speaks the exact text provided.
 
 ```json
 {
   "agent_id": "string",
   "text": "string",
-  "profile": "string",
-  "priority": "APPEND | INTERRUPT"
+  "profile": "string (optional, defaults to 'video')",
+  "priority": "APPEND | INTERRUPT (optional, defaults to APPEND)"
 }
 ```
+
+**Priority semantics:**
+
+| Priority    | Behavior                                                | Use when                                       |
+| ----------- | ------------------------------------------------------- | ---------------------------------------------- |
+| `APPEND`    | Queues text after any currently playing speech          | Adding speech without disrupting current audio |
+| `INTERRUPT` | Cuts off current speech and speaks new text immediately | Urgent or time-sensitive announcements         |
+
+Invalid priority values default to `APPEND`.
 
 ### GET /health
 

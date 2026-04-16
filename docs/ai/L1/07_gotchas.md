@@ -34,6 +34,12 @@
 - If custom-llm server is down, agent still starts — request silently fails
 - Response sent to client before registration attempt completes
 
+### Consultant Dashboard Lookup Failure Modes
+
+- `REQUIRE_CONSULTANT_DASHBOARD_CLIENT=false` (default): fail-open — if dashboard lookup fails, agent starts without dashboard context
+- `REQUIRE_CONSULTANT_DASHBOARD_CLIENT=true`: fail-hard — returns 403 if dashboard status is not `resolved`
+- Status codes: `disabled` (not configured), `missing_identity` (no stored identity), `not_found` (404 or `found=false`), `lookup_failed` (HTTP error or network failure)
+
 ### Pipeline Mode Transcript
 
 - `parameters.transcript` is connection-level (NOT in pipeline config)
@@ -96,6 +102,9 @@
 - Shen.AI WASM SDK requires SharedArrayBuffer
 - Needs COEP, COOP, CORP headers (configured in `next.config.ts`)
 - Missing headers: Shen crashes silently (browser disables SharedArrayBuffer)
+- SDK must load from root `/shenai-sdk/index.mjs` — using the Next.js basePath proxy breaks Emscripten pthread workers
+- In production, nginx must serve `/shenai-sdk/` as a direct alias with correct MIME types and COOP/COEP headers
+- Debug: check browser console for `[Shen]` prefixed logs (`"Loading SDK module..."`, `"SDK ready"`)
 
 ## Debugging
 

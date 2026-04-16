@@ -6,12 +6,12 @@ Repo: agent-samples
 
 ## Summary
 
-- Total questions: 10
-- Passed: 10 (correct answer, right level)
-- L1 gaps: 0
-- L2 gaps: 0
+- Total questions: 14
+- Passed: 14 (after doc fixes)
+- L1 gaps fixed: 3 (06_interfaces.md, 07_gotchas.md ×2)
+- L2 gaps fixed: 1 (agent_lifecycle.md)
 - Cross-ref issues: 0
-- Structural checks: 12/12 passed
+- Structural checks: 11/11 passed
 
 ## Structural Checks
 
@@ -66,6 +66,30 @@ All checks passed:
 | 9   | How does the profile configuration variable system work internally? | Yes             | L0, 05_workflows, deep_dives/profile_configuration | L0+L1+L2     | Pass   |
 | 10  | What happens during the agent creation and teardown lifecycle?      | Yes             | L0, 02_architecture, deep_dives/agent_lifecycle    | L0+L1+L2     | Pass   |
 
+### Round 2 — Targeted Coverage (Higher-Risk Contracts)
+
+| #   | Question (short)                                      | Answer Correct? | Files Read                                                                      | Level Loaded | Result |
+| --- | ----------------------------------------------------- | --------------- | ------------------------------------------------------------------------------- | ------------ | ------ |
+| 11  | POST /speak APPEND vs INTERRUPT semantics             | Yes (after fix) | L1/06_interfaces, L2/agent_lifecycle                                            | L0+L1        | Pass   |
+| 12  | Debug Shen not loading / SharedArrayBuffer / basePath | Yes (after fix) | L1/07_gotchas, L1/03_code_map, L1/08_security                                   | L0+L1        | Pass   |
+| 13  | Custom LLM reg + consultant-dashboard failure         | Yes (after fix) | L1/07_gotchas, L1/02_architecture, L2/agent_lifecycle                           | L0+L1+L2     | Pass   |
+| 14  | Pipeline mode + custom LLM / MCP composition          | Yes (after fix) | L1/05_workflows, L1/06_interfaces, L2/profile_configuration, L2/agent_lifecycle | L0+L1+L2     | Pass   |
+
+Round 2 found 4 gaps, all fixed:
+
+- Q11: Added APPEND vs INTERRUPT behavioral table to `06_interfaces.md`
+- Q12: Added Shen basePath constraint, nginx requirement, and debug logs to `07_gotchas.md`
+- Q13: Added consultant-dashboard failure modes (fail-open vs fail-hard) to `07_gotchas.md`
+- Q14: Added pipeline feature composition matrix to `agent_lifecycle.md`
+
+## Summary (Updated)
+
+- Total questions: 14
+- Passed: 14 (after fixes)
+- L1 gaps fixed: 3 (06_interfaces.md, 07_gotchas.md ×2)
+- L2 gaps fixed: 1 (agent_lifecycle.md)
+- Cross-ref issues: 0
+
 ## Recommended Fixes
 
-None — all tests passed.
+All applied — see Round 2 notes above.

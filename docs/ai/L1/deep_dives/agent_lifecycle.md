@@ -107,6 +107,20 @@ unregister_agent_with_custom_llm()
 | `vertexai`        | `MLLM_API_KEY`, `MLLM_MODEL`, `MLLM_LOCATION` | Location NOT region |
 | `openai_realtime` | `MLLM_API_KEY`, `MLLM_MODEL`                  | Built-in TTS        |
 
+## Pipeline Mode Feature Composition
+
+Pipeline mode (`PIPELINE_ID` set) delegates TTS/ASR/AIVAD to the pipeline. Not all optional features compose with it:
+
+| Feature     | With Pipeline? | Notes                                                                      |
+| ----------- | -------------- | -------------------------------------------------------------------------- |
+| Custom LLM  | Yes            | `LLM_VENDOR=custom` + `LLM_URL` builds a full `properties.llm` block       |
+| MCP Servers | No             | `build_mcp_servers()` only called in non-pipeline `create_agent_payload()` |
+| Avatar      | Yes            | Avatar config is connection-level, independent of pipeline                 |
+| MLLM        | Yes            | MLLM config applied via pipeline overrides                                 |
+| Transcript  | Yes            | `parameters.transcript` is connection-level (NOT in pipeline config)       |
+
+If you set `MCP_SERVERS` with a pipeline profile, the MCP config is silently ignored — no error, no servers attached.
+
 ## Common API Errors
 
 | HTTP Code | Cause                           | Fix                                |
