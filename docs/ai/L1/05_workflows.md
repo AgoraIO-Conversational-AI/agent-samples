@@ -84,5 +84,5 @@ pytest -v                 # verbose output
 
 ## Related Deep Dives
 
-- [Profile Configuration](deep_dives/profile_configuration.md) — Vendor configs, MLLM setup
-- [Agent Lifecycle](deep_dives/agent_lifecycle.md) — Payload building, API flow
+- [Profile Configuration](L2/profile_configuration.md) — Vendor configs, MLLM setup
+- [Agent Lifecycle](L2/agent_lifecycle.md) — Payload building, API flow

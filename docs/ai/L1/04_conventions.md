@@ -82,4 +82,4 @@
 
 ## Related Deep Dives
 
-- [Profile Configuration](deep_dives/profile_configuration.md) — Full profile system details
+- [Profile Configuration](L2/profile_configuration.md) — Full profile system details

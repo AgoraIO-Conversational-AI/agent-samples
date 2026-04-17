@@ -54,17 +54,17 @@ All checks passed:
 
 ### Development
 
-| #   | Question                                  | Answer Correct? | Files Read                                         | Level Loaded | Result |
-| --- | ----------------------------------------- | --------------- | -------------------------------------------------- | ------------ | ------ |
-| 7   | How would I add a new TTS vendor profile? | Yes             | L0, 05_workflows, deep_dives/profile_configuration | L0+L1+L2     | Pass   |
-| 8   | How would I add a new backend API route?  | Yes             | L0, 05_workflows, 03_code_map                      | L0+L1        | Pass   |
+| #   | Question                                  | Answer Correct? | Files Read                                 | Level Loaded | Result |
+| --- | ----------------------------------------- | --------------- | ------------------------------------------ | ------------ | ------ |
+| 7   | How would I add a new TTS vendor profile? | Yes             | L0, 05_workflows, L2/profile_configuration | L0+L1+L2     | Pass   |
+| 8   | How would I add a new backend API route?  | Yes             | L0, 05_workflows, 03_code_map              | L0+L1        | Pass   |
 
 ### Deep Dive
 
-| #   | Question                                                            | Answer Correct? | Files Read                                         | Level Loaded | Result |
-| --- | ------------------------------------------------------------------- | --------------- | -------------------------------------------------- | ------------ | ------ |
-| 9   | How does the profile configuration variable system work internally? | Yes             | L0, 05_workflows, deep_dives/profile_configuration | L0+L1+L2     | Pass   |
-| 10  | What happens during the agent creation and teardown lifecycle?      | Yes             | L0, 02_architecture, deep_dives/agent_lifecycle    | L0+L1+L2     | Pass   |
+| #   | Question                                                            | Answer Correct? | Files Read                                 | Level Loaded | Result |
+| --- | ------------------------------------------------------------------- | --------------- | ------------------------------------------ | ------------ | ------ |
+| 9   | How does the profile configuration variable system work internally? | Yes             | L0, 05_workflows, L2/profile_configuration | L0+L1+L2     | Pass   |
+| 10  | What happens during the agent creation and teardown lifecycle?      | Yes             | L0, 02_architecture, L2/agent_lifecycle    | L0+L1+L2     | Pass   |
 
 ### Round 2 — Targeted Coverage (Higher-Risk Contracts)
 

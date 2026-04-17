@@ -91,4 +91,4 @@ Starts all apps (backend + both clients) with correct ports and environment vari
 
 ## Related Deep Dives
 
-- [Profile Configuration](deep_dives/profile_configuration.md) — Profile-based env var system, MLLM setup, vendor config
+- [Profile Configuration](L2/profile_configuration.md) — Profile-based env var system, MLLM setup, vendor config

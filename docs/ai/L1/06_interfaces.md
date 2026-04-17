@@ -128,5 +128,5 @@ Set as `MCP_SERVERS` env var (JSON array).
 
 ## Related Deep Dives
 
-- [Agent Lifecycle](deep_dives/agent_lifecycle.md) — Full payload structure, vendor-specific configs
-- [Profile Configuration](deep_dives/profile_configuration.md) — Environment variable patterns
+- [Agent Lifecycle](L2/agent_lifecycle.md) — Full payload structure, vendor-specific configs
+- [Profile Configuration](L2/profile_configuration.md) — Environment variable patterns

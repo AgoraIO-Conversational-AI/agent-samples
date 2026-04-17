@@ -122,5 +122,5 @@
 
 ## Related Deep Dives
 
-- [Profile Configuration](deep_dives/profile_configuration.md) — Variable naming gotchas in detail
-- [Agent Lifecycle](deep_dives/agent_lifecycle.md) — API error patterns
+- [Profile Configuration](L2/profile_configuration.md) — Variable naming gotchas in detail
+- [Agent Lifecycle](L2/agent_lifecycle.md) — API error patterns

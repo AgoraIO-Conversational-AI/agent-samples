@@ -94,5 +94,5 @@ React clients depend on three npm packages:
 
 ## Related Deep Dives
 
-- [Profile Configuration](deep_dives/profile_configuration.md) — Profile system, vendor configs, MLLM setup
-- [Agent Lifecycle](deep_dives/agent_lifecycle.md) — Payload building, API calls, custom LLM registration
+- [Profile Configuration](L2/profile_configuration.md) — Profile system, vendor configs, MLLM setup
+- [Agent Lifecycle](L2/agent_lifecycle.md) — Payload building, API calls, custom LLM registration

@@ -88,4 +88,4 @@ agent-samples/
 
 ## Related Deep Dives
 
-- [Agent Lifecycle](deep_dives/agent_lifecycle.md) — Payload building details, vendor-specific configs
+- [Agent Lifecycle](L2/agent_lifecycle.md) — Payload building details, vendor-specific configs
