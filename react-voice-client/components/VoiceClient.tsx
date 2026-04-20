@@ -24,8 +24,30 @@ import { ThymiaPanel, useThymia } from "@agora/agent-ui-kit/thymia";
 import type { RTMEventSource } from "@agora/agent-ui-kit/thymia";
 import { ThemeToggle } from "./ThemeToggle";
 
-const DEFAULT_BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8082";
+function getBackendOverride(params: URLSearchParams): string | null {
+  return params.get("backend") || params.get("backend_url");
+}
+
+function resolveDefaultBackendUrl() {
+  if (typeof window !== "undefined") {
+    const override = getBackendOverride(
+      new URLSearchParams(window.location.search),
+    );
+    if (override) {
+      return override;
+    }
+    if (process.env.NEXT_PUBLIC_BACKEND_URL !== undefined) {
+      return process.env.NEXT_PUBLIC_BACKEND_URL;
+    }
+    const { hostname, protocol } = window.location;
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return `${protocol}//${hostname}:8082`;
+    }
+  }
+  return process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8082";
+}
+
+const DEFAULT_BACKEND_URL = resolveDefaultBackendUrl();
 const DEFAULT_PROFILE = process.env.NEXT_PUBLIC_DEFAULT_PROFILE || "VOICE";
 const THYMIA_ENABLED = process.env.NEXT_PUBLIC_ENABLE_THYMIA === "true";
 
@@ -81,6 +103,10 @@ export function VoiceClient() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
+      const backendOverride = getBackendOverride(params);
+      if (backendOverride) {
+        setBackendUrl(backendOverride);
+      }
       const urlProfile = params.get("profile");
       if (urlProfile) {
         setProfile(urlProfile);

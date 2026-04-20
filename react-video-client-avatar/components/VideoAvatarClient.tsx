@@ -28,8 +28,30 @@ import AgoraRTC from "agora-rtc-sdk-ng";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./ThemeToggle";
 
-const DEFAULT_BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8082";
+function getBackendOverride(params: URLSearchParams): string | null {
+  return params.get("backend") || params.get("backend_url");
+}
+
+function resolveDefaultBackendUrl() {
+  if (typeof window !== "undefined") {
+    const override = getBackendOverride(
+      new URLSearchParams(window.location.search),
+    );
+    if (override) {
+      return override;
+    }
+    if (process.env.NEXT_PUBLIC_BACKEND_URL !== undefined) {
+      return process.env.NEXT_PUBLIC_BACKEND_URL;
+    }
+    const { hostname, protocol } = window.location;
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return `${protocol}//${hostname}:8082`;
+    }
+  }
+  return process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
+}
+
+const DEFAULT_BACKEND_URL = resolveDefaultBackendUrl();
 const DEFAULT_PROFILE = process.env.NEXT_PUBLIC_DEFAULT_PROFILE || "VIDEO";
 const THYMIA_ENABLED = process.env.NEXT_PUBLIC_ENABLE_THYMIA === "true";
 const SHEN_ENABLED = process.env.NEXT_PUBLIC_ENABLE_SHEN === "true";
@@ -117,7 +139,11 @@ export function VideoAvatarClient() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
+      const backendOverride = getBackendOverride(params);
       const urlProfile = params.get("profile");
+      if (backendOverride) {
+        setBackendUrl(backendOverride);
+      }
       if (urlProfile) {
         setProfile(urlProfile);
       }
@@ -165,7 +191,7 @@ export function VideoAvatarClient() {
 
       // Auth check — determine if this profile requires authentication
       const effectiveProfile = urlProfile || DEFAULT_PROFILE;
-      const effectiveBackend = DEFAULT_BACKEND_URL;
+      const effectiveBackend = backendOverride || DEFAULT_BACKEND_URL;
       const token = authTokenRef.current;
       const currentUrl = window.location.href;
       const authHeaders: Record<string, string> = {};
