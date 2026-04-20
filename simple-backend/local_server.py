@@ -14,6 +14,8 @@ load_dotenv(override=True)  # Load .env file before importing core modules, over
 import json
 import os
 import threading
+import time
+import urllib.error
 import urllib.request
 
 from flask import Flask, request, jsonify
@@ -22,6 +24,7 @@ from core.tokens import build_token_with_rtm
 from core.agent import create_agent_payload, send_agent_to_channel, hangup_agent, speak_to_agent, build_auth_header
 from core.auth import auth_bp, get_authenticated_user_id
 from core.consultant_dashboard import fetch_dashboard_context, dashboard_client_required
+from core.meeting_mode import authorize_meeting_join, notify_meeting_end, notify_meeting_event, verify_join_bootstrap
 from core.utils import generate_random_channel
 import copy
 import re
@@ -50,6 +53,71 @@ def _redact_payload(obj):
     elif isinstance(obj, (list, tuple)):
         return [_redact_payload(item) for item in obj]
     return obj
+
+
+def _derive_llm_base_url(constants):
+    agent_server_url = (constants.get("AGENT_SERVER_URL") or "").strip()
+    if agent_server_url:
+        return agent_server_url.rstrip("/")
+    llm_url = constants.get("LLM_URL", "")
+    if "/chat/completions" in llm_url:
+        return llm_url.rsplit("/chat/completions", 1)[0]
+    return llm_url.rstrip("/")
+
+
+def _custom_llm_secret(constants):
+    return (
+        constants.get("AGENT_SERVER_SHARED_SECRET")
+        or os.environ.get("AGENT_SERVER_SHARED_SECRET")
+        or ""
+    )
+
+
+def _custom_llm_headers(constants):
+    headers = {"Content-Type": "application/json"}
+    secret = _custom_llm_secret(constants)
+    if secret:
+        headers["X-Agent-Server-Secret"] = secret
+    return headers
+
+
+def _post_custom_llm(url, payload, label, constants=None):
+    def _run():
+        try:
+            req_data = json.dumps(payload).encode("utf-8")
+            req_obj = urllib.request.Request(
+                url,
+                data=req_data,
+                headers=_custom_llm_headers(constants or {}),
+                method="POST",
+            )
+            with urllib.request.urlopen(req_obj, timeout=5) as resp:
+                print(f"[{label}] POST {url} → {resp.status}")
+        except Exception as exc:
+            print(f"[{label}] FAILED POST {url}: {exc}")
+    threading.Thread(target=_run, daemon=True).start()
+
+
+def _post_custom_llm_sync(url, payload, label, timeout=5, constants=None):
+    try:
+        req_data = json.dumps(payload).encode("utf-8")
+        req_obj = urllib.request.Request(
+            url,
+            data=req_data,
+            headers=_custom_llm_headers(constants or {}),
+            method="POST",
+        )
+        with urllib.request.urlopen(req_obj, timeout=timeout) as resp:
+            body = resp.read().decode("utf-8", "ignore")
+            print(f"[{label}] POST {url} → {resp.status}")
+            return {"ok": True, "status": resp.status, "body": body}
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", "ignore")
+        print(f"[{label}] POST {url} → {exc.code}")
+        return {"ok": False, "status": exc.code, "body": body, "error": body or str(exc)}
+    except Exception as exc:
+        print(f"[{label}] FAILED POST {url}: {exc}")
+        return {"ok": False, "error": str(exc)}
 
 
 @app.after_request
@@ -183,12 +251,7 @@ def start_agent():
             resp_body = json.loads(agent_response.get("response", "{}"))
             agent_id = resp_body.get("agent_id")
             if agent_id:
-                llm_url = constants.get("LLM_URL", "")
-                # Derive base URL from LLM_URL (strip /chat/completions path)
-                if "/chat/completions" in llm_url:
-                    llm_base = llm_url.rsplit("/chat/completions", 1)[0]
-                else:
-                    llm_base = llm_url.rstrip("/")
+                llm_base = _derive_llm_base_url(constants)
                 register_url = f"{llm_base}/register-agent"
                 # Extract custom LLM params (tokens, UIDs, API keys)
                 # so custom-llm can start audio subscriber + Thymia immediately
@@ -219,13 +282,14 @@ def start_agent():
                         "consultant_dashboard_url": constants.get("CONSULTANT_DASHBOARD_URL", ""),
                         "consultant_dashboard_shared_secret": constants.get("CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET", ""),
                         "profile_name": constants.get("PROFILE_NAME", "default"),
+                        "meeting_id": query_params.get("scheduled_meeting_id", ""),
                     })
                 def _register():
                     try:
                         req_data = json.dumps(register_payload).encode('utf-8')
                         req_obj = urllib.request.Request(
                             register_url, data=req_data,
-                            headers={'Content-Type': 'application/json'},
+                            headers=_custom_llm_headers(constants),
                             method='POST'
                         )
                         with urllib.request.urlopen(req_obj, timeout=5) as resp:
@@ -267,6 +331,269 @@ def start_agent():
     return jsonify(response_data)
 
 
+@app.route('/join-meeting', methods=['POST'])
+def join_meeting():
+    payload = request.get_json(force=True, silent=True) or {}
+    profile = (payload.get('profile') or '').lower() or None
+    constants = initialize_constants(profile)
+
+    join_bootstrap = payload.get('join_bootstrap', '')
+    access_token = payload.get('access_token', '')
+
+    auth_payload = None
+    if join_bootstrap:
+        verified = verify_join_bootstrap(
+            constants.get('CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET', ''),
+            join_bootstrap,
+        )
+        if not verified:
+            return jsonify({"error": "Invalid or expired meeting bootstrap."}), 403
+        participant_role = verified.get("participant_role", "host")
+        auth_payload = {"participant_role": participant_role}
+        if participant_role == "host":
+            auth_payload.update({
+                "meeting_id": verified.get("meeting_id", ""),
+                "consultant_id": verified.get("consultant_id", ""),
+            })
+        else:
+            auth_payload.update({
+                "meeting_id": verified.get("meeting_id", ""),
+                "response_access_link_id": verified.get("response_access_link_id", ""),
+            })
+    elif access_token:
+        auth_payload = {
+            "participant_role": "guest",
+            "access_token": access_token,
+        }
+    else:
+        return jsonify({"error": "access_token or join_bootstrap is required"}), 400
+
+    auth_result = authorize_meeting_join(constants, auth_payload)
+    if not auth_result.get("ok"):
+        status = int(auth_result.get("status") or 403)
+        return jsonify({"error": auth_result.get("error", "meeting_join_denied")}), status
+
+    join_data = auth_result["data"]
+    print(
+        "[MeetingJoin] "
+        f"meeting_id={join_data.get('meeting_id')} "
+        f"role={join_data.get('participant_role')} "
+        f"ensure={join_data.get('ensure_meeting_services')} "
+        f"stt={join_data.get('transcription_enabled')} "
+        f"audio={join_data.get('audio_biomarkers_enabled', True)} "
+        f"video={join_data.get('video_biomarkers_enabled', True)} "
+        f"channel={join_data.get('channel_name')}"
+    )
+    channel = join_data["channel_name"]
+    participant_uid = str(join_data["participant_uid"])
+    participant_rtm_uid = f"{participant_uid}-{channel}"
+    participant_token = build_token_with_rtm(
+        channel,
+        participant_uid,
+        constants,
+        rtm_uid=participant_rtm_uid,
+    )
+
+    if join_data.get("ensure_meeting_services"):
+        sub_token_info = build_token_with_rtm(channel, "5000", constants)
+        llm_rtm_uid = join_data.get("rtm_uid") or f"5001-{channel}"
+        rtm_token_info = build_token_with_rtm(channel, "5001", constants, rtm_uid=llm_rtm_uid)
+        transcription_enabled = bool(join_data.get("transcription_enabled"))
+        audio_biomarkers_enabled = bool(join_data.get("audio_biomarkers_enabled", True))
+        video_biomarkers_enabled = bool(join_data.get("video_biomarkers_enabled", True))
+        transcription_bot_uid = "104" if transcription_enabled else ""
+        transcription_bot_token = ""
+        if transcription_enabled:
+            transcription_bot_token = build_token_with_rtm(channel, transcription_bot_uid, constants)["token"]
+        llm_base = _derive_llm_base_url(constants)
+        register_url = f"{llm_base}/register-agent"
+        register_payload = {
+            "app_id": constants["APP_ID"],
+            "channel": channel,
+            "agent_id": f"meeting:{join_data['meeting_id']}",
+            "auth_header": "",
+            "agent_endpoint": "",
+            "prompt": "",
+            "user_uid": join_data.get("user_uid", "101"),
+            "subscriber_token": sub_token_info["token"],
+            "rtm_token": rtm_token_info["token"],
+            "rtm_uid": llm_rtm_uid,
+            "thymia_api_key": constants.get("THYMIA_API_KEY", ""),
+            "client_id": join_data.get("client_id", ""),
+            "consultant_id": join_data.get("consultant_id", ""),
+            "consultant_dashboard_url": constants.get("CONSULTANT_DASHBOARD_URL", ""),
+            "consultant_dashboard_shared_secret": constants.get("CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET", ""),
+            "meeting_context_url": constants.get("CONSULTANT_DASHBOARD_URL", ""),
+            "meeting_shared_secret": constants.get("CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET", ""),
+            "profile_name": constants.get("PROFILE_NAME", "default"),
+            "meeting_mode": True,
+            "meeting_id": join_data.get("meeting_id", ""),
+            "meeting_runtime_key": join_data.get("meeting_runtime_key", ""),
+            "participant_role": join_data.get("participant_role", ""),
+            "host_uid": join_data.get("host_uid", "103"),
+            "guest_uid": join_data.get("guest_uid", "101"),
+            "ai_speaking_enabled": False,
+            "transcription_enabled": transcription_enabled,
+            "audio_biomarkers_enabled": audio_biomarkers_enabled,
+            "video_biomarkers_enabled": video_biomarkers_enabled,
+            "transcription_provider": join_data.get("transcription_provider", ""),
+            "transcription_language": join_data.get("transcription_language", ""),
+            "transcription_bot_uid": transcription_bot_uid,
+            "transcription_bot_token": transcription_bot_token,
+        }
+        transcription_enabled = bool(join_data.get("transcription_enabled"))
+        audio_biomarkers_enabled = bool(join_data.get("audio_biomarkers_enabled", True))
+        video_biomarkers_enabled = bool(join_data.get("video_biomarkers_enabled", True))
+        register_result = None
+        for _attempt in range(3):
+            register_result = _post_custom_llm_sync(register_url, register_payload, "RegisterMeeting", constants=constants)
+            if register_result.get("ok") or int(register_result.get("status") or 0) != 409:
+                break
+            time.sleep(0.5)
+        if not register_result.get("ok"):
+            return jsonify({
+                "error": "Meeting services failed to initialize.",
+                "details": register_result.get("error", "register_failed"),
+            }), 502
+
+    transcription_enabled = bool(join_data.get("transcription_enabled"))
+    audio_biomarkers_enabled = bool(join_data.get("audio_biomarkers_enabled", True))
+    video_biomarkers_enabled = bool(join_data.get("video_biomarkers_enabled", True))
+
+    return jsonify({
+        "mode": "meeting",
+        "meeting_mode": True,
+        "meeting_id": join_data["meeting_id"],
+        "meeting_runtime_key": join_data.get("meeting_runtime_key", ""),
+        "participant_role": join_data["participant_role"],
+        "transcription_enabled": transcription_enabled,
+        "audio_biomarkers_enabled": audio_biomarkers_enabled,
+        "video_biomarkers_enabled": video_biomarkers_enabled,
+        "channel": channel,
+        "appid": constants["APP_ID"],
+        "token": participant_token["token"],
+        "uid": participant_uid,
+        "rtm_uid": participant_rtm_uid,
+        "user_token": participant_token,
+        "user_rtm_uid": participant_rtm_uid,
+        "host_uid": join_data.get("host_uid", "103"),
+        "guest_uid": join_data.get("guest_uid", "101"),
+        "scheduled_start_at": join_data.get("scheduled_start_at", ""),
+        "scheduled_end_at": join_data.get("scheduled_end_at", ""),
+    })
+
+
+@app.route('/end-meeting', methods=['POST'])
+def end_meeting():
+    payload = request.get_json(force=True, silent=True) or {}
+    profile = (payload.get('profile') or '').lower() or None
+    constants = initialize_constants(profile)
+    join_bootstrap = payload.get('join_bootstrap', '')
+    verified = verify_join_bootstrap(
+        constants.get('CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET', ''),
+        join_bootstrap,
+    )
+    if not verified or verified.get("participant_role") != "host":
+        return jsonify({"error": "Only the host can end this meeting."}), 403
+
+    meeting_id = verified.get("meeting_id", "")
+    channel = verified.get("channel_name", "")
+    if not meeting_id or not channel:
+        return jsonify({"error": "Missing meeting context."}), 400
+
+    notify_result = notify_meeting_end(
+        constants,
+        {
+            "meeting_id": meeting_id,
+            "participant_role": "host",
+            "ended_by_role": "host",
+            "ended_by_id": verified.get("consultant_id", ""),
+        },
+    )
+    if not notify_result.get("ok"):
+        status = int(notify_result.get("status") or 502)
+        return jsonify({"error": notify_result.get("error", "meeting_end_notify_failed")}), status
+
+    llm_base = _derive_llm_base_url(constants)
+    unregister_url = f"{llm_base}/unregister-agent"
+    unregister_payload = {
+        "app_id": constants["APP_ID"],
+        "channel": channel,
+        "agent_id": f"meeting:{meeting_id}",
+        "meeting_runtime_key": f"{constants['APP_ID']}:{channel}:{meeting_id}",
+        "transcript": payload.get("transcript") or None,
+    }
+    unregister_result = _post_custom_llm_sync(
+        unregister_url,
+        unregister_payload,
+        "UnregisterMeeting",
+        timeout=15,
+        constants=constants,
+    )
+    if not unregister_result.get("ok"):
+        return jsonify({
+            "error": "Meeting cleanup failed.",
+            "details": unregister_result.get("error") or unregister_result.get("body", ""),
+        }), 502
+    return jsonify({"ok": True})
+
+
+@app.route('/meeting-participant-event', methods=['POST'])
+def meeting_participant_event():
+    payload = request.get_json(force=True, silent=True) or {}
+    profile = (payload.get('profile') or '').lower() or None
+    constants = initialize_constants(profile)
+    event_name = (payload.get('event') or '').strip().lower()
+    if event_name not in {'joined', 'left'}:
+        return jsonify({"error": "event must be joined or left"}), 400
+
+    join_bootstrap = payload.get('join_bootstrap', '')
+    access_token = payload.get('access_token', '')
+    if join_bootstrap:
+        verified = verify_join_bootstrap(
+            constants.get('CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET', ''),
+            join_bootstrap,
+        )
+        if not verified:
+            return jsonify({"error": "Invalid or expired meeting bootstrap."}), 403
+        participant_role = verified.get("participant_role", "host")
+        auth_payload = {"participant_role": participant_role}
+        if participant_role == "host":
+            auth_payload.update({
+                "meeting_id": verified.get("meeting_id", ""),
+                "consultant_id": verified.get("consultant_id", ""),
+            })
+        else:
+            auth_payload.update({
+                "meeting_id": verified.get("meeting_id", ""),
+                "response_access_link_id": verified.get("response_access_link_id", ""),
+            })
+    elif access_token:
+        auth_payload = {"participant_role": "guest", "access_token": access_token}
+    else:
+        return jsonify({"error": "access_token or join_bootstrap is required"}), 400
+
+    auth_result = authorize_meeting_join(constants, auth_payload)
+    if not auth_result.get("ok"):
+        status = int(auth_result.get("status") or 403)
+        return jsonify({"error": auth_result.get("error", "meeting_event_denied")}), status
+    join_data = auth_result["data"]
+    path = "/internal/meeting-joined" if event_name == "joined" else "/internal/meeting-left"
+    notify_result = notify_meeting_event(
+        constants,
+        path,
+        {
+            "meeting_id": join_data["meeting_id"],
+            "participant_role": join_data["participant_role"],
+            "participant_id": join_data.get("consultant_id" if join_data["participant_role"] == "host" else "client_id", ""),
+        },
+    )
+    if not notify_result.get("ok"):
+        status = int(notify_result.get("status") or 502)
+        return jsonify({"error": notify_result.get("error", "meeting_event_failed")}), status
+    return jsonify({"ok": True})
+
+
 @app.route('/hangup-agent', methods=['GET'])
 def hangup_agent_route():
     """
@@ -299,11 +626,7 @@ def hangup_agent_route():
 
     # Unregister agent from custom LLM (non-blocking) to clean up audio subscriber + Thymia
     try:
-        llm_url = constants.get("LLM_URL", "")
-        if "/chat/completions" in llm_url:
-            llm_base = llm_url.rsplit("/chat/completions", 1)[0]
-        else:
-            llm_base = llm_url.rstrip("/")
+        llm_base = _derive_llm_base_url(constants)
         unregister_url = f"{llm_base}/unregister-agent"
         channel = query_params.get('channel', '')
         app_id = constants["APP_ID"]
@@ -313,7 +636,7 @@ def hangup_agent_route():
                 req_data = json.dumps(unregister_payload).encode('utf-8')
                 req_obj = urllib.request.Request(
                     unregister_url, data=req_data,
-                    headers={'Content-Type': 'application/json'},
+                    headers=_custom_llm_headers(constants),
                     method='POST'
                 )
                 with urllib.request.urlopen(req_obj, timeout=5) as resp:

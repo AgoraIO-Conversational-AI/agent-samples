@@ -88,6 +88,15 @@ export function VideoAvatarClient() {
   const [authChecked, setAuthChecked] = useState(false);
   const [authUser, setAuthUser] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [meetingMode, setMeetingMode] = useState(false);
+  const [meetingParticipantRole, setMeetingParticipantRole] = useState<
+    "host" | "guest" | null
+  >(null);
+  const [meetingTranscriptionEnabled, setMeetingTranscriptionEnabled] = useState(false);
+  const [meetingAudioBiomarkersEnabled, setMeetingAudioBiomarkersEnabled] = useState(true);
+  const [meetingVideoBiomarkersEnabled, setMeetingVideoBiomarkersEnabled] = useState(true);
+  const meetingAccessTokenRef = useRef<string | null>(null);
+  const meetingJoinBootstrapRef = useRef<string | null>(null);
   // Token held in memory only — never persisted to sessionStorage/localStorage/cookies.
   // On page refresh the user must re-authenticate. This prevents a second person on
   // the same machine from accessing a previous user's session.
@@ -115,10 +124,25 @@ export function VideoAvatarClient() {
       if (params.get("autoconnect") === "true") {
         setAutoConnect(true);
       }
+      if (params.get("meeting_mode") === "true") {
+        setMeetingMode(true);
+      }
+      const meetingAccessToken = params.get("access_token");
+      if (meetingAccessToken) {
+        meetingAccessTokenRef.current = meetingAccessToken;
+        params.delete("access_token");
+      }
+      const joinBootstrap = params.get("join_bootstrap");
+      if (joinBootstrap) {
+        meetingJoinBootstrapRef.current = joinBootstrap;
+        params.delete("join_bootstrap");
+      }
       const ru = params.get("returnurl");
       if (ru) {
         setReturnUrl(ru);
       }
+
+      let cleanedUrl = false;
 
       // Handle auth_token from URL (returned from auth flow)
       const authToken = params.get("auth_token");
@@ -126,8 +150,17 @@ export function VideoAvatarClient() {
         // Store in memory only — not sessionStorage
         authTokenRef.current = authToken;
         params.delete("auth_token");
+        cleanedUrl = true;
+      }
+
+      if (cleanedUrl || meetingAccessToken || joinBootstrap) {
         const cleanUrl = `${window.location.pathname}${params.toString() ? "?" + params.toString() : ""}`;
         window.history.replaceState({}, "", cleanUrl);
+      }
+
+      if (params.get("meeting_mode") === "true") {
+        setAuthChecked(true);
+        return;
       }
 
       // Auth check — determine if this profile requires authentication
@@ -186,6 +219,7 @@ export function VideoAvatarClient() {
     rtcClientRef,
     rtmClientRef,
     rtmSource,
+    getMeetingTranscriptArtifact,
   } = useAgoraVideoClient();
 
   // Handle mic selection change: persist to localStorage and live-switch if connected
@@ -218,12 +252,17 @@ export function VideoAvatarClient() {
     clinical,
     progress: thymiaProgress,
     safety: thymiaSafety,
-  } = useThymia(rtmSource, THYMIA_ENABLED && isConnected);
+  } = useThymia(
+    rtmSource,
+    THYMIA_ENABLED &&
+      isConnected &&
+      (!meetingMode || meetingAudioBiomarkersEnabled),
+  );
 
   // Shen.AI camera vitals (opt-in via NEXT_PUBLIC_ENABLE_SHEN)
   // RTM publish function for Shen to push vitals to server
   const shenRtmPublish = useMemo(() => {
-    if (!SHEN_ENABLED) return null;
+    if (!SHEN_ENABLED || (meetingMode && !meetingVideoBiomarkersEnabled)) return null;
     const rtm = rtmClientRef.current;
     if (!rtm) return null;
     return async (message: string): Promise<boolean> => {
@@ -241,7 +280,9 @@ export function VideoAvatarClient() {
   }, [rtmClientRef.current]);
 
   const shenState = useShenai(
-    SHEN_ENABLED && isConnected,
+    SHEN_ENABLED &&
+      isConnected &&
+      (!meetingMode || meetingVideoBiomarkersEnabled),
     SHEN_API_KEY,
     shenRtmPublish,
     "shen-canvas",
@@ -249,7 +290,11 @@ export function VideoAvatarClient() {
 
   // Move the shen canvas between desktop/mobile containers based on screen size
   useEffect(() => {
-    if (!SHEN_ENABLED || !isConnected) return;
+    if (
+      !SHEN_ENABLED ||
+      !isConnected ||
+      (meetingMode && !meetingVideoBiomarkersEnabled)
+    ) return;
 
     // Create the canvas once
     let canvas = document.getElementById("shen-canvas") as HTMLCanvasElement;
@@ -289,6 +334,60 @@ export function VideoAvatarClient() {
     }
     setIsLoading(true);
     try {
+      if (meetingMode) {
+        const joinResponse = await fetch(`${backendUrl}/join-meeting`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            profile: profile.trim() || DEFAULT_PROFILE,
+            access_token: meetingAccessTokenRef.current || undefined,
+            join_bootstrap: meetingJoinBootstrapRef.current || undefined,
+          }),
+        });
+        if (!joinResponse.ok) {
+          const payload = await joinResponse.json().catch(() => ({}));
+          throw new Error(payload.error || `Meeting join failed: ${joinResponse.statusText}`);
+        }
+        const meetingData = await joinResponse.json();
+        channelRef.current = meetingData.channel;
+        setMeetingTranscriptionEnabled(Boolean(meetingData.transcription_enabled));
+        setMeetingAudioBiomarkersEnabled(Boolean(meetingData.audio_biomarkers_enabled ?? true));
+        setMeetingVideoBiomarkersEnabled(Boolean(meetingData.video_biomarkers_enabled ?? true));
+        await joinChannel({
+          appId: meetingData.appid,
+          channel: meetingData.channel,
+          token: meetingData.token || null,
+          uid: parseInt(String(meetingData.uid), 10),
+          participantRole: meetingData.participant_role || "guest",
+          rtmUid: meetingData.user_rtm_uid || meetingData.rtm_uid,
+          mode: "meeting",
+          transcriptionEnabled: Boolean(meetingData.transcription_enabled),
+          ...(selectedMic ? { microphoneId: selectedMic } : {}),
+        });
+        setMeetingParticipantRole(meetingData.participant_role || "guest");
+        if (enableLocalVideo && rtcClientRef.current) {
+          const videoTrack = await AgoraRTC.createCameraVideoTrack({
+            encoderConfig: "720p_2",
+          });
+          await rtcClientRef.current.publish(videoTrack);
+          setLocalVideoTrack(videoTrack);
+          setIsLocalVideoActive(true);
+        }
+        await fetch(`${backendUrl}/meeting-participant-event`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            profile: profile.trim() || DEFAULT_PROFILE,
+            event: "joined",
+            access_token: meetingAccessTokenRef.current || undefined,
+            join_bootstrap: meetingJoinBootstrapRef.current || undefined,
+          }),
+        }).catch((e) => {
+          console.error("Meeting join notify failed:", e);
+        });
+        return;
+      }
+
       // Build query params for backend
       const params = new URLSearchParams();
 
@@ -329,9 +428,11 @@ export function VideoAvatarClient() {
         channel: data.channel,
         token: data.token || null,
         uid: parseInt(data.uid),
+        participantRole: "guest",
         rtmUid: data.user_rtm_uid, // Channel-scoped RTM UID for multi-session support
         agentUid: data.agent?.uid ? String(data.agent.uid) : undefined,
         agentRtmUid: data.agent_rtm_uid,
+        mode: "avatar",
         ...(selectedMic ? { microphoneId: selectedMic } : {}),
       });
 
@@ -405,8 +506,37 @@ export function VideoAvatarClient() {
       setIsLocalVideoActive(false);
     }
 
-    // Tell backend to hangup agent + unregister from custom LLM (triggers memory save)
-    if (sessionAgentId) {
+    if (meetingMode) {
+      await fetch(`${backendUrl}/meeting-participant-event`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profile: profile.trim() || DEFAULT_PROFILE,
+          event: "left",
+          access_token: meetingAccessTokenRef.current || undefined,
+          join_bootstrap: meetingJoinBootstrapRef.current || undefined,
+        }),
+      }).catch((e) => {
+        console.error("Meeting leave notify failed:", e);
+      });
+      if (meetingJoinBootstrapRef.current && channelRef.current) {
+        try {
+          const transcript = getMeetingTranscriptArtifact();
+          await fetch(`${backendUrl}/end-meeting`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              profile: profile.trim() || DEFAULT_PROFILE,
+              join_bootstrap: meetingJoinBootstrapRef.current,
+              channel: channelRef.current,
+              transcript: transcript || undefined,
+            }),
+          });
+        } catch (e) {
+          console.error("End meeting failed:", e);
+        }
+      }
+    } else if (sessionAgentId) {
       const params = new URLSearchParams({ agent_id: sessionAgentId });
       if (channelRef.current) params.append("channel", channelRef.current);
       if (profile) params.append("profile", profile);
@@ -470,11 +600,32 @@ export function VideoAvatarClient() {
     return agentUid ? uid === agentUid : false;
   };
 
+  const getMeetingMessageLabel = (msg: (typeof messageList)[number] | typeof currentInProgressMessage) => {
+    if (!msg) return "Message";
+    const role = (msg as { role?: "host" | "guest" }).role;
+    if (role === "host") return "Consultant";
+    if (role === "guest") return "Client";
+    return meetingParticipantRole === "host" ? "Client" : "Consultant";
+  };
+
+  const isOwnMeetingMessage = (
+    msg: (typeof messageList)[number] | typeof currentInProgressMessage,
+  ) => {
+    if (!meetingMode || !msg) return false;
+    const role = (msg as { role?: "host" | "guest" }).role;
+    return Boolean(role && meetingParticipantRole && role === meetingParticipantRole);
+  };
+
   const formatTime = (ts?: number) => {
     if (!ts) return "";
     const d = new Date(ts);
     return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
   };
+
+  const showThymiaPanel =
+    THYMIA_ENABLED && (!meetingMode || meetingAudioBiomarkersEnabled);
+  const showShenPanel =
+    SHEN_ENABLED && (!meetingMode || meetingVideoBiomarkersEnabled);
 
   // Don't render UI until auth check completes
   if (!authChecked) {
@@ -493,10 +644,13 @@ export function VideoAvatarClient() {
           <div>
             <h1 className="text-lg md:text-xl font-bold flex items-center gap-2">
               <AgoraLogo size={28} />
-              <span className="hidden md:inline">Agora Convo AI </span>Video Agent
+              <span className="hidden md:inline">Agora Convo AI </span>
+              {meetingMode ? "Meeting" : "Video Agent"}
             </h1>
             <p className="text-xs md:text-sm text-muted-foreground ml-10">
-              React with Agora AI UIKit - Video + Avatar
+              {meetingMode
+                ? `React meeting mode with live client biomarkers${meetingTranscriptionEnabled ? " · STT on" : " · STT off"}`
+                : "React with Agora AI UIKit - Video + Avatar"}
               {authUser && <span className="ml-2">({authUser})</span>}
             </p>
             {authError && (
@@ -529,7 +683,9 @@ export function VideoAvatarClient() {
               </p>
             ) : (
               <div className="w-full max-w-md rounded-lg border bg-card p-6 shadow-lg">
-                <h2 className="mb-4 text-lg font-semibold">Connect to Agent</h2>
+                <h2 className="mb-4 text-lg font-semibold">
+                  {meetingMode ? "Join Meeting" : "Connect to Agent"}
+                </h2>
                 <div className="space-y-4">
                   <div>
                     <label
@@ -548,57 +704,61 @@ export function VideoAvatarClient() {
                     />
                   </div>
 
-                  <div>
-                    <label
-                      htmlFor="profile"
-                      className="mb-2 block text-sm font-medium"
-                    >
-                      Server Profile
-                    </label>
-                    <input
-                      id="profile"
-                      type="text"
-                      value={profile}
-                      onChange={(e) => setProfile(e.target.value)}
-                      placeholder={DEFAULT_PROFILE}
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Leave empty for default &ldquo;{DEFAULT_PROFILE}&rdquo;
-                      profile
-                    </p>
-                  </div>
+                  {!meetingMode && (
+                    <>
+                      <div>
+                        <label
+                          htmlFor="profile"
+                          className="mb-2 block text-sm font-medium"
+                        >
+                          Server Profile
+                        </label>
+                        <input
+                          id="profile"
+                          type="text"
+                          value={profile}
+                          onChange={(e) => setProfile(e.target.value)}
+                          placeholder={DEFAULT_PROFILE}
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Leave empty for default &ldquo;{DEFAULT_PROFILE}&rdquo;
+                          profile
+                        </p>
+                      </div>
 
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={enableLocalVideo}
-                        onChange={(e) => setEnableLocalVideo(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300"
-                      />
-                      <span className="text-sm font-medium">
-                        Enable Local Video
-                      </span>
-                    </label>
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={enableLocalVideo}
+                            onChange={(e) => setEnableLocalVideo(e.target.checked)}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                          <span className="text-sm font-medium">
+                            Enable Local Video
+                          </span>
+                        </label>
 
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={enableAvatar}
-                        onChange={(e) => setEnableAvatar(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300"
-                      />
-                      <span className="text-sm font-medium">Enable Avatar</span>
-                    </label>
-                  </div>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={enableAvatar}
+                            onChange={(e) => setEnableAvatar(e.target.checked)}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                          <span className="text-sm font-medium">Enable Avatar</span>
+                        </label>
+                      </div>
+                    </>
+                  )}
 
                   <button
                     onClick={handleStart}
                     disabled={isLoading}
                     className="cursor-pointer w-full rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                   >
-                    {isLoading ? "Connecting..." : "Start Call"}
+                    {isLoading ? "Connecting..." : meetingMode ? "Join Meeting" : "Start Call"}
                   </button>
                 </div>
               </div>
@@ -634,21 +794,30 @@ export function VideoAvatarClient() {
                   >
                     <ConversationContent className="gap-3">
                       {messageList.map((msg, idx) => {
-                        const isAgent = isAgentMessage(msg.uid);
-                        const label = isAgent ? "Agent" : "You";
+                        const isAgent = !meetingMode && isAgentMessage(msg.uid);
+                        const ownMeetingMessage = isOwnMeetingMessage(msg);
+                        const label = meetingMode
+                          ? getMeetingMessageLabel(msg)
+                          : isAgent
+                            ? "Agent"
+                            : "You";
                         const time = formatTime(msg.timestamp);
                         return (
-                          <Message
-                            key={`${msg.turn_id}-${msg.uid}-${idx}`}
-                            from={isAgent ? "assistant" : "user"}
-                            name={time ? `${label}  ${time}` : label}
-                          >
-                            <MessageContent
-                              className={
-                                isAgent
+                            <Message
+                              key={`${msg.turn_id}-${msg.uid}-${idx}`}
+                              from={meetingMode ? (ownMeetingMessage ? "user" : "assistant") : isAgent ? "assistant" : "user"}
+                              name={time ? `${label}  ${time}` : label}
+                            >
+                              <MessageContent
+                                className={
+                                  meetingMode
+                                    ? ownMeetingMessage
+                                      ? "px-3 py-2 bg-foreground text-background"
+                                      : "px-3 py-2"
+                                    : isAgent
                                   ? "px-3 py-2"
                                   : "px-3 py-2 bg-foreground text-background"
-                              }
+                                }
                             >
                               <Response>{msg.text}</Response>
                             </MessageContent>
@@ -659,20 +828,26 @@ export function VideoAvatarClient() {
                       {/* In-progress message */}
                       {currentInProgressMessage &&
                         (() => {
-                          const isAgent = isAgentMessage(
+                          const isAgent = !meetingMode && isAgentMessage(
                             currentInProgressMessage.uid,
                           );
-                          const label = isAgent ? "Agent" : "You";
+                          const ownMeetingMessage =
+                            isOwnMeetingMessage(currentInProgressMessage);
+                          const label = meetingMode
+                            ? getMeetingMessageLabel(currentInProgressMessage)
+                            : isAgent
+                              ? "Agent"
+                              : "You";
                           const time = formatTime(
                             currentInProgressMessage.timestamp,
                           );
                           return (
                             <Message
-                              from={isAgent ? "assistant" : "user"}
+                              from={meetingMode ? (ownMeetingMessage ? "user" : "assistant") : isAgent ? "assistant" : "user"}
                               name={time ? `${label}  ${time}` : label}
                             >
                               <MessageContent
-                                className={`animate-pulse px-3 py-2 ${isAgent ? "" : "bg-foreground text-background"}`}
+                                className={`animate-pulse px-3 py-2 ${meetingMode ? (ownMeetingMessage ? "bg-foreground text-background" : "") : isAgent ? "" : "bg-foreground text-background"}`}
                               >
                                 <Response>
                                   {currentInProgressMessage.text}
@@ -710,7 +885,7 @@ export function VideoAvatarClient() {
               avatar={
                 <div className="flex flex-col h-full">
                   {/* Avatar Video + optional Thymia/Shen tabs */}
-                  {THYMIA_ENABLED || SHEN_ENABLED ? (
+                  {showThymiaPanel || showShenPanel ? (
                     <MobileTabs
                       tabs={[
                         {
@@ -731,11 +906,11 @@ export function VideoAvatarClient() {
                             </div>
                           ),
                         },
-                        ...(THYMIA_ENABLED
+                        ...(showThymiaPanel
                           ? [
                               {
                                 id: "thymia",
-                                label: "Thymia",
+                                label: "Voice Biomarkers",
                                 content: (
                                   <ThymiaPanel
                                     biomarkers={biomarkers}
@@ -749,11 +924,11 @@ export function VideoAvatarClient() {
                               },
                             ]
                           : []),
-                        ...(SHEN_ENABLED
+                        ...(showShenPanel
                           ? [
                               {
                                 id: "shen",
-                                label: "Shen",
+                                label: "Video Biomarkers",
                                 content: (
                                   <ShenPanel
                                     shenState={shenState}
@@ -826,7 +1001,7 @@ export function VideoAvatarClient() {
               }
               localVideo={
                 <div className="h-full flex items-center justify-center p-2">
-                  {SHEN_ENABLED ? (
+                  {showShenPanel ? (
                     <div
                       id="shen-container-desktop"
                       className="relative h-full w-full rounded-lg overflow-hidden bg-black"
@@ -866,7 +1041,7 @@ export function VideoAvatarClient() {
                         </div>
 
                         {/* Local Video - 50% */}
-                        {SHEN_ENABLED ? (
+                        {showShenPanel ? (
                           <div
                             id="shen-container-mobile"
                             className="relative flex-1 rounded-lg border bg-black shadow-lg overflow-hidden"
@@ -912,18 +1087,27 @@ export function VideoAvatarClient() {
                           >
                             <ConversationContent className="gap-3">
                               {messageList.map((msg, idx) => {
-                                const isAgent = isAgentMessage(msg.uid);
-                                const label = isAgent ? "Agent" : "You";
+                        const isAgent = !meetingMode && isAgentMessage(msg.uid);
+                        const ownMeetingMessage = isOwnMeetingMessage(msg);
+                        const label = meetingMode
+                          ? getMeetingMessageLabel(msg)
+                          : isAgent
+                            ? "Agent"
+                            : "You";
                                 const time = formatTime(msg.timestamp);
                                 return (
                                   <Message
                                     key={`${msg.turn_id}-${msg.uid}-${idx}`}
-                                    from={isAgent ? "assistant" : "user"}
+                                    from={meetingMode ? (ownMeetingMessage ? "user" : "assistant") : isAgent ? "assistant" : "user"}
                                     name={time ? `${label}  ${time}` : label}
                                   >
                                     <MessageContent
                                       className={
-                                        isAgent
+                                        meetingMode
+                                          ? ownMeetingMessage
+                                            ? "px-3 py-2 bg-foreground text-background"
+                                            : "px-3 py-2"
+                                          : isAgent
                                           ? "px-3 py-2"
                                           : "px-3 py-2 bg-foreground text-background"
                                       }
@@ -937,20 +1121,26 @@ export function VideoAvatarClient() {
                               {/* In-progress message */}
                               {currentInProgressMessage &&
                                 (() => {
-                                  const isAgent = isAgentMessage(
+                                  const isAgent = !meetingMode && isAgentMessage(
                                     currentInProgressMessage.uid,
                                   );
-                                  const label = isAgent ? "Agent" : "You";
+                                  const ownMeetingMessage =
+                                    isOwnMeetingMessage(currentInProgressMessage);
+                                  const label = meetingMode
+                                    ? getMeetingMessageLabel(currentInProgressMessage)
+                                    : isAgent
+                                      ? "Agent"
+                                      : "You";
                                   const time = formatTime(
                                     currentInProgressMessage.timestamp,
                                   );
                                   return (
                                     <Message
-                                      from={isAgent ? "assistant" : "user"}
+                                      from={meetingMode ? (ownMeetingMessage ? "user" : "assistant") : isAgent ? "assistant" : "user"}
                                       name={time ? `${label}  ${time}` : label}
                                     >
                                       <MessageContent
-                                        className={`animate-pulse px-3 py-2 ${isAgent ? "" : "bg-foreground text-background"}`}
+                                        className={`animate-pulse px-3 py-2 ${meetingMode ? (ownMeetingMessage ? "bg-foreground text-background" : "") : isAgent ? "" : "bg-foreground text-background"}`}
                                       >
                                         <Response>
                                           {currentInProgressMessage.text}
@@ -987,11 +1177,11 @@ export function VideoAvatarClient() {
                       </div>
                     ),
                   },
-                  ...(THYMIA_ENABLED
+                  ...(showThymiaPanel
                     ? [
                         {
                           id: "thymia",
-                          label: "Thymia",
+                          label: "Voice Biomarkers",
                           content: (
                             <ThymiaPanel
                               biomarkers={biomarkers}
@@ -1005,11 +1195,11 @@ export function VideoAvatarClient() {
                         },
                       ]
                     : []),
-                  ...(SHEN_ENABLED
+                  ...(showShenPanel
                     ? [
                         {
                           id: "shen",
-                          label: "Shen",
+                          label: "Video Biomarkers",
                           content: (
                             <ShenPanel
                               shenState={shenState}
@@ -1088,7 +1278,7 @@ export function VideoAvatarClient() {
         selectedMicId={selectedMic}
         onMicChange={handleMicChange}
       >
-        <SessionPanel agentId={sessionAgentId} payload={sessionPayload} />
+        {!meetingMode && <SessionPanel agentId={sessionAgentId} payload={sessionPayload} />}
       </SettingsDialog>
     </div>
   );

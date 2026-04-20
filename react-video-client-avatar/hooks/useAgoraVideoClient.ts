@@ -18,12 +18,19 @@ import {
   type TranscriptHelperItem,
 } from "agora-agent-client-toolkit";
 import { MicButtonState } from "@agora/agent-ui-kit";
+import {
+  extractFinalTranscriptLine,
+  type MeetingTranscriptLine,
+} from "@/lib/agoraSttProto";
 
 export type VoiceClientConfig = {
   appId: string;
   channel: string;
   token: string | null;
   uid: number;
+  mode?: "avatar" | "meeting";
+  participantRole?: "host" | "guest";
+  transcriptionEnabled?: boolean;
   rtmUid?: string;
   agentUid?: string;
   agentRtmUid?: string;
@@ -36,6 +43,8 @@ export interface IMessageListItem {
   text: string;
   status: number;
   timestamp?: number;
+  role?: "host" | "guest";
+  messageId?: string;
 }
 
 export function useAgoraVideoClient() {
@@ -50,6 +59,7 @@ export function useAgoraVideoClient() {
   const [isAgentSpeaking, setIsAgentSpeaking] = useState(false);
   const [agentUid, setAgentUid] = useState<string | undefined>(undefined);
   const [agentRtmUid, setAgentRtmUid] = useState<string | undefined>(undefined);
+  const [sessionMode, setSessionMode] = useState<"avatar" | "meeting">("avatar");
   const [remoteAudioTrack, setRemoteAudioTrack] = useState<any>(null);
   const [remoteVideoTrack, setRemoteVideoTrack] = useState<any>(null);
 
@@ -57,6 +67,13 @@ export function useAgoraVideoClient() {
   const rtmClientRef = useRef<InstanceType<typeof AgoraRTM.RTM> | null>(null);
   const voiceAIRef = useRef<AgoraVoiceAI | null>(null);
   const volumeCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const currentChannelRef = useRef<string>("");
+  const currentParticipantUidRef = useRef<string>("");
+  const currentParticipantRoleRef = useRef<"host" | "guest">("guest");
+  const seenMeetingMessageIdsRef = useRef<Set<string>>(new Set());
+  const currentMeetingTranscriptionEnabledRef = useRef(false);
+  const meetingTranscriptLinesRef = useRef<MeetingTranscriptLine[]>([]);
+  const seenTranscriptLineKeysRef = useRef<Set<string>>(new Set());
 
   // Simple fan-out for RTM messages — one Agora addEventListener, many subscribers.
   // Agora RTM may not support multiple addEventListener calls for the same event,
@@ -203,7 +220,11 @@ export function useAgoraVideoClient() {
       setIsAgentSpeaking(false);
       setMessageList([]);
       setCurrentInProgressMessage(null);
+      setSessionMode("avatar");
       setRemoteVideoTrack(null);
+      currentMeetingTranscriptionEnabledRef.current = false;
+      meetingTranscriptLinesRef.current = [];
+      seenTranscriptLineKeysRef.current.clear();
     } catch (error) {
       console.error("Error leaving channel:", error);
     }
@@ -216,6 +237,18 @@ export function useAgoraVideoClient() {
       }
 
       try {
+        const mode = config.mode || "avatar";
+        setSessionMode(mode);
+        currentChannelRef.current = config.channel;
+        currentParticipantUidRef.current = String(config.uid);
+        currentParticipantRoleRef.current =
+          config.participantRole === "host" ? "host" : "guest";
+        currentMeetingTranscriptionEnabledRef.current = Boolean(
+          config.transcriptionEnabled,
+        );
+        meetingTranscriptLinesRef.current = [];
+        seenTranscriptLineKeysRef.current.clear();
+        seenMeetingMessageIdsRef.current.clear();
         // Store agent UIDs from backend
         if (config.agentUid) setAgentUid(config.agentUid);
         if (config.agentRtmUid) setAgentRtmUid(config.agentRtmUid);
@@ -229,40 +262,44 @@ export function useAgoraVideoClient() {
         const rtmClient = new AgoraRTM.RTM(config.appId, rtmUid);
         rtmClientRef.current = rtmClient;
 
-        // Initialize AgoraVoiceAI
-        const voiceAI = await AgoraVoiceAI.init({
-          rtcEngine: rtcClient,
-          rtmConfig: { rtmEngine: rtmClient },
-          renderMode: TranscriptHelperMode.AUTO,
-          enableLog: false,
-        });
+        if (mode === "avatar") {
+          const voiceAI = await AgoraVoiceAI.init({
+            rtcEngine: rtcClient,
+            rtmConfig: { rtmEngine: rtmClient },
+            renderMode: TranscriptHelperMode.AUTO,
+            enableLog: false,
+          });
 
-        // Listen to transcript updates
-        voiceAI.on(
-          AgoraVoiceAIEvents.TRANSCRIPT_UPDATED,
-          (messages: TranscriptHelperItem[]) => {
-            const convertedMessages = messages.map((m) => ({
-              turn_id: m.turn_id,
-              uid: m.uid,
-              text: m.text,
-              status: m.status,
-              timestamp: m.timestamp,
-            }));
+          voiceAI.on(
+            AgoraVoiceAIEvents.TRANSCRIPT_UPDATED,
+            (messages: TranscriptHelperItem[]) => {
+              const convertedMessages = messages.map((m) => ({
+                turn_id: m.turn_id,
+                uid: m.uid,
+                text: m.text,
+                status: m.status,
+                timestamp: m.timestamp,
+              }));
 
-            const completedMessages = convertedMessages
-              .filter((msg) => msg.status !== TurnStatus.IN_PROGRESS)
-              .sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
+              const completedMessages = convertedMessages
+                .filter((msg) => msg.status !== TurnStatus.IN_PROGRESS)
+                .sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
 
-            const inProgress = convertedMessages.find(
-              (msg) => msg.status === TurnStatus.IN_PROGRESS,
-            );
+              const inProgress = convertedMessages.find(
+                (msg) => msg.status === TurnStatus.IN_PROGRESS,
+              );
 
-            setMessageList(completedMessages);
-            setCurrentInProgressMessage(inProgress || null);
-          },
-        );
+              setMessageList(completedMessages);
+              setCurrentInProgressMessage(inProgress || null);
+            },
+          );
 
-        voiceAIRef.current = voiceAI;
+          voiceAIRef.current = voiceAI;
+        } else {
+          voiceAIRef.current = null;
+          setMessageList([]);
+          setCurrentInProgressMessage(null);
+        }
 
         // Login RTM, subscribe to channel for server-pushed messages (e.g. Thymia biomarkers),
         // and join RTC channel
@@ -282,6 +319,32 @@ export function useAgoraVideoClient() {
               return;
             }
             const parsed = JSON.parse(raw);
+            if (mode === "meeting" && parsed?.object === "meeting_chat") {
+              const messageId = String(parsed.message_id || "");
+              if (messageId && seenMeetingMessageIdsRef.current.has(messageId)) {
+                return;
+              }
+              if (messageId) {
+                seenMeetingMessageIdsRef.current.add(messageId);
+              }
+              const timestamp = Number(parsed.timestamp || Date.now());
+              const senderUid = String(parsed.sender_uid || event.publisher || "unknown");
+              const senderRole =
+                parsed.sender_role === "host" ? "host" : "guest";
+              setMessageList((prev) => [
+                ...prev,
+                {
+                  turn_id: timestamp,
+                  uid: senderUid,
+                  role: senderRole,
+                  text: String(parsed.text || ""),
+                  status: 2,
+                  timestamp,
+                  messageId: messageId || `${senderUid}:${timestamp}`,
+                },
+              ]);
+              return;
+            }
             console.log("[RTM]", parsed.object, "len:", raw.length);
           } catch {
             // skip
@@ -305,6 +368,26 @@ export function useAgoraVideoClient() {
             rtmListenersRef.current.delete(handler);
           },
         });
+
+        if (mode === "meeting" && currentMeetingTranscriptionEnabledRef.current) {
+          rtcClient.on(
+            "stream-message",
+            (_uid: number, data: Uint8Array | ArrayBuffer) => {
+              const line = extractFinalTranscriptLine(data);
+              if (!line) return;
+              const transcriptKey = `${line.uid}:${line.time}:${line.text}`;
+              if (seenTranscriptLineKeysRef.current.has(transcriptKey)) {
+                return;
+              }
+              seenTranscriptLineKeysRef.current.add(transcriptKey);
+              meetingTranscriptLinesRef.current = [
+                ...meetingTranscriptLinesRef.current,
+                line,
+              ];
+            },
+          );
+        }
+
         await rtcClient.join(
           config.appId,
           config.channel,
@@ -324,8 +407,9 @@ export function useAgoraVideoClient() {
         });
         await rtcClient.publish([audioTrack]);
 
-        // Subscribe to AI messages on the channel
-        voiceAI.subscribeMessage(config.channel);
+        if (mode === "avatar" && voiceAIRef.current) {
+          voiceAIRef.current.subscribeMessage(config.channel);
+        }
 
         setLocalAudioTrack(audioTrack);
         setIsConnected(true);
@@ -353,6 +437,49 @@ export function useAgoraVideoClient() {
 
   const sendMessage = useCallback(
     async (message: string, targetUid?: string) => {
+      if (sessionMode === "meeting") {
+        const rtmClient = rtmClientRef.current as any;
+        const channel = currentChannelRef.current;
+        if (!rtmClient || !channel) {
+          console.error("Cannot send meeting message: RTM not initialized");
+          return false;
+        }
+        const timestamp = Date.now();
+        const messageId = `${currentParticipantRoleRef.current}:${currentParticipantUidRef.current}:${timestamp}`;
+        const payload = {
+          object: "meeting_chat",
+          message_id: messageId,
+          sender_uid: currentParticipantUidRef.current,
+          sender_role: currentParticipantRoleRef.current,
+          text: message,
+          timestamp,
+        };
+        try {
+          seenMeetingMessageIdsRef.current.add(messageId);
+          setMessageList((prev) => [
+            ...prev,
+            {
+              turn_id: timestamp,
+              uid: currentParticipantUidRef.current,
+              role: currentParticipantRoleRef.current,
+              text: message,
+              status: 2,
+              timestamp,
+              messageId,
+            },
+          ]);
+          await rtmClient.publish?.(channel, JSON.stringify(payload));
+          return true;
+        } catch (error) {
+          console.error("Error sending meeting message:", error);
+          setMessageList((prev) =>
+            prev.filter((item) => item.messageId !== messageId),
+          );
+          seenMeetingMessageIdsRef.current.delete(messageId);
+          return false;
+        }
+      }
+
       const voiceAI = voiceAIRef.current;
       if (!voiceAI) {
         console.error("Cannot send message: AgoraVoiceAI not initialized");
@@ -378,8 +505,29 @@ export function useAgoraVideoClient() {
         return false;
       }
     },
-    [agentRtmUid],
+    [agentRtmUid, sessionMode],
   );
+
+  const getMeetingTranscriptArtifact = useCallback(() => {
+    if (!currentMeetingTranscriptionEnabledRef.current) {
+      return null;
+    }
+    const lines = meetingTranscriptLinesRef.current.slice();
+    const text = lines
+      .map((line) => line.text)
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+    return {
+      text,
+      lines,
+      warning: text ? "" : "No transcript text was captured before the meeting ended.",
+      metadata: {
+        captured_via: "rtc_stream_message",
+        line_count: lines.length,
+      },
+    };
+  }, []);
 
   return {
     isConnected,
@@ -395,6 +543,8 @@ export function useAgoraVideoClient() {
     toggleMute,
     sendMessage,
     agentUid,
+    sessionMode,
+    getMeetingTranscriptArtifact,
     rtcClientRef,
     rtmClientRef,
     rtmSource,

@@ -67,6 +67,7 @@ def initialize_constants(profile=None):
 
         # LLM settings
         "LLM_URL": get_env_var('LLM_URL', profile, "https://api.openai.com/v1/chat/completions"),
+        "AGENT_SERVER_URL": get_env_var('AGENT_SERVER_URL', profile),
         "LLM_API_KEY": get_env_var('LLM_API_KEY', profile),
         "LLM_MODEL": get_env_var('LLM_MODEL', profile, "gpt-4o-mini"),
         "LLM_STYLE": get_env_var('LLM_STYLE', profile, "openai"),
@@ -177,6 +178,7 @@ def initialize_constants(profile=None):
         # Optional consultant-dashboard integration
         "CONSULTANT_DASHBOARD_URL": get_env_var('CONSULTANT_DASHBOARD_URL', profile),
         "CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET": get_env_var('CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET', profile),
+        "AGENT_SERVER_SHARED_SECRET": get_env_var('AGENT_SERVER_SHARED_SECRET', profile),
         "CONSULTANT_DASHBOARD_TIMEOUT_SECONDS": get_env_var('CONSULTANT_DASHBOARD_TIMEOUT_SECONDS', profile, "5"),
         "REQUIRE_CONSULTANT_DASHBOARD_CLIENT": get_env_var('REQUIRE_CONSULTANT_DASHBOARD_CLIENT', profile, "false"),
 
