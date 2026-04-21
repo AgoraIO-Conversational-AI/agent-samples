@@ -438,11 +438,13 @@ def auth_identity():
 
     constants = _get_profile_constants()
     google_name = session.get('google_name', '')
+    from core.consultant_dashboard import dashboard_client_required
     return render_template(
         'auth/identity.html',
         google_name=google_name,
         brand_name=_get_brand_name(constants),
         phone_countries=country_options(),
+        collect_phone=not dashboard_client_required(constants),
     )
 
 
@@ -458,22 +460,25 @@ def auth_send_code():
     phone = request.form.get('phone', '').strip()
     phone_country_code = request.form.get('phone_country_code', 'US').strip().upper()
 
-    if not name or not phone:
-        return jsonify({'error': 'Name and phone are required.'}), 400
+    if not name:
+        return jsonify({'error': 'Name is required.'}), 400
 
     normalized_name = _normalize_name(name)
-    try:
-        normalized_phone = normalize_supported_phone(phone, phone_country_code)
-    except ValueError as exc:
-        return jsonify({'error': str(exc)}), 400
     name_hash = _hash(normalized_name)
-    phone_hash = _hash(normalized_phone)
-    user_id_hash = _hash(google_sub + '|' + normalized_name + '|' + normalized_phone)
 
     from core.consultant_dashboard import dashboard_client_required, resolve_dashboard_client
 
     dashboard_result = None
-    if dashboard_client_required(constants):
+    dashboard_required = dashboard_client_required(constants)
+    normalized_phone = ""
+    phone_hash = ""
+    if dashboard_required:
+        if phone:
+            try:
+                normalized_phone = normalize_supported_phone(phone, phone_country_code)
+            except ValueError as exc:
+                return jsonify({'error': str(exc)}), 400
+            phone_hash = _hash(normalized_phone)
         dashboard_result = resolve_dashboard_client(
             constants,
             profile_data={
@@ -482,9 +487,18 @@ def auth_send_code():
                 'name_hash': name_hash,
                 'phone_hash': phone_hash,
             },
+            allow_email_only=not bool(phone_hash),
         )
         if dashboard_result.get('status') != 'resolved':
             return jsonify({'error': dashboard_result.get('error', 'Account not found. Please contact your consultant.')}), 403
+        normalized_phone = (dashboard_result.get('phone_number') or '').strip()
+        if not normalized_phone:
+            return jsonify({'error': 'This account is missing a 2FA phone number. Please contact your consultant.'}), 403
+        try:
+            normalized_phone = normalize_supported_phone(normalized_phone)
+        except ValueError:
+            return jsonify({'error': 'This account has an invalid 2FA phone number. Please contact your consultant.'}), 403
+        phone_hash = _hash(normalized_phone)
         user_id_hash = _save_dashboard_profile(
             constants,
             dashboard_result.get('client_id', ''),
@@ -493,6 +507,15 @@ def auth_send_code():
             normalized_phone,
             google_sub=google_sub,
         )
+    else:
+        if not phone:
+            return jsonify({'error': 'Phone number is required.'}), 400
+        try:
+            normalized_phone = normalize_supported_phone(phone, phone_country_code)
+        except ValueError as exc:
+            return jsonify({'error': str(exc)}), 400
+        phone_hash = _hash(normalized_phone)
+        user_id_hash = _hash(google_sub + '|' + normalized_name + '|' + normalized_phone)
 
     # Check if user exists
     existing = _load_user_profile(constants, user_id_hash)

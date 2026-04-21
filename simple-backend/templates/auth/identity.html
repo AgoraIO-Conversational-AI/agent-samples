@@ -84,22 +84,26 @@
       <label for="name">First Name</label>
       <input type="text" id="name" name="name" required autocomplete="given-name" placeholder="">
 
-      <label for="phone">Phone Number</label>
-      <div class="phone-row">
-        <div>
-          <label for="phone_country_code">Country</label>
-          <select id="phone_country_code" name="phone_country_code">
-            {% for phone_country in phone_countries %}
-              <option value="{{ phone_country.code }}">{{ phone_country.label }}</option>
-            {% endfor %}
-          </select>
+      {% if collect_phone %}
+        <label for="phone">Phone Number</label>
+        <div class="phone-row">
+          <div>
+            <label for="phone_country_code">Country</label>
+            <select id="phone_country_code" name="phone_country_code">
+              {% for phone_country in phone_countries %}
+                <option value="{{ phone_country.code }}">{{ phone_country.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label for="phone">Number</label>
+            <input type="tel" id="phone" name="phone" required autocomplete="tel" placeholder="7700900111 or 07700900111">
+          </div>
         </div>
-        <div>
-          <label for="phone">Number</label>
-          <input type="tel" id="phone" name="phone" required autocomplete="tel" placeholder="7700900111 or 07700900111">
-        </div>
-      </div>
-      <div class="field-help">Only United States and United Kingdom phone numbers are supported right now.</div>
+        <div class="field-help">Only United States and United Kingdom phone numbers are supported right now.</div>
+      {% else %}
+        <div class="field-help">We will send the verification code to the phone number on your account.</div>
+      {% endif %}
 
       <button type="submit" class="btn-submit" id="submit-btn">Send Verification Code</button>
     </form>

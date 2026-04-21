@@ -484,7 +484,7 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
 
     # Get other settings
     idle_timeout = int(query_params.get('idle_timeout', constants["IDLE_TIMEOUT"]))
-    vad_silence_duration_raw = constants.get("VAD_SILENCE_DURATION_MS", "").strip()
+    vad_silence_duration_raw = str(constants.get("VAD_SILENCE_DURATION_MS", "")).strip()
     vad_silence_duration = int(vad_silence_duration_raw) if vad_silence_duration_raw else None
     enable_aivad = query_params.get('enable_aivad', constants["ENABLE_AIVAD"]).lower() == "true"
 

@@ -101,7 +101,13 @@ def _load_resolution_profile(constants, user_id_hash=None, profile_data=None):
     return _load_user_profile(constants, user_id_hash)
 
 
-def resolve_dashboard_client(constants, user_id_hash=None, profile_data=None, include_context=False):
+def resolve_dashboard_client(
+    constants,
+    user_id_hash=None,
+    profile_data=None,
+    include_context=False,
+    allow_email_only=False,
+):
     if not _dashboard_enabled(constants):
         return {'status': 'disabled', 'error': 'Consultant dashboard integration is not configured.'}
 
@@ -110,7 +116,9 @@ def resolve_dashboard_client(constants, user_id_hash=None, profile_data=None, in
         return {'status': 'missing_identity', 'error': 'No stored identity was found for dashboard authorization.'}
 
     query = _build_identity_query(profile_data)
-    if not query.get('email_hash') or not query.get('phone_hash'):
+    if not query.get('email_hash'):
+        return {'status': 'missing_identity', 'error': ACCOUNT_NOT_FOUND_ERROR}
+    if not query.get('phone_hash') and not allow_email_only:
         return {'status': 'missing_identity', 'error': ACCOUNT_NOT_FOUND_ERROR}
 
     base_url = constants['CONSULTANT_DASHBOARD_URL']
@@ -132,6 +140,9 @@ def resolve_dashboard_client(constants, user_id_hash=None, profile_data=None, in
             'status': 'resolved',
             'client_id': resolve_data.get('client_id', ''),
             'consultant_id': resolve_data.get('consultant_id', ''),
+            'email': resolve_data.get('email', ''),
+            'display_name': resolve_data.get('display_name', ''),
+            'phone_number': resolve_data.get('phone_number', ''),
         }
 
         if include_context:

@@ -19,6 +19,7 @@ import urllib.error
 import urllib.request
 
 from flask import Flask, request, jsonify
+from werkzeug.middleware.proxy_fix import ProxyFix
 from core.config import initialize_constants
 from core.tokens import build_token_with_rtm
 from core.agent import create_agent_payload, send_agent_to_channel, hangup_agent, speak_to_agent, build_auth_header
@@ -31,6 +32,9 @@ import re
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-key-change-in-production')
+# Trust nginx forwarded proto/host so absolute URLs (e.g. OAuth callbacks)
+# are generated with the public HTTPS origin.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 app.register_blueprint(auth_bp)
 
 # Keys in agent payload that contain secrets and must be redacted
