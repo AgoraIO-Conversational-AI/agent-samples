@@ -80,8 +80,11 @@ def _signed_post_json(base_url, path, payload, shared_secret, timeout_seconds):
 
 def _build_identity_query(profile_data):
     query = {}
+    vendor_slug = ((profile_data or {}).get('vendor_slug', '') or '').strip().lower()
     google_sub = (profile_data or {}).get('google_sub', '')
     email = ((profile_data or {}).get('email', '') or '').strip().lower()
+    if vendor_slug:
+        query['vendor_slug'] = vendor_slug
     if email:
         query['email_hash'] = _hash(email)
     if profile_data.get('phone_hash'):
@@ -140,6 +143,7 @@ def resolve_dashboard_client(
             'status': 'resolved',
             'client_id': resolve_data.get('client_id', ''),
             'consultant_id': resolve_data.get('consultant_id', ''),
+            'vendor_slug': resolve_data.get('vendor_slug', ''),
             'email': resolve_data.get('email', ''),
             'display_name': resolve_data.get('display_name', ''),
             'phone_number': resolve_data.get('phone_number', ''),
@@ -265,7 +269,11 @@ def verify_dashboard_client_password(constants, email, password):
         status, data = _signed_post_json(
             base_url,
             '/internal/verify-client-password',
-            {'email': (email or '').strip().lower(), 'password': password or ''},
+            {
+                'email': (email or '').strip().lower(),
+                'password': password or '',
+                'vendor_slug': (constants.get('VENDOR_SLUG') or '').strip().lower(),
+            },
             shared_secret,
             timeout_seconds,
         )
@@ -275,6 +283,7 @@ def verify_dashboard_client_password(constants, email, password):
             'status': 'verified',
             'client_id': data.get('client_id', ''),
             'consultant_id': data.get('consultant_id', ''),
+            'vendor_slug': data.get('vendor_slug', ''),
             'display_name': data.get('display_name', ''),
             'email': data.get('email', ''),
             'phone_number': data.get('phone_number', ''),

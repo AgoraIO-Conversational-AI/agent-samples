@@ -164,7 +164,7 @@ VIDEO_CLLM_ALLOWED_RETURN_ORIGINS=http://localhost:8084,http://localhost:8083
 Then open `http://localhost:8084?profile=video_cllm` — you'll see:
 1. Login page → either use dashboard email/password or click "Sign in with Google"
 2. If using Google, enter name + phone and click "Send Code"
-3. Enter `000000` → redirected back with JWT
+3. Enter `000000` → redirected back into the app with a 1-hour auth cookie
 
 ### Without auth (verify nothing breaks)
 
@@ -186,8 +186,8 @@ curl http://localhost:8082/auth-check?profile=video_cllm
 
 1. Open `http://localhost:8084?profile=video_cllm`
 2. → Redirects to `/auth/login` → email/password form or Google sign-in → SMS verification flow
-3. → SMS code → PIN entry → Redirect back with JWT
-4. → Normal UI loads, all fetch calls include Authorization header
+3. → SMS code → PIN entry → Redirect back into the app
+4. → Normal UI loads, backend requests reuse the 1-hour auth cookie
 
 ### Verify memory works
 
@@ -230,12 +230,11 @@ Backend Auth Pages (same server, :8082):
      → GET  /auth/identity → name + phone form
      → POST /auth/send-code → validates 3 factors, sends Twilio SMS
      → GET  /auth/verify → 6-digit PIN entry
-     → POST /auth/verify-pin → validates PIN, mints JWT, redirects back
+     → POST /auth/verify-pin → validates PIN, mints JWT, sets 1-hour auth cookie, redirects back
 
-Client (page loads again, JWT in URL):
-     → Stores JWT in memory (React ref only — not sessionStorage/cookies), strips from URL
-     → GET /auth-check with Bearer token → { authenticated: true }
-     → Normal UI, all fetches include Authorization header
+Client (page loads again):
+     → GET /auth-check with backend auth cookie → { authenticated: true }
+     → Normal UI, all backend fetches include cookies and may also send a legacy Authorization header
      → user_id flows to Custom LLM via register-agent
      → Custom LLM loads encrypted history + biomarker baselines, injects into prompt
      → During session: accumulates voice biomarker + camera vitals running averages
@@ -246,14 +245,14 @@ Client (page loads again, JWT in URL):
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/auth-check` | Check if profile needs auth, validate Bearer token |
+| GET | `/auth-check` | Check if profile needs auth, validate backend auth cookie or Bearer token |
 | GET | `/auth/login` | Store profile + return URL in session, serve Google sign-in |
 | GET | `/auth/google` | Redirect to Google OAuth |
 | GET | `/auth/google/callback` | Exchange code for user info |
 | GET | `/auth/identity` | Serve name + phone form |
 | POST | `/auth/send-code` | Validate 3-factor match, send Twilio SMS |
 | GET | `/auth/verify` | Serve PIN entry form |
-| POST | `/auth/verify-pin` | Validate PIN, mint JWT, redirect back |
+| POST | `/auth/verify-pin` | Validate PIN, mint JWT, set auth cookie, redirect back |
 
 ## Memory Module
 
@@ -294,10 +293,10 @@ When `MAX_SESSION_DURATION` is set (seconds):
 - `user_id_hash = sha256(google_sub + '|' + normalized_name + '|' + normalized_phone)` — tied to all three auth factors so two people can't access each other's encrypted memory, even on a shared machine
 - All three factors (google_sub + name_hash + phone_hash) must match before SMS is sent
 - Generic error messages — never reveal which factor failed
-- JWT: 4-hour expiry, held in memory only (React ref) — never written to sessionStorage, localStorage, or cookies
-- On page refresh or tab close the token is gone — user must re-authenticate
-- This prevents a second person on the same machine from accessing a previous user's session
-- JWT stripped from URL immediately via history.replaceState
+- backend auth cookie: 1-hour expiry, `HttpOnly`, reused across invite/message/meeting deep links
+- on expiry the user must re-authenticate with password or Google plus Twilio OTP
+- this limits exposure on shared or unattended machines
+- legacy Bearer token support remains only as a compatibility fallback for older flows
 - Return URL validated against ALLOWED_RETURN_ORIGINS allowlist
 - AES-256-GCM encryption with per-user derived keys, random salt per file
 - No PII in logs — user_id_hash only

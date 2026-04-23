@@ -18,13 +18,17 @@ import time
 import urllib.error
 import urllib.request
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, session
 from werkzeug.middleware.proxy_fix import ProxyFix
 from core.config import initialize_constants
 from core.tokens import build_token_with_rtm
 from core.agent import create_agent_payload, send_agent_to_channel, hangup_agent, speak_to_agent, build_auth_header
 from core.auth import auth_bp, get_authenticated_user_id
-from core.consultant_dashboard import fetch_dashboard_context, dashboard_client_required
+from core.consultant_dashboard import (
+    fetch_dashboard_context,
+    dashboard_client_required,
+    resolve_dashboard_client,
+)
 from core.meeting_mode import authorize_meeting_join, notify_meeting_end, notify_meeting_event, verify_join_bootstrap
 from core.utils import generate_random_channel
 import copy
@@ -35,7 +39,48 @@ app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-key-change-in-pr
 # Trust nginx forwarded proto/host so absolute URLs (e.g. OAuth callbacks)
 # are generated with the public HTTPS origin.
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+
+class TenantPrefixMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    def __call__(self, environ, start_response):
+        path = environ.get("PATH_INFO", "")
+        if path.startswith("/v/"):
+            parts = path.split("/")
+            if len(parts) >= 3 and parts[2]:
+                vendor_slug = parts[2].strip().lower()
+                environ["mindfix.vendor_slug"] = vendor_slug
+                current_script = environ.get("SCRIPT_NAME", "")
+                environ["SCRIPT_NAME"] = f"{current_script}/v/{vendor_slug}".rstrip("/")
+                suffix = "/" + "/".join(parts[3:])
+                environ["PATH_INFO"] = suffix or "/"
+        return self.app(environ, start_response)
+
+
+app.wsgi_app = TenantPrefixMiddleware(app.wsgi_app)
 app.register_blueprint(auth_bp)
+
+
+@app.context_processor
+def inject_tenant_helpers():
+    vendor_slug = ((request.environ.get("mindfix.vendor_slug") or session.get("auth_vendor_slug") or "").strip().lower())
+
+    def tenant_path(path: str) -> str:
+        target = (path or "/").strip() or "/"
+        if target.startswith("http://") or target.startswith("https://"):
+            return target
+        if not target.startswith("/"):
+            target = "/" + target
+        if not vendor_slug or target.startswith("/v/"):
+            return target
+        return f"/v/{vendor_slug}{target}"
+
+    return {
+        "tenant_path": tenant_path,
+        "current_vendor_slug": vendor_slug,
+    }
 
 # Keys in agent payload that contain secrets and must be redacted
 _SENSITIVE_KEYS = re.compile(
@@ -122,6 +167,25 @@ def _post_custom_llm_sync(url, payload, label, timeout=5, constants=None):
     except Exception as exc:
         print(f"[{label}] FAILED POST {url}: {exc}")
         return {"ok": False, "error": str(exc)}
+
+
+def _authorize_guest_meeting_identity(req, constants, expected_client_id):
+    user_id, _, auth_error = get_authenticated_user_id(req, constants)
+    if auth_error:
+        return {"ok": False, "status": 401, "error": auth_error}
+    if not user_id or user_id == "anonymous":
+        return {"ok": True}
+
+    dashboard_result = resolve_dashboard_client(constants, user_id_hash=user_id)
+    if dashboard_result.get("status") != "resolved":
+        return {
+            "ok": False,
+            "status": 403,
+            "error": dashboard_result.get("error", "Account not found. Please contact your consultant."),
+        }
+    if expected_client_id and dashboard_result.get("client_id") != expected_client_id:
+        return {"ok": False, "status": 403, "error": "Authenticated account does not match this meeting."}
+    return {"ok": True, "client_id": dashboard_result.get("client_id", "")}
 
 
 @app.after_request
@@ -345,6 +409,7 @@ def join_meeting():
     access_token = payload.get('access_token', '')
 
     auth_payload = None
+    guest_identity = None
     if join_bootstrap:
         verified = verify_join_bootstrap(
             constants.get('CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET', ''),
@@ -372,12 +437,22 @@ def join_meeting():
     else:
         return jsonify({"error": "access_token or join_bootstrap is required"}), 400
 
+    if auth_payload.get("participant_role") == "guest":
+        guest_identity = _authorize_guest_meeting_identity(request, constants, "")
+        if not guest_identity.get("ok"):
+            return jsonify({"error": guest_identity.get("error", "Authentication required")}), int(
+                guest_identity.get("status") or 401
+            )
+
     auth_result = authorize_meeting_join(constants, auth_payload)
     if not auth_result.get("ok"):
         status = int(auth_result.get("status") or 403)
         return jsonify({"error": auth_result.get("error", "meeting_join_denied")}), status
 
     join_data = auth_result["data"]
+    if join_data.get("participant_role") == "guest" and guest_identity and guest_identity.get("client_id"):
+        if guest_identity.get("client_id") != join_data.get("client_id", ""):
+            return jsonify({"error": "Authenticated account does not match this meeting."}), 403
     print(
         "[MeetingJoin] "
         f"meeting_id={join_data.get('meeting_id')} "
@@ -454,6 +529,13 @@ def join_meeting():
             if register_result.get("ok") or int(register_result.get("status") or 0) != 409:
                 break
             time.sleep(0.5)
+        if int(register_result.get("status") or 0) == 409:
+            print(
+                "[RegisterMeeting] "
+                f"meeting_id={join_data.get('meeting_id')} "
+                f"channel={channel} already initialized; reusing existing services"
+            )
+            register_result["ok"] = True
         if not register_result.get("ok"):
             return jsonify({
                 "error": "Meeting services failed to initialize.",
@@ -553,6 +635,7 @@ def meeting_participant_event():
 
     join_bootstrap = payload.get('join_bootstrap', '')
     access_token = payload.get('access_token', '')
+    guest_identity = None
     if join_bootstrap:
         verified = verify_join_bootstrap(
             constants.get('CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET', ''),
@@ -577,11 +660,21 @@ def meeting_participant_event():
     else:
         return jsonify({"error": "access_token or join_bootstrap is required"}), 400
 
+    if auth_payload.get("participant_role") == "guest":
+        guest_identity = _authorize_guest_meeting_identity(request, constants, "")
+        if not guest_identity.get("ok"):
+            return jsonify({"error": guest_identity.get("error", "Authentication required")}), int(
+                guest_identity.get("status") or 401
+            )
+
     auth_result = authorize_meeting_join(constants, auth_payload)
     if not auth_result.get("ok"):
         status = int(auth_result.get("status") or 403)
         return jsonify({"error": auth_result.get("error", "meeting_event_denied")}), status
     join_data = auth_result["data"]
+    if join_data.get("participant_role") == "guest" and guest_identity and guest_identity.get("client_id"):
+        if guest_identity.get("client_id") != join_data.get("client_id", ""):
+            return jsonify({"error": "Authenticated account does not match this meeting."}), 403
     path = "/internal/meeting-joined" if event_name == "joined" else "/internal/meeting-left"
     notify_result = notify_meeting_event(
         constants,

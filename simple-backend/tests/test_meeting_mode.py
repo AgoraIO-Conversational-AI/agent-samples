@@ -6,6 +6,8 @@ import time
 import unittest
 from unittest.mock import patch
 
+import jwt
+
 import local_server
 from core.meeting_mode import verify_join_bootstrap
 
@@ -45,6 +47,31 @@ class MeetingModeTest(unittest.TestCase):
         )
         payload = verify_join_bootstrap("test-secret", token)
         self.assertEqual(payload["meeting_id"], "meeting-123")
+
+    def _auth_header(self, user_id="user-hash-123"):
+        token = jwt.encode(
+            {
+                "user_id": user_id,
+                "name": "Alex Demo",
+                "iat": int(time.time()),
+                "exp": int(time.time()) + 300,
+            },
+            "test-jwt-secret",
+            algorithm="HS256",
+        )
+        return {"Authorization": f"Bearer {token}"}
+
+    def _auth_cookie(self, user_id="user-hash-123"):
+        return jwt.encode(
+            {
+                "user_id": user_id,
+                "name": "Alex Demo",
+                "iat": int(time.time()),
+                "exp": int(time.time()) + 300,
+            },
+            "test-jwt-secret",
+            algorithm="HS256",
+        )
 
     @patch("local_server._post_custom_llm_sync")
     @patch("local_server.build_token_with_rtm")
@@ -149,6 +176,170 @@ class MeetingModeTest(unittest.TestCase):
         self.assertFalse(response.json["transcription_enabled"])
         self.assertTrue(response.json["audio_biomarkers_enabled"])
         self.assertTrue(response.json["video_biomarkers_enabled"])
+
+    @patch("local_server.initialize_constants")
+    def test_join_meeting_guest_requires_authenticated_identity(self, mocked_initialize_constants):
+        constants = dict(self.constants)
+        constants["AUTH_JWT_SECRET"] = "test-jwt-secret"
+        mocked_initialize_constants.return_value = constants
+
+        response = self.client.post(
+            "/join-meeting",
+            json={"profile": "therapy", "access_token": "client-access-token"},
+        )
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json["error"], "Authentication required")
+
+    @patch("local_server._post_custom_llm_sync")
+    @patch("local_server.resolve_dashboard_client")
+    @patch("local_server.build_token_with_rtm")
+    @patch("local_server.authorize_meeting_join")
+    @patch("local_server.initialize_constants")
+    def test_join_meeting_guest_rejects_authenticated_wrong_client(
+        self,
+        mocked_initialize_constants,
+        mocked_authorize,
+        mocked_build_token,
+        mocked_resolve_dashboard_client,
+        mocked_post_custom_llm_sync,
+    ):
+        constants = dict(self.constants)
+        constants["AUTH_JWT_SECRET"] = "test-jwt-secret"
+        mocked_initialize_constants.return_value = constants
+        mocked_post_custom_llm_sync.return_value = {"ok": True, "status": 200, "body": "{}"}
+        mocked_authorize.return_value = {
+            "ok": True,
+            "data": {
+                "meeting_id": "meeting-123",
+                "meeting_runtime_key": "test-app:MEET123456:meeting-123",
+                "participant_role": "guest",
+                "client_id": "client-123",
+                "consultant_id": "consultant-456",
+                "channel_name": "MEET123456",
+                "participant_uid": "101",
+                "user_uid": "101",
+                "host_uid": "103",
+                "guest_uid": "101",
+                "rtm_uid": "5001-MEET123456",
+                "ensure_meeting_services": False,
+            },
+        }
+        mocked_build_token.return_value = {"token": "guest-token", "uid": "101"}
+        mocked_resolve_dashboard_client.return_value = {
+            "status": "resolved",
+            "client_id": "other-client",
+        }
+
+        response = self.client.post(
+            "/join-meeting",
+            json={"profile": "therapy", "access_token": "client-access-token"},
+            headers=self._auth_header(),
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json["error"], "Authenticated account does not match this meeting.")
+
+    @patch("local_server._post_custom_llm_sync")
+    @patch("local_server.resolve_dashboard_client")
+    @patch("local_server.build_token_with_rtm")
+    @patch("local_server.authorize_meeting_join")
+    @patch("local_server.initialize_constants")
+    def test_join_meeting_guest_accepts_cookie_authenticated_identity(
+        self,
+        mocked_initialize_constants,
+        mocked_authorize,
+        mocked_build_token,
+        mocked_resolve_dashboard_client,
+        mocked_post_custom_llm_sync,
+    ):
+        constants = dict(self.constants)
+        constants["AUTH_JWT_SECRET"] = "test-jwt-secret"
+        mocked_initialize_constants.return_value = constants
+        mocked_post_custom_llm_sync.return_value = {"ok": True, "status": 200, "body": "{}"}
+        mocked_authorize.return_value = {
+            "ok": True,
+            "data": {
+                "meeting_id": "meeting-123",
+                "meeting_runtime_key": "test-app:MEET123456:meeting-123",
+                "participant_role": "guest",
+                "client_id": "client-123",
+                "consultant_id": "consultant-456",
+                "channel_name": "MEET123456",
+                "participant_uid": "101",
+                "user_uid": "101",
+                "host_uid": "103",
+                "guest_uid": "101",
+                "rtm_uid": "5001-MEET123456",
+                "ensure_meeting_services": False,
+            },
+        }
+        mocked_build_token.side_effect = [
+            {"token": "guest-token", "uid": "101"},
+            {"token": "rtm-token", "uid": "5001"},
+        ]
+        mocked_resolve_dashboard_client.return_value = {
+            "status": "resolved",
+            "client_id": "client-123",
+        }
+
+        self.client.set_cookie("mindfix_client_auth", self._auth_cookie())
+        response = self.client.post(
+            "/join-meeting",
+            json={"profile": "therapy", "access_token": "client-access-token"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["channel"], "MEET123456")
+
+    @patch("local_server.notify_meeting_event")
+    @patch("local_server.resolve_dashboard_client")
+    @patch("local_server.authorize_meeting_join")
+    @patch("local_server.initialize_constants")
+    def test_meeting_participant_event_guest_requires_authenticated_identity(
+        self,
+        mocked_initialize_constants,
+        mocked_authorize,
+        mocked_resolve_dashboard_client,
+        mocked_notify_event,
+    ):
+        constants = dict(self.constants)
+        constants["AUTH_JWT_SECRET"] = "test-jwt-secret"
+        mocked_initialize_constants.return_value = constants
+        mocked_authorize.return_value = {
+            "ok": True,
+            "data": {
+                "meeting_id": "meeting-123",
+                "participant_role": "guest",
+                "client_id": "client-123",
+                "consultant_id": "consultant-456",
+            },
+        }
+        mocked_resolve_dashboard_client.return_value = {
+            "status": "resolved",
+            "client_id": "client-123",
+        }
+        mocked_notify_event.return_value = {"ok": True}
+
+        token = _signed_bootstrap(
+            "test-secret",
+            {
+                "meeting_id": "meeting-123",
+                "response_access_link_id": "link-123",
+                "participant_role": "guest",
+                "exp": int(time.time()) + 60,
+            },
+        )
+
+        unauthenticated = self.client.post(
+            "/meeting-participant-event",
+            json={"profile": "therapy", "event": "joined", "join_bootstrap": token},
+        )
+        self.assertEqual(unauthenticated.status_code, 401)
+
+        authenticated = self.client.post(
+            "/meeting-participant-event",
+            json={"profile": "therapy", "event": "joined", "join_bootstrap": token},
+            headers=self._auth_header(),
+        )
+        self.assertEqual(authenticated.status_code, 200)
 
     @patch("local_server.notify_meeting_event")
     @patch("local_server.authorize_meeting_join")

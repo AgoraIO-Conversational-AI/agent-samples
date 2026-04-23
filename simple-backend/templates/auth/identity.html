@@ -1,112 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ brand_name }} | Verify Your Identity</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f5f5f5;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      color: #333;
-    }
-    .card {
-      background: white;
-      border-radius: 12px;
-      padding: 40px;
-      max-width: 400px;
-      width: 90%;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-    }
-    h1 { font-size: 24px; margin-bottom: 8px; text-align: center; }
-    .subtitle { color: #666; margin-bottom: 24px; font-size: 14px; text-align: center; }
-    label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; }
-    input[type="text"], input[type="tel"], select {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      font-size: 16px;
-      margin-bottom: 16px;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    input:focus { border-color: #4285F4; }
-    .phone-row {
-      display: grid;
-      grid-template-columns: 180px 1fr;
-      gap: 12px;
-      align-items: end;
-    }
-    .field-help {
-      margin-top: -10px;
-      margin-bottom: 16px;
-      color: #666;
-      font-size: 12px;
-    }
-    .btn-submit {
-      width: 100%;
-      padding: 12px;
-      background: #4285F4;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .btn-submit:hover { background: #3367d6; }
-    .btn-submit:disabled { background: #999; cursor: not-allowed; }
-    .error {
-      background: #fef2f2;
-      color: #dc2626;
-      padding: 10px 12px;
-      border-radius: 8px;
-      font-size: 14px;
-      margin-bottom: 16px;
-      display: none;
-    }
-  </style>
+  {% include 'auth/_head.html' %}
 </head>
 <body>
-  <div class="card">
-    <h1>{{ brand_name }}</h1>
-    <p class="subtitle">Verify Your Identity</p>
+  {% include 'auth/_topbar.html' %}
+  <div class="wrap">
+    <div class="auth-shell">
+      <div class="card">
+        <div class="label">{{ brand_name }}</div>
+        <h1>Verify your identity</h1>
+        <p class="subtitle">Confirm your details so we can send the code to the right phone.</p>
 
-    <div id="error" class="error"></div>
+        <div id="error" class="error"></div>
 
-    <form id="identity-form" onsubmit="return handleSubmit(event)">
-      <label for="name">First Name</label>
-      <input type="text" id="name" name="name" required autocomplete="given-name" placeholder="">
+        <form id="identity-form" onsubmit="return handleSubmit(event)">
+          <label for="name">First Name</label>
+          <input type="text" id="name" name="name" required autocomplete="given-name" placeholder="">
 
-      {% if collect_phone %}
-        <label for="phone">Phone Number</label>
-        <div class="phone-row">
-          <div>
-            <label for="phone_country_code">Country</label>
-            <select id="phone_country_code" name="phone_country_code">
-              {% for phone_country in phone_countries %}
-                <option value="{{ phone_country.code }}">{{ phone_country.label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div>
-            <label for="phone">Number</label>
-            <input type="tel" id="phone" name="phone" required autocomplete="tel" placeholder="7700900111 or 07700900111">
-          </div>
-        </div>
-        <div class="field-help">Only United States and United Kingdom phone numbers are supported right now.</div>
-      {% else %}
-        <div class="field-help">We will send the verification code to the phone number on your account.</div>
-      {% endif %}
+          {% if collect_phone %}
+            <label for="phone">Phone Number</label>
+            <div class="phone-row">
+              <div>
+                <label for="phone_country_code">Country</label>
+                <select id="phone_country_code" name="phone_country_code">
+                  {% for phone_country in phone_countries %}
+                    <option value="{{ phone_country.code }}">{{ phone_country.label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <label for="phone">Number</label>
+                <input type="tel" id="phone" name="phone" required autocomplete="tel" placeholder="7700900111 or 07700900111">
+              </div>
+            </div>
+            <div class="field-help">Only United States and United Kingdom phone numbers are supported right now.</div>
+          {% else %}
+            <div class="field-help">We will send the verification code to the phone number on your account.</div>
+          {% endif %}
 
-      <button type="submit" class="btn-submit" id="submit-btn">Send Verification Code</button>
-    </form>
+          <button type="submit" class="btn-submit" id="submit-btn">Continue</button>
+        </form>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -122,7 +59,11 @@
       const formData = new FormData(form);
 
       try {
-        const res = await fetch('/auth/send-code', { method: 'POST', body: formData });
+        const res = await fetch('{{ tenant_path("/auth/send-code") }}', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
         const data = await res.json();
 
         if (data.success && data.redirect) {
@@ -136,7 +77,7 @@
         errorEl.style.display = 'block';
       }
       btn.disabled = false;
-      btn.textContent = 'Send Verification Code';
+      btn.textContent = 'Continue';
       return false;
     }
   </script>
