@@ -15,6 +15,7 @@ import urllib.parse
 import urllib.request
 
 from core.auth import _load_user_profile
+from core.signing import build_signature_headers
 
 ACCOUNT_NOT_FOUND_ERROR = 'Account not found. Please contact your consultant.'
 DASHBOARD_UNAVAILABLE_ERROR = 'Dashboard authorization is temporarily unavailable. Please try again.'
@@ -43,23 +44,9 @@ def dashboard_client_required(constants):
     )
 
 
-def _build_signature_headers(secret, method, path, payload):
-    timestamp = str(int(time.time()))
-    canonical = f"{timestamp}.{method}.{path}.{payload}".encode('utf-8')
-    signature = hmac.new(
-        secret.encode('utf-8'),
-        canonical,
-        hashlib.sha256,
-    ).hexdigest()
-    return {
-        'X-Consultant-Timestamp': timestamp,
-        'X-Consultant-Signature': signature,
-    }
-
-
 def _signed_get_json(base_url, path, query_params, shared_secret, timeout_seconds):
     query = urllib.parse.urlencode(query_params)
-    headers = _build_signature_headers(shared_secret, 'GET', path, query)
+    headers = build_signature_headers(shared_secret, 'GET', path, query)
     url = urllib.parse.urljoin(base_url.rstrip('/') + '/', path.lstrip('/'))
     if query:
         url = f"{url}?{query}"
@@ -70,7 +57,7 @@ def _signed_get_json(base_url, path, query_params, shared_secret, timeout_second
 
 def _signed_post_json(base_url, path, payload, shared_secret, timeout_seconds):
     body = json.dumps(payload, separators=(',', ':'))
-    headers = _build_signature_headers(shared_secret, 'POST', path, body)
+    headers = build_signature_headers(shared_secret, 'POST', path, body)
     headers['Content-Type'] = 'application/json'
     url = urllib.parse.urljoin(base_url.rstrip('/') + '/', path.lstrip('/'))
     req = urllib.request.Request(url, data=body.encode('utf-8'), headers=headers, method='POST')

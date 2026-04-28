@@ -8,15 +8,7 @@ import time
 import urllib.parse
 import urllib.request
 
-
-def _build_signature_headers(secret, method, path, payload):
-    timestamp = str(int(time.time()))
-    canonical = f"{timestamp}.{method}.{path}.{payload}".encode("utf-8")
-    signature = hmac.new(secret.encode("utf-8"), canonical, hashlib.sha256).hexdigest()
-    return {
-        "X-Consultant-Timestamp": timestamp,
-        "X-Consultant-Signature": signature,
-    }
+from core.signing import build_signature_headers
 
 
 def verify_join_bootstrap(secret, token):
@@ -47,7 +39,7 @@ def authorize_meeting_join(constants, payload):
 
     body = json.dumps(payload, separators=(",", ":"))
     path = "/internal/authorize-meeting-join"
-    headers = _build_signature_headers(
+    headers = build_signature_headers(
         constants["CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET"],
         "POST",
         path,
@@ -85,7 +77,7 @@ def notify_meeting_event(constants, path, payload):
         return {"ok": False, "error": "Meeting mode is not configured."}
 
     body = json.dumps(payload, separators=(",", ":"))
-    headers = _build_signature_headers(
+    headers = build_signature_headers(
         constants["CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET"],
         "POST",
         path,
