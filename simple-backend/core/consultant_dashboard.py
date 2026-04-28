@@ -132,6 +132,8 @@ def resolve_dashboard_client(
             'consultant_id': resolve_data.get('consultant_id', ''),
             'vendor_slug': resolve_data.get('vendor_slug', ''),
             'email': resolve_data.get('email', ''),
+            'first_name': resolve_data.get('first_name', ''),
+            'last_name': resolve_data.get('last_name', ''),
             'display_name': resolve_data.get('display_name', ''),
             'phone_number': resolve_data.get('phone_number', ''),
         }
@@ -242,6 +244,42 @@ def fetch_dashboard_context(constants, user_id_hash):
     return result
 
 
+def fetch_dashboard_meeting_signals(constants, meeting_id):
+    if not _dashboard_enabled(constants) or not meeting_id:
+        return {"status": "disabled"}
+
+    base_url = constants["CONSULTANT_DASHBOARD_URL"]
+    shared_secret = constants["CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET"]
+    timeout_seconds = int(constants.get("CONSULTANT_DASHBOARD_TIMEOUT_SECONDS") or 5)
+
+    try:
+        status, signal_data = _signed_get_json(
+            base_url,
+            "/internal/meeting-signals",
+            {"meeting_id": meeting_id},
+            shared_secret,
+            timeout_seconds,
+        )
+        if status != 200 or not signal_data.get("ok"):
+            return {"status": "not_found", "error": "Meeting settings were not found."}
+        return {
+            "status": "resolved",
+            "meeting_id": signal_data.get("meeting_id", ""),
+            "meeting_type": signal_data.get("meeting_type", ""),
+            "transcription_enabled": bool(signal_data.get("transcription_enabled")),
+            "audio_biomarkers_enabled": bool(signal_data.get("audio_biomarkers_enabled", True)),
+            "video_biomarkers_enabled": bool(signal_data.get("video_biomarkers_enabled", True)),
+        }
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return {"status": "not_found", "error": "Meeting settings were not found."}
+        print(f"[ConsultantDashboard] Meeting signal lookup failed: {exc.code} {exc.reason}")
+        return {"status": "lookup_failed", "error": DASHBOARD_UNAVAILABLE_ERROR}
+    except Exception as exc:
+        print(f"[ConsultantDashboard] Meeting signal lookup failed: {exc}")
+        return {"status": "lookup_failed", "error": DASHBOARD_UNAVAILABLE_ERROR}
+
+
 def verify_dashboard_client_password(constants, email, password):
     if not _dashboard_enabled(constants):
         return {'status': 'disabled', 'error': 'Consultant dashboard integration is not configured.'}
@@ -271,6 +309,8 @@ def verify_dashboard_client_password(constants, email, password):
             'client_id': data.get('client_id', ''),
             'consultant_id': data.get('consultant_id', ''),
             'vendor_slug': data.get('vendor_slug', ''),
+            'first_name': data.get('first_name', ''),
+            'last_name': data.get('last_name', ''),
             'display_name': data.get('display_name', ''),
             'email': data.get('email', ''),
             'phone_number': data.get('phone_number', ''),

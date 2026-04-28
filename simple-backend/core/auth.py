@@ -176,7 +176,7 @@ def _client_user_id_hash(client_id):
     return _hash(f'client|{client_id}')
 
 
-def _save_dashboard_profile(constants, client_id, email, display_name, phone_number, google_sub=''):
+def _save_dashboard_profile(constants, client_id, email, display_name, phone_number, google_sub='', first_name=''):
     normalized_phone = phone_number.strip()
     normalized_name = _normalize_name(display_name or '')
     profile_data = {
@@ -184,6 +184,7 @@ def _save_dashboard_profile(constants, client_id, email, display_name, phone_num
         'google_sub': google_sub,
         'email': (email or '').strip().lower(),
         'vendor_slug': (constants.get('VENDOR_SLUG') or '').strip().lower(),
+        'first_name': (first_name or '').strip(),
         'name_hash': _hash(normalized_name) if normalized_name else '',
         'phone_hash': _hash(normalized_phone) if normalized_phone else '',
         'created_at': datetime.now(timezone.utc).isoformat(),
@@ -211,8 +212,10 @@ def _begin_dashboard_sms_auth(constants, dashboard_result, email="", google_sub=
         dashboard_result.get('display_name', ''),
         phone_number,
         google_sub=google_sub,
+        first_name=dashboard_result.get('first_name', ''),
     )
     session['auth_name'] = dashboard_result.get('display_name', '')
+    session['auth_first_name'] = (dashboard_result.get('first_name') or '').strip()
     session['auth_email'] = dashboard_result.get('email', email).strip().lower()
     session['auth_phone'] = phone_number
     session['auth_user_id_hash'] = user_id_hash
@@ -373,7 +376,7 @@ def get_authenticated_user_id(req, constants):
 
     claims = _decode_auth_token(token, jwt_secret)
     if claims:
-        return claims['user_id'], claims.get('name', ''), None
+        return claims['user_id'], claims.get('first_name') or claims.get('name', ''), None
     return None, '', 'Invalid or expired session'
 
 
@@ -413,7 +416,7 @@ def auth_check():
         return jsonify({
             'auth_required': True,
             'authenticated': True,
-            'user_name': claims.get('name', ''),
+            'user_name': claims.get('first_name') or claims.get('name', ''),
         })
 
     # Not authenticated — provide auth URL
@@ -841,6 +844,7 @@ def auth_verify_pin():
         'client_id': session.get('auth_client_id', ''),
         'email': session.get('auth_email', session.get('google_email', '')),
         'name': session.get('auth_name', ''),
+        'first_name': session.get('auth_first_name', ''),
         'vendor_slug': _current_vendor_slug(),
         'iat': now,
         'exp': now + AUTH_COOKIE_MAX_AGE_SECONDS,
@@ -854,7 +858,7 @@ def auth_verify_pin():
     redirect_url = return_url
 
     # Clear auth session data
-    for key in ['google_sub', 'google_email', 'google_name', 'auth_name',
+    for key in ['google_sub', 'google_email', 'google_name', 'auth_name', 'auth_first_name',
                 'auth_email', 'auth_phone', 'auth_user_id_hash', 'auth_client_id',
                 'auth_via_password', 'auth_profile', 'auth_return_url']:
         session.pop(key, None)

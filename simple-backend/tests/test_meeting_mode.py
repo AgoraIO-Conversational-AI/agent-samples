@@ -143,39 +143,109 @@ class MeetingModeTest(unittest.TestCase):
             "agent-secret",
         )
 
+    @patch("local_server._post_custom_llm_sync")
     @patch("local_server.authorize_meeting_join")
     @patch("local_server.build_token_with_rtm")
     @patch("local_server.initialize_constants")
-    def test_join_meeting_second_joiner_does_not_require_service_init_flags(
+    def test_join_meeting_second_joiner_re_registers_enabled_services(
         self,
         mocked_initialize_constants,
         mocked_build_token,
         mocked_authorize,
+        mocked_post_custom_llm_sync,
     ):
         mocked_initialize_constants.return_value = self.constants
+        mocked_post_custom_llm_sync.return_value = {"ok": True, "status": 200, "body": "{}"}
         mocked_authorize.return_value = {
             "ok": True,
             "data": {
                 "meeting_id": "meeting-123",
                 "meeting_runtime_key": "test-app:MEET123456:meeting-123",
                 "participant_role": "guest",
+                "client_id": "client-123",
+                "consultant_id": "consultant-456",
                 "channel_name": "MEET123456",
                 "participant_uid": "101",
+                "user_uid": "101",
                 "host_uid": "103",
                 "guest_uid": "101",
+                "rtm_uid": "5001-MEET123456",
                 "ensure_meeting_services": False,
+                "transcription_enabled": True,
+                "audio_biomarkers_enabled": True,
+                "video_biomarkers_enabled": False,
+                "transcription_provider": "agora_stt",
+                "transcription_language": "en-US",
             },
         }
-        mocked_build_token.return_value = {"token": "guest-token", "uid": "101"}
+        mocked_build_token.side_effect = [
+            {"token": "guest-token", "uid": "101"},
+            {"token": "sub-token", "uid": "5000"},
+            {"token": "rtm-token", "uid": "5001"},
+            {"token": "stt-token", "uid": "104"},
+        ]
 
         response = self.client.post(
             "/join-meeting",
             json={"profile": "therapy", "access_token": "client-access-token"},
         )
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(response.json["transcription_enabled"])
+        self.assertTrue(response.json["transcription_enabled"])
+        self.assertTrue(response.json["audio_biomarkers_enabled"])
+        self.assertFalse(response.json["video_biomarkers_enabled"])
+        mocked_post_custom_llm_sync.assert_called_once()
+        register_payload = mocked_post_custom_llm_sync.call_args.args[1]
+        self.assertTrue(register_payload["transcription_enabled"])
+        self.assertTrue(register_payload["audio_biomarkers_enabled"])
+        self.assertFalse(register_payload["video_biomarkers_enabled"])
+
+    @patch("local_server._post_custom_llm_sync")
+    @patch("local_server.authorize_meeting_join")
+    @patch("local_server.build_token_with_rtm")
+    @patch("local_server.initialize_constants")
+    def test_join_meeting_second_joiner_accepts_register_conflict_as_reuse(
+        self,
+        mocked_initialize_constants,
+        mocked_build_token,
+        mocked_authorize,
+        mocked_post_custom_llm_sync,
+    ):
+        mocked_initialize_constants.return_value = self.constants
+        mocked_post_custom_llm_sync.return_value = {"ok": False, "status": 409, "body": "{}"}
+        mocked_authorize.return_value = {
+            "ok": True,
+            "data": {
+                "meeting_id": "meeting-123",
+                "meeting_runtime_key": "test-app:MEET123456:meeting-123",
+                "participant_role": "guest",
+                "client_id": "client-123",
+                "consultant_id": "consultant-456",
+                "channel_name": "MEET123456",
+                "participant_uid": "101",
+                "user_uid": "101",
+                "host_uid": "103",
+                "guest_uid": "101",
+                "rtm_uid": "5001-MEET123456",
+                "ensure_meeting_services": False,
+                "transcription_enabled": False,
+                "audio_biomarkers_enabled": True,
+                "video_biomarkers_enabled": True,
+            },
+        }
+        mocked_build_token.side_effect = [
+            {"token": "guest-token", "uid": "101"},
+            {"token": "sub-token", "uid": "5000"},
+            {"token": "rtm-token", "uid": "5001"},
+        ]
+
+        response = self.client.post(
+            "/join-meeting",
+            json={"profile": "therapy", "access_token": "client-access-token"},
+        )
+        self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json["audio_biomarkers_enabled"])
         self.assertTrue(response.json["video_biomarkers_enabled"])
+        self.assertEqual(mocked_post_custom_llm_sync.call_count, 3)
 
     @patch("local_server.initialize_constants")
     def test_join_meeting_guest_requires_authenticated_identity(self, mocked_initialize_constants):

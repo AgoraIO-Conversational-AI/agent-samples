@@ -42,6 +42,7 @@ class PasswordLoginAuthTest(unittest.TestCase):
                      "status": "verified",
                      "client_id": "client-123",
                      "consultant_id": "consultant-456",
+                     "first_name": "Alex",
                      "display_name": "Alex Demo",
                      "email": "alex@example.com",
                      "phone_number": "+447700900111",
@@ -53,6 +54,7 @@ class PasswordLoginAuthTest(unittest.TestCase):
                      "status": "resolved",
                      "client_id": "client-123",
                      "consultant_id": "consultant-456",
+                     "first_name": "Alex",
                      "display_name": "Alex Demo",
                      "email": "alex@example.com",
                      "phone_number": "+447700900111",
@@ -86,6 +88,7 @@ class PasswordLoginAuthTest(unittest.TestCase):
             self.assertEqual(claims["client_id"], "client-123")
             self.assertEqual(claims["email"], "alex@example.com")
             self.assertEqual(claims["name"], "Alex Demo")
+            self.assertEqual(claims["first_name"], "Alex")
 
     def test_tenant_prefixed_password_login_flow_preserves_prefix(self):
         with patch("core.auth._get_profile_constants", return_value=self.constants), \
@@ -96,6 +99,7 @@ class PasswordLoginAuthTest(unittest.TestCase):
                      "status": "verified",
                      "client_id": "client-123",
                      "consultant_id": "consultant-456",
+                     "first_name": "Alex",
                      "display_name": "Alex Demo",
                      "email": "alex@example.com",
                      "phone_number": "+447700900111",
@@ -162,6 +166,7 @@ class PasswordLoginAuthTest(unittest.TestCase):
                      "status": "resolved",
                      "client_id": "client-123",
                      "consultant_id": "consultant-456",
+                     "first_name": "Alex",
                      "display_name": "Alex Demo",
                      "email": "alex@example.com",
                      "phone_number": "+447700900111",
@@ -196,6 +201,7 @@ class PasswordLoginAuthTest(unittest.TestCase):
             self.assertEqual(claims["client_id"], "client-123")
             self.assertEqual(claims["email"], "alex@example.com")
             self.assertEqual(claims["name"], "Alex Demo")
+            self.assertEqual(claims["first_name"], "Alex")
 
     def test_shared_google_callback_redirects_back_into_tenant_verify_page(self):
         token_payload = {
@@ -229,6 +235,7 @@ class PasswordLoginAuthTest(unittest.TestCase):
                      "status": "resolved",
                      "client_id": "client-123",
                      "consultant_id": "consultant-456",
+                     "first_name": "Alex",
                      "display_name": "Alex Demo",
                      "email": "alex@example.com",
                      "phone_number": "+447700900111",

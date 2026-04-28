@@ -25,8 +25,9 @@ from core.tokens import build_token_with_rtm
 from core.agent import create_agent_payload, send_agent_to_channel, hangup_agent, speak_to_agent, build_auth_header
 from core.auth import auth_bp, get_authenticated_user_id
 from core.consultant_dashboard import (
-    fetch_dashboard_context,
     dashboard_client_required,
+    fetch_dashboard_context,
+    fetch_dashboard_meeting_signals,
     resolve_dashboard_client,
 )
 from core.meeting_mode import authorize_meeting_join, notify_meeting_end, notify_meeting_event, verify_join_bootstrap
@@ -250,6 +251,10 @@ def start_agent():
     if dashboard_context.get('status') == 'resolved' and dashboard_context.get('prompt_addition'):
         base_prompt = query_params.get('prompt', constants["DEFAULT_PROMPT"])
         query_params['prompt'] = f"{base_prompt}\n\n{dashboard_context['prompt_addition']}"
+    scheduled_meeting_id = (query_params.get("scheduled_meeting_id") or "").strip()
+    scheduled_meeting_signals = None
+    if scheduled_meeting_id:
+        scheduled_meeting_signals = fetch_dashboard_meeting_signals(constants, scheduled_meeting_id)
 
     # Get or generate channel
     channel = query_params.get('channel') or generate_random_channel(10)
@@ -296,7 +301,16 @@ def start_agent():
                 "status_code": 200,
                 "response": {"message": "Token-only mode: tokens generated successfully", "mode": "token_only", "connect": False},
                 "success": True
-            }
+            },
+            "transcription_enabled": bool(
+                scheduled_meeting_signals and scheduled_meeting_signals.get("transcription_enabled")
+            ),
+            "audio_biomarkers_enabled": bool(
+                True if not scheduled_meeting_signals else scheduled_meeting_signals.get("audio_biomarkers_enabled", True)
+            ),
+            "video_biomarkers_enabled": bool(
+                True if not scheduled_meeting_signals else scheduled_meeting_signals.get("video_biomarkers_enabled", True)
+            ),
         })
 
     # Normal flow: create and send agent
@@ -352,6 +366,12 @@ def start_agent():
                         "profile_name": constants.get("PROFILE_NAME", "default"),
                         "meeting_id": query_params.get("scheduled_meeting_id", ""),
                     })
+                if scheduled_meeting_signals:
+                    register_payload.update({
+                        "transcription_enabled": bool(scheduled_meeting_signals.get("transcription_enabled")),
+                        "audio_biomarkers_enabled": bool(scheduled_meeting_signals.get("audio_biomarkers_enabled", True)),
+                        "video_biomarkers_enabled": bool(scheduled_meeting_signals.get("video_biomarkers_enabled", True)),
+                    })
                 def _register():
                     try:
                         req_data = json.dumps(register_payload).encode('utf-8')
@@ -383,7 +403,16 @@ def start_agent():
         "agent_rtm_uid": f"{constants['AGENT_UID']}-{channel}",
         "user_rtm_uid": user_rtm_uid,
         "enable_string_uid": False,
-        "agent_response": agent_response
+        "agent_response": agent_response,
+        "transcription_enabled": bool(
+            scheduled_meeting_signals and scheduled_meeting_signals.get("transcription_enabled")
+        ),
+        "audio_biomarkers_enabled": bool(
+            True if not scheduled_meeting_signals else scheduled_meeting_signals.get("audio_biomarkers_enabled", True)
+        ),
+        "video_biomarkers_enabled": bool(
+            True if not scheduled_meeting_signals else scheduled_meeting_signals.get("video_biomarkers_enabled", True)
+        ),
     }
 
     # Add debug info if requested (redact secrets)
@@ -459,8 +488,8 @@ def join_meeting():
         f"role={join_data.get('participant_role')} "
         f"ensure={join_data.get('ensure_meeting_services')} "
         f"stt={join_data.get('transcription_enabled')} "
-        f"audio={join_data.get('audio_biomarkers_enabled', True)} "
-        f"video={join_data.get('video_biomarkers_enabled', True)} "
+        f"audio_biomarkers_enabled={join_data.get('audio_biomarkers_enabled', True)} "
+        f"video_biomarkers_enabled={join_data.get('video_biomarkers_enabled', True)} "
         f"channel={join_data.get('channel_name')}"
     )
     channel = join_data["channel_name"]
@@ -473,13 +502,29 @@ def join_meeting():
         rtm_uid=participant_rtm_uid,
     )
 
-    if join_data.get("ensure_meeting_services"):
+    transcription_enabled = bool(join_data.get("transcription_enabled"))
+    audio_biomarkers_enabled = (
+        bool(join_data.get("audio_biomarkers_enabled"))
+        if "audio_biomarkers_enabled" in join_data
+        else False
+    )
+    video_biomarkers_enabled = (
+        bool(join_data.get("video_biomarkers_enabled"))
+        if "video_biomarkers_enabled" in join_data
+        else False
+    )
+    should_register_meeting_services = bool(join_data.get("ensure_meeting_services")) or any(
+        (
+            transcription_enabled,
+            audio_biomarkers_enabled,
+            video_biomarkers_enabled,
+        )
+    )
+
+    if should_register_meeting_services:
         sub_token_info = build_token_with_rtm(channel, "5000", constants)
         llm_rtm_uid = join_data.get("rtm_uid") or f"5001-{channel}"
         rtm_token_info = build_token_with_rtm(channel, "5001", constants, rtm_uid=llm_rtm_uid)
-        transcription_enabled = bool(join_data.get("transcription_enabled"))
-        audio_biomarkers_enabled = bool(join_data.get("audio_biomarkers_enabled", True))
-        video_biomarkers_enabled = bool(join_data.get("video_biomarkers_enabled", True))
         transcription_bot_uid = "104" if transcription_enabled else ""
         transcription_bot_token = ""
         if transcription_enabled:
@@ -520,9 +565,19 @@ def join_meeting():
             "transcription_bot_uid": transcription_bot_uid,
             "transcription_bot_token": transcription_bot_token,
         }
-        transcription_enabled = bool(join_data.get("transcription_enabled"))
-        audio_biomarkers_enabled = bool(join_data.get("audio_biomarkers_enabled", True))
-        video_biomarkers_enabled = bool(join_data.get("video_biomarkers_enabled", True))
+        print(
+            "[RegisterMeeting] "
+            f"meeting_id={join_data.get('meeting_id')} "
+            f"runtime={join_data.get('meeting_runtime_key', '')} "
+            f"channel={channel} "
+            f"role={join_data.get('participant_role')} "
+            f"ensure={join_data.get('ensure_meeting_services')} "
+            f"stt={transcription_enabled} "
+            f"audio_biomarkers_enabled={audio_biomarkers_enabled} "
+            f"video_biomarkers_enabled={video_biomarkers_enabled} "
+            f"thymia_key={'yes' if constants.get('THYMIA_API_KEY', '') else 'no'} "
+            f"rtm_uid={llm_rtm_uid}"
+        )
         register_result = None
         for _attempt in range(3):
             register_result = _post_custom_llm_sync(register_url, register_payload, "RegisterMeeting", constants=constants)
@@ -536,15 +591,17 @@ def join_meeting():
                 f"channel={channel} already initialized; reusing existing services"
             )
             register_result["ok"] = True
+        elif register_result.get("ok"):
+            print(
+                "[RegisterMeeting] "
+                f"meeting_id={join_data.get('meeting_id')} "
+                f"channel={channel} register-agent ok"
+            )
         if not register_result.get("ok"):
             return jsonify({
                 "error": "Meeting services failed to initialize.",
                 "details": register_result.get("error", "register_failed"),
             }), 502
-
-    transcription_enabled = bool(join_data.get("transcription_enabled"))
-    audio_biomarkers_enabled = bool(join_data.get("audio_biomarkers_enabled", True))
-    video_biomarkers_enabled = bool(join_data.get("video_biomarkers_enabled", True))
 
     return jsonify({
         "mode": "meeting",

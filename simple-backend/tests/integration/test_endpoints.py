@@ -82,6 +82,27 @@ class TestStartAgentEndpoint:
         for field in required_fields:
             assert field in data, f"Missing required field: {field}"
 
+    def test_start_agent_includes_scheduled_meeting_signal_flags(self, client, monkeypatch):
+        monkeypatch.setattr(
+            "local_server.fetch_dashboard_meeting_signals",
+            lambda constants, meeting_id: {
+                "status": "resolved",
+                "meeting_id": meeting_id,
+                "meeting_type": "ai",
+                "transcription_enabled": True,
+                "audio_biomarkers_enabled": True,
+                "video_biomarkers_enabled": False,
+            },
+        )
+
+        response = client.get('/start-agent?connect=false&scheduled_meeting_id=meeting-123')
+
+        assert response.status_code == 200
+        data = response.json
+        assert data["transcription_enabled"] is True
+        assert data["audio_biomarkers_enabled"] is True
+        assert data["video_biomarkers_enabled"] is False
+
 
 @pytest.mark.integration
 class TestHangupAgentEndpoint:

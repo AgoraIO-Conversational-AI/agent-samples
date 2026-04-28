@@ -11,6 +11,7 @@ from core.consultant_dashboard import (
     _build_identity_query,
     build_prompt_addition,
     dashboard_client_required,
+    fetch_dashboard_meeting_signals,
     resolve_dashboard_client,
     verify_dashboard_client_password,
 )
@@ -109,7 +110,13 @@ class ConsultantDashboardTest(unittest.TestCase):
                 hashlib.sha256(b"alex@example.com").hexdigest(),
             )
             self.assertEqual(query_params["phone_hash"], "phonehash")
-            return 200, {"found": True, "client_id": "client-123", "consultant_id": "consultant-456"}
+            return 200, {
+                "found": True,
+                "client_id": "client-123",
+                "consultant_id": "consultant-456",
+                "first_name": "Alex",
+                "display_name": "Alex Demo",
+            }
 
         with patch.object(consultant_dashboard, "_signed_get_json", fake_signed_get_json):
             result = resolve_dashboard_client(
@@ -124,6 +131,7 @@ class ConsultantDashboardTest(unittest.TestCase):
         self.assertEqual(result["status"], "resolved")
         self.assertEqual(result["client_id"], "client-123")
         self.assertEqual(result["consultant_id"], "consultant-456")
+        self.assertEqual(result["first_name"], "Alex")
         self.assertEqual(len(calls), 1)
 
     def test_verify_dashboard_client_password_returns_verified_client(self):
@@ -138,6 +146,7 @@ class ConsultantDashboardTest(unittest.TestCase):
                 "ok": True,
                 "client_id": "client-123",
                 "consultant_id": "consultant-456",
+                "first_name": "Alex",
                 "display_name": "Alex Demo",
                 "email": "alex@example.com",
                 "phone_number": "+447700900111",
@@ -156,6 +165,38 @@ class ConsultantDashboardTest(unittest.TestCase):
 
         self.assertEqual(result["status"], "verified")
         self.assertEqual(result["client_id"], "client-123")
+        self.assertEqual(result["first_name"], "Alex")
+        self.assertEqual(len(calls), 1)
+
+    def test_fetch_dashboard_meeting_signals_returns_flags(self):
+        calls = []
+
+        def fake_signed_get_json(_base_url, path, query_params, _shared_secret, _timeout_seconds):
+            calls.append((path, query_params))
+            self.assertEqual(path, "/internal/meeting-signals")
+            self.assertEqual(query_params["meeting_id"], "meeting-123")
+            return 200, {
+                "ok": True,
+                "meeting_id": "meeting-123",
+                "meeting_type": "ai",
+                "transcription_enabled": True,
+                "audio_biomarkers_enabled": True,
+                "video_biomarkers_enabled": False,
+            }
+
+        with patch.object(consultant_dashboard, "_signed_get_json", fake_signed_get_json):
+            result = fetch_dashboard_meeting_signals(
+                {
+                    "CONSULTANT_DASHBOARD_URL": "http://127.0.0.1:8090",
+                    "CONSULTANT_DASHBOARD_INTERNAL_SHARED_SECRET": "secret",
+                    "CONSULTANT_DASHBOARD_TIMEOUT_SECONDS": "5",
+                },
+                "meeting-123",
+            )
+
+        self.assertEqual(result["status"], "resolved")
+        self.assertEqual(result["meeting_type"], "ai")
+        self.assertFalse(result["video_biomarkers_enabled"])
         self.assertEqual(len(calls), 1)
 
     def test_resolve_dashboard_client_returns_dashboard_unavailable_for_network_errors(self):
