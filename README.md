@@ -11,22 +11,24 @@ up the sample backend and one of the sample clients or ask AI to do it for you.
 
 ## AI Coding Assistant Guide
 
-**Comprehensive implementation guide for AI agents** → [AGENT.md](./AGENT.md)
+**AI repo entry point (progressive disclosure)** → [AGENTS.md](./AGENTS.md)
+
+**Long-form implementation guide for the sample stack** → [AGENT.md](./AGENT.md)
 
 **Example prompt for Claude Code (Voice):**
 
 ```
 Clone https://github.com/AgoraIO-Conversational-AI/agent-samples and then I want to run the
-React Voice AI Agent here on my laptop. Be sure to read the AGENT.md
-before you begin building.
+React Voice AI Agent here on my laptop. Read AGENTS.md first, then use AGENT.md
+for the longer implementation walkthrough.
 ```
 
 **Example prompt for Claude Code (Avatar):**
 
 ```
 Clone https://github.com/AgoraIO-Conversational-AI/agent-samples and then I want to run the
-Video AI Agent with Avatar Sample here on my laptop. Be sure to read the AGENT.md
-before you begin building.
+Video AI Agent with Avatar Sample here on my laptop. Read AGENTS.md first, then use AGENT.md
+for the longer implementation walkthrough.
 ```
 
 ## System Architecture
