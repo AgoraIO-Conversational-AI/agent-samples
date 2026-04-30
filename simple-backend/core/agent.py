@@ -261,6 +261,7 @@ def build_avatar_config(avatar_vendor, constants, channel, agent_video_token, qu
         return None
 
     query_params = query_params or {}
+    avatar_id = query_params.get('avatar_id', constants["AVATAR_ID"])
 
     # Validate generic avatar credentials
     if not constants.get("AVATAR_API_KEY"):
@@ -268,7 +269,7 @@ def build_avatar_config(avatar_vendor, constants, channel, agent_video_token, qu
             f"AVATAR_API_KEY is required when AVATAR_VENDOR={avatar_vendor}. "
             f"Set AVATAR_API_KEY in your .env file."
         )
-    if not constants.get("AVATAR_ID"):
+    if not avatar_id:
         raise ValueError(
             f"AVATAR_ID is required when AVATAR_VENDOR={avatar_vendor}. "
             f"Set AVATAR_ID in your .env file."
@@ -286,7 +287,7 @@ def build_avatar_config(avatar_vendor, constants, channel, agent_video_token, qu
                 "quality": query_params.get('heygen_quality', constants["HEYGEN_QUALITY"]),
                 "agora_uid": constants["AGENT_VIDEO_UID"],
                 "agora_token": agora_token_value,
-                "avatar_id": constants["AVATAR_ID"],
+                "avatar_id": avatar_id,
                 "disable_idle_timeout": False,
                 "activity_idle_timeout": int(query_params.get('heygen_idle_timeout', constants["HEYGEN_ACTIVITY_IDLE_TIMEOUT"])),
                 "video_encoding": "AV1"
@@ -303,7 +304,7 @@ def build_avatar_config(avatar_vendor, constants, channel, agent_video_token, qu
                 "api_key": constants["AVATAR_API_KEY"],
                 "agora_uid": constants["AGENT_VIDEO_UID"],
                 "agora_token": agora_token_value,
-                "avatar_id": constants["AVATAR_ID"],
+                "avatar_id": avatar_id,
                 "sample_rate": 24000,
                 "video_encoding": "AV1"
             }
@@ -319,7 +320,7 @@ def build_avatar_config(avatar_vendor, constants, channel, agent_video_token, qu
                 "api_key": constants["AVATAR_API_KEY"],
                 "agora_uid": constants["AGENT_VIDEO_UID"],
                 "agora_token": agora_token_value,
-                "avatar_id": constants["AVATAR_ID"],
+                "avatar_id": avatar_id,
             }
         }
     else:
