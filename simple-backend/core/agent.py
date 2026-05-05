@@ -527,7 +527,7 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
         user_name = query_params.get('user_name', '')
         if user_name:
             prompt += f"\n\nThe user's name is {user_name}. Use their name naturally in conversation."
-            greeting = greeting.replace("Hey there!", f"Hey {user_name}!").replace("Hi there!", f"Hi {user_name}!")
+            greeting = greeting.replace("Hey there!", f"Hey {user_name},").replace("Hi there!", f"Hi {user_name},")
         max_history = int(query_params.get('max_history', constants["MAX_HISTORY"]))
 
         # Get Custom LLM parameters

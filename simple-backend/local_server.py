@@ -17,6 +17,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from uuid import uuid4
 
 from flask import Flask, request, jsonify, session
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -258,6 +259,8 @@ def start_agent():
 
     # Get or generate channel
     channel = query_params.get('channel') or generate_random_channel(10)
+    session_id = (query_params.get('session_id') or '').strip() or str(uuid4())
+    query_params['session_id'] = session_id
 
     # Check if token-only mode
     token_only_mode = query_params.get('connect', 'true').lower() == 'false'
@@ -302,6 +305,7 @@ def start_agent():
                 "response": {"message": "Token-only mode: tokens generated successfully", "mode": "token_only", "connect": False},
                 "success": True
             },
+            "session_id": session_id,
             "transcription_enabled": bool(
                 scheduled_meeting_signals and scheduled_meeting_signals.get("transcription_enabled")
             ),
@@ -355,6 +359,7 @@ def start_agent():
                     "user_id": user_id,
                     "user_name": query_params.get('user_name', ''),
                     "max_session_duration": int(constants.get("MAX_SESSION_DURATION") or 0),
+                    "session_id": session_id,
                 }
                 if dashboard_context:
                     register_payload.update({
@@ -404,6 +409,7 @@ def start_agent():
         "user_rtm_uid": user_rtm_uid,
         "enable_string_uid": False,
         "agent_response": agent_response,
+        "session_id": session_id,
         "transcription_enabled": bool(
             scheduled_meeting_signals and scheduled_meeting_signals.get("transcription_enabled")
         ),
@@ -552,6 +558,7 @@ def join_meeting():
             "profile_name": constants.get("PROFILE_NAME", "default"),
             "meeting_mode": True,
             "meeting_id": join_data.get("meeting_id", ""),
+            "session_id": f"meeting-{join_data.get('meeting_id', '')}",
             "meeting_runtime_key": join_data.get("meeting_runtime_key", ""),
             "participant_role": join_data.get("participant_role", ""),
             "host_uid": join_data.get("host_uid", "103"),
@@ -607,6 +614,7 @@ def join_meeting():
         "mode": "meeting",
         "meeting_mode": True,
         "meeting_id": join_data["meeting_id"],
+        "session_id": f"meeting-{join_data['meeting_id']}",
         "meeting_runtime_key": join_data.get("meeting_runtime_key", ""),
         "participant_role": join_data["participant_role"],
         "transcription_enabled": transcription_enabled,

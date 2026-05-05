@@ -58,6 +58,13 @@ class TestStartAgentEndpoint:
         assert data['agent_response']['response']['mode'] == 'token_only'
         assert data['agent_response']['response']['connect'] is False
         assert data['agent_response']['success'] is True
+        assert data['session_id']
+
+    def test_start_agent_preserves_supplied_session_id(self, client):
+        response = client.get('/start-agent?connect=false&session_id=sess-demo-123')
+
+        assert response.status_code == 200
+        assert response.json['session_id'] == 'sess-demo-123'
 
     def test_start_agent_response_structure(self, client):
         """Test that response has all required fields"""

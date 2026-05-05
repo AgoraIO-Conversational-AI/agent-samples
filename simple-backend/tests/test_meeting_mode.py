@@ -125,11 +125,13 @@ class MeetingModeTest(unittest.TestCase):
         self.assertTrue(response.json["meeting_mode"])
         self.assertEqual(response.json["channel"], "MEET123456")
         self.assertEqual(response.json["uid"], "101")
+        self.assertEqual(response.json["session_id"], "meeting-meeting-123")
         self.assertEqual(response.json["meeting_runtime_key"], "test-app:MEET123456:meeting-123")
         self.assertFalse(response.json["audio_biomarkers_enabled"])
         self.assertTrue(response.json["video_biomarkers_enabled"])
         mocked_post_custom_llm_sync.assert_called_once()
         register_payload = mocked_post_custom_llm_sync.call_args.args[1]
+        self.assertEqual(register_payload["session_id"], "meeting-meeting-123")
         self.assertEqual(register_payload["meeting_runtime_key"], "test-app:MEET123456:meeting-123")
         self.assertTrue(register_payload["transcription_enabled"])
         self.assertFalse(register_payload["audio_biomarkers_enabled"])

@@ -25,14 +25,8 @@
 
   <script>
     const code = document.getElementById('code');
-    let attemptedAutoSubmit = false;
-
     code.addEventListener('input', () => {
-      code.value = code.value.replace(/[^0-9]/g, '');
-      if (!attemptedAutoSubmit && code.value.length === 6) {
-        attemptedAutoSubmit = true;
-        document.getElementById('verify-form').requestSubmit();
-      }
+      code.value = code.value.replace(/[^0-9]/g, '').slice(0, 6);
     });
 
     code.focus();
@@ -63,10 +57,8 @@
           window.location.href = data.redirect;
           return false;
         }
-        attemptedAutoSubmit = false;
         showError(data.error || 'Verification failed.');
       } catch (_err) {
-        attemptedAutoSubmit = false;
         showError('Network error. Please try again.');
       }
       btn.disabled = false;

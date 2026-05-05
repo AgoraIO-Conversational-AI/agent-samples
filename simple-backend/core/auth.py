@@ -397,7 +397,11 @@ def auth_check():
 
     jwt_secret = constants.get('AUTH_JWT_SECRET')
     if not jwt_secret:
-        return jsonify({'auth_required': False, 'authenticated': False})
+        return jsonify({
+            'auth_required': False,
+            'authenticated': False,
+            'vendor_slug': vendor_slug or (constants.get('VENDOR_SLUG') or 'mindfix').strip().lower(),
+        })
 
     # Auth is required — check for valid Bearer token
     claims = _decode_auth_token(_get_auth_token_from_request(request), jwt_secret)
@@ -417,6 +421,7 @@ def auth_check():
             'auth_required': True,
             'authenticated': True,
             'user_name': claims.get('first_name') or claims.get('name', ''),
+            'vendor_slug': vendor_slug or (constants.get('VENDOR_SLUG') or 'mindfix').strip().lower(),
         })
 
     # Not authenticated — provide auth URL
@@ -429,6 +434,7 @@ def auth_check():
         'auth_required': True,
         'authenticated': False,
         'auth_url': auth_url,
+        'vendor_slug': vendor_slug or (constants.get('VENDOR_SLUG') or 'mindfix').strip().lower(),
     })
 
 
