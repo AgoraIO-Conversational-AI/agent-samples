@@ -87,7 +87,7 @@ class TestCreateAgentPayload:
             "DEFAULT_FAILURE_MESSAGE": "Sorry, I encountered an error",
             "MAX_HISTORY": 10,
             "IDLE_TIMEOUT": 300,
-            "VAD_SILENCE_DURATION_MS": 500,
+            "VAD_SILENCE_DURATION_MS": "500",
             "ENABLE_AIVAD": "false",
             "ASR_VENDOR": "ares",
             "ASR_LANGUAGE": "en-US",
@@ -119,7 +119,7 @@ class TestCreateAgentPayload:
             "DEFAULT_FAILURE_MESSAGE": "Error",
             "MAX_HISTORY": 10,
             "IDLE_TIMEOUT": 300,
-            "VAD_SILENCE_DURATION_MS": 500,
+            "VAD_SILENCE_DURATION_MS": "500",
             "ENABLE_AIVAD": "false",
             "ASR_VENDOR": "ares",
             "ASR_LANGUAGE": "en-US",
@@ -151,7 +151,7 @@ class TestCreateAgentPayload:
             "DEFAULT_FAILURE_MESSAGE": "Error",
             "MAX_HISTORY": 10,
             "IDLE_TIMEOUT": 300,
-            "VAD_SILENCE_DURATION_MS": 500,
+            "VAD_SILENCE_DURATION_MS": "500",
             "ENABLE_AIVAD": "false",
             "ASR_VENDOR": "ares",
             "ASR_LANGUAGE": "en-US",
@@ -176,7 +176,7 @@ class TestCreateAgentPayload:
             "DEFAULT_FAILURE_MESSAGE": "Error",
             "MAX_HISTORY": 10,
             "IDLE_TIMEOUT": 300,
-            "VAD_SILENCE_DURATION_MS": 500,
+            "VAD_SILENCE_DURATION_MS": "500",
             "ENABLE_AIVAD": "false",
             "ASR_VENDOR": "ares",
             "ASR_LANGUAGE": "en-US",
@@ -205,7 +205,7 @@ class TestCreateAgentPayload:
             "DEFAULT_FAILURE_MESSAGE": "Error",
             "MAX_HISTORY": 10,
             "IDLE_TIMEOUT": 300,
-            "VAD_SILENCE_DURATION_MS": 500,
+            "VAD_SILENCE_DURATION_MS": "500",
             "ENABLE_AIVAD": "false",
             "ASR_VENDOR": "ares",
             "ASR_LANGUAGE": "en-US",
@@ -234,7 +234,7 @@ class TestCreateAgentPayload:
             "DEFAULT_FAILURE_MESSAGE": "Error",
             "MAX_HISTORY": 10,
             "IDLE_TIMEOUT": 300,
-            "VAD_SILENCE_DURATION_MS": 500,
+            "VAD_SILENCE_DURATION_MS": "500",
             "ENABLE_AIVAD": "false",
             "ASR_VENDOR": "ares",
             "ASR_LANGUAGE": "en-US",
@@ -262,7 +262,7 @@ class TestCreateAgentPayload:
             "DEFAULT_FAILURE_MESSAGE": "Error",
             "MAX_HISTORY": 10,
             "IDLE_TIMEOUT": 300,
-            "VAD_SILENCE_DURATION_MS": 500,
+            "VAD_SILENCE_DURATION_MS": "500",
             "ENABLE_AIVAD": "false",
             "ASR_VENDOR": "ares",
             "ASR_LANGUAGE": "en-US",
@@ -273,6 +273,171 @@ class TestCreateAgentPayload:
         })
 
         with pytest.raises(ValueError, match="AVATAR_ID is required"):
+            create_agent_payload(
+                channel="test_channel",
+                constants=constants,
+                query_params={},
+                agent_video_token="video_token"
+            )
+
+    def test_generic_avatar_payload(self, test_constants):
+        """Test payload includes generic avatar with all expected params"""
+        constants = test_constants.copy()
+        constants.update({
+            "LLM_URL": "https://api.openai.com/v1/chat/completions",
+            "DEFAULT_PROMPT": "You are a helpful assistant",
+            "DEFAULT_GREETING": "Hello",
+            "DEFAULT_FAILURE_MESSAGE": "Error",
+            "MAX_HISTORY": 10,
+            "IDLE_TIMEOUT": 300,
+            "VAD_SILENCE_DURATION_MS": "500",
+            "ENABLE_AIVAD": "false",
+            "ASR_VENDOR": "ares",
+            "ASR_LANGUAGE": "en-US",
+            "AVATAR_VENDOR": "generic",
+            "AVATAR_API_KEY": "test_key",
+            "AVATAR_ID": "https://example.com/avatar.jpg",
+            "AVATAR_API_BASE_URL": "https://example.com/api/liveai/agora",
+            "AVATAR_QUALITY": "high",
+            "AVATAR_VERSION": "v1",
+            "AVATAR_VIDEO_ENCODING": "H264",
+            "AVATAR_ACTIVITY_IDLE_TIMEOUT": "120",
+            "AVATAR_AREA": "NORTH_AMERICA",
+        })
+
+        payload = create_agent_payload(
+            channel="test_channel",
+            constants=constants,
+            query_params={},
+            agent_video_token="video_token_here"
+        )
+
+        assert "avatar" in payload["properties"]
+        avatar = payload["properties"]["avatar"]
+        assert avatar["vendor"] == "generic"
+        assert avatar["enable"] is True
+        assert avatar["params"]["api_key"] == "test_key"
+        assert avatar["params"]["avatar_id"] == "https://example.com/avatar.jpg"
+        assert avatar["params"]["api_base_url"] == "https://example.com/api/liveai/agora"
+        assert avatar["params"]["quality"] == "high"
+        assert avatar["params"]["version"] == "v1"
+        assert avatar["params"]["video_encoding"] == "H264"
+        assert avatar["params"]["activity_idle_timeout"] == 120
+        assert avatar["params"]["area"] == "NORTH_AMERICA"
+
+    def test_generic_missing_api_key(self, test_constants):
+        """Test that generic without API key raises error"""
+        constants = test_constants.copy()
+        constants.update({
+            "LLM_URL": "https://api.openai.com/v1/chat/completions",
+            "DEFAULT_PROMPT": "You are a helpful assistant",
+            "DEFAULT_GREETING": "Hello",
+            "DEFAULT_FAILURE_MESSAGE": "Error",
+            "MAX_HISTORY": 10,
+            "IDLE_TIMEOUT": 300,
+            "VAD_SILENCE_DURATION_MS": "500",
+            "ENABLE_AIVAD": "false",
+            "ASR_VENDOR": "ares",
+            "ASR_LANGUAGE": "en-US",
+            "AVATAR_VENDOR": "generic",
+            "AVATAR_API_KEY": "",  # Missing
+            "AVATAR_ID": "https://example.com/avatar.jpg",
+            "AVATAR_API_BASE_URL": "https://example.com/api/liveai/agora",
+        })
+
+        with pytest.raises(ValueError, match="AVATAR_API_KEY is required"):
+            create_agent_payload(
+                channel="test_channel",
+                constants=constants,
+                query_params={},
+                agent_video_token="video_token"
+            )
+
+    def test_anam_avatar_id_query_override(self, test_constants):
+        """Test that Anam avatar_id can be overridden via query params"""
+        constants = test_constants.copy()
+        constants.update({
+            "LLM_URL": "https://api.openai.com/v1/chat/completions",
+            "DEFAULT_PROMPT": "You are a helpful assistant",
+            "DEFAULT_GREETING": "Hello",
+            "DEFAULT_FAILURE_MESSAGE": "Error",
+            "MAX_HISTORY": 10,
+            "IDLE_TIMEOUT": 300,
+            "VAD_SILENCE_DURATION_MS": "500",
+            "ENABLE_AIVAD": "false",
+            "ASR_VENDOR": "ares",
+            "ASR_LANGUAGE": "en-US",
+            "AVATAR_VENDOR": "anam",
+            "AVATAR_API_KEY": "test_key",
+            "AVATAR_ID": "default_avatar",
+        })
+
+        payload = create_agent_payload(
+            channel="test_channel",
+            constants=constants,
+            query_params={"avatar_id": "override_avatar"},
+            agent_video_token="video_token_here"
+        )
+
+        assert payload["properties"]["avatar"]["vendor"] == "anam"
+        assert payload["properties"]["avatar"]["params"]["avatar_id"] == "override_avatar"
+
+    def test_generic_query_param_overrides(self, test_constants):
+        """Test that generic avatar query params override profile defaults"""
+        constants = test_constants.copy()
+        constants.update({
+            "LLM_URL": "https://api.openai.com/v1/chat/completions",
+            "DEFAULT_PROMPT": "You are a helpful assistant",
+            "DEFAULT_GREETING": "Hello",
+            "DEFAULT_FAILURE_MESSAGE": "Error",
+            "MAX_HISTORY": 10,
+            "IDLE_TIMEOUT": 300,
+            "VAD_SILENCE_DURATION_MS": "500",
+            "ENABLE_AIVAD": "false",
+            "ASR_VENDOR": "ares",
+            "ASR_LANGUAGE": "en-US",
+            "AVATAR_VENDOR": "generic",
+            "AVATAR_API_KEY": "test_key",
+            "AVATAR_ID": "https://example.com/default-avatar.jpg",
+            "AVATAR_API_BASE_URL": "https://example.com/api/liveai/agora",
+        })
+
+        payload = create_agent_payload(
+            channel="test_channel",
+            constants=constants,
+            query_params={
+                "avatar_id": "https://example.com/override-avatar.jpg",
+                "avatar_api_base_url": "https://override.example.com/agora",
+            },
+            agent_video_token="video_token_here"
+        )
+
+        avatar = payload["properties"]["avatar"]
+        assert avatar["vendor"] == "generic"
+        assert avatar["params"]["avatar_id"] == "https://example.com/override-avatar.jpg"
+        assert avatar["params"]["api_base_url"] == "https://override.example.com/agora"
+
+    def test_generic_missing_api_base_url(self, test_constants):
+        """Test that generic without API base URL raises error"""
+        constants = test_constants.copy()
+        constants.update({
+            "LLM_URL": "https://api.openai.com/v1/chat/completions",
+            "DEFAULT_PROMPT": "You are a helpful assistant",
+            "DEFAULT_GREETING": "Hello",
+            "DEFAULT_FAILURE_MESSAGE": "Error",
+            "MAX_HISTORY": 10,
+            "IDLE_TIMEOUT": 300,
+            "VAD_SILENCE_DURATION_MS": "500",
+            "ENABLE_AIVAD": "false",
+            "ASR_VENDOR": "ares",
+            "ASR_LANGUAGE": "en-US",
+            "AVATAR_VENDOR": "generic",
+            "AVATAR_API_KEY": "test_key",
+            "AVATAR_ID": "https://example.com/avatar.jpg",
+            "AVATAR_API_BASE_URL": "",
+        })
+
+        with pytest.raises(ValueError, match="AVATAR_API_BASE_URL is required"):
             create_agent_payload(
                 channel="test_channel",
                 constants=constants,

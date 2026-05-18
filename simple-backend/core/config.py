@@ -159,6 +159,14 @@ def initialize_constants(profile=None):
         "HEYGEN_QUALITY": get_env_var('HEYGEN_QUALITY', profile, "high"),
         "HEYGEN_ACTIVITY_IDLE_TIMEOUT": get_env_var('HEYGEN_ACTIVITY_IDLE_TIMEOUT', profile, "120"),
 
+        # Generic avatar settings
+        "AVATAR_API_BASE_URL": get_env_var('AVATAR_API_BASE_URL', profile),
+        "AVATAR_QUALITY": get_env_var('AVATAR_QUALITY', profile, "high"),
+        "AVATAR_VERSION": get_env_var('AVATAR_VERSION', profile, "v1"),
+        "AVATAR_VIDEO_ENCODING": get_env_var('AVATAR_VIDEO_ENCODING', profile, "H264"),
+        "AVATAR_ACTIVITY_IDLE_TIMEOUT": get_env_var('AVATAR_ACTIVITY_IDLE_TIMEOUT', profile, "120"),
+        "AVATAR_AREA": get_env_var('AVATAR_AREA', profile, "NORTH_AMERICA"),
+
         # Integration API keys (passed to custom LLM via register-agent)
         "THYMIA_API_KEY": get_env_var('THYMIA_API_KEY', profile),
 

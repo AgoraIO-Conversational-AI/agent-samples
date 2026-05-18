@@ -77,5 +77,11 @@ def test_constants():
         "AVATAR_ID": "",
         "HEYGEN_QUALITY": "high",
         "HEYGEN_ACTIVITY_IDLE_TIMEOUT": 60,
-        "ANAM_AGENT_ENDPOINT": "https://api-test.agora.io/api/conversational-ai-agent/v2/projects"
+        "ANAM_AGENT_ENDPOINT": "https://api-test.agora.io/api/conversational-ai-agent/v2/projects",
+        "AVATAR_QUALITY": "high",
+        "AVATAR_VERSION": "v1",
+        "AVATAR_VIDEO_ENCODING": "H264",
+        "AVATAR_ACTIVITY_IDLE_TIMEOUT": "120",
+        "AVATAR_AREA": "NORTH_AMERICA",
+        "AVATAR_API_BASE_URL": "https://example.com/api/liveai/agora"
     }

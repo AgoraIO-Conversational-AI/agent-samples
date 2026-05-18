@@ -262,10 +262,9 @@ def build_avatar_config(avatar_vendor, constants, channel, agent_video_token, qu
 
     query_params = query_params or {}
 
-    # Avatar ID can be overridden via ?avatar_id= URL param
-    avatar_id = query_params.get('avatar_id') or constants.get("AVATAR_ID")
+    avatar_id = query_params.get('avatar_id', constants.get("AVATAR_ID"))
 
-    # Validate generic avatar credentials
+    # Validate avatar credentials
     if not constants.get("AVATAR_API_KEY"):
         raise ValueError(
             f"AVATAR_API_KEY is required when AVATAR_VENDOR={avatar_vendor}. "
@@ -274,7 +273,7 @@ def build_avatar_config(avatar_vendor, constants, channel, agent_video_token, qu
     if not avatar_id:
         raise ValueError(
             f"AVATAR_ID is required when AVATAR_VENDOR={avatar_vendor}. "
-            f"Set AVATAR_ID in your .env file or pass ?avatar_id= URL param."
+            f"Set AVATAR_ID in your .env file or pass avatar_id in the URL."
         )
 
     if avatar_vendor == "heygen":
@@ -325,8 +324,32 @@ def build_avatar_config(avatar_vendor, constants, channel, agent_video_token, qu
                 "avatar_id": avatar_id,
             }
         }
+    elif avatar_vendor == "generic":
+        agora_token_value = agent_video_token if agent_video_token else constants["APP_ID"]
+        api_base_url = query_params.get('avatar_api_base_url', constants.get("AVATAR_API_BASE_URL"))
+        if not api_base_url:
+            raise ValueError(
+                "AVATAR_API_BASE_URL is required when AVATAR_VENDOR=generic. "
+                "Set AVATAR_API_BASE_URL in your .env file or pass avatar_api_base_url in the URL."
+            )
+        params = {
+            "api_key": constants["AVATAR_API_KEY"],
+            "agora_uid": constants["AGENT_VIDEO_UID"],
+            "agora_token": agora_token_value,
+            "avatar_id": avatar_id,
+            "api_base_url": api_base_url,
+            "quality": query_params.get('avatar_quality', constants.get("AVATAR_QUALITY", "high")),
+            "version": query_params.get('avatar_version', constants.get("AVATAR_VERSION", "v1")),
+            "video_encoding": query_params.get('avatar_video_encoding', constants.get("AVATAR_VIDEO_ENCODING", "H264")),
+            "activity_idle_timeout": int(query_params.get('avatar_activity_idle_timeout', constants.get("AVATAR_ACTIVITY_IDLE_TIMEOUT", "120"))),
+            "area": query_params.get('avatar_area', constants.get("AVATAR_AREA", "NORTH_AMERICA")),
+        }
+        return {
+            "vendor": "generic",
+            "enable": True,
+            "params": params,
+        }
     else:
-        # Placeholder for future avatar vendors
         return None
 
 

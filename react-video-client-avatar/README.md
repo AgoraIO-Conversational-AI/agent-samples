@@ -101,14 +101,17 @@ Configure the backend with VIDEO profile settings (VIDEO\_\* prefixed variables)
 - `VIDEO_APP_ID`, `VIDEO_APP_CERTIFICATE`, `VIDEO_AGENT_AUTH_HEADER` (Agora credentials)
 - `VIDEO_LLM_API_KEY` (LLM for video)
 - `VIDEO_TTS_VENDOR`, `VIDEO_TTS_KEY`, `VIDEO_TTS_VOICE_ID` (TTS for video)
-- `VIDEO_AVATAR_VENDOR` (heygen or anam)
+- `VIDEO_AVATAR_VENDOR` (heygen, anam, akool, or generic)
 - `VIDEO_AVATAR_API_KEY`, `VIDEO_AVATAR_ID` (avatar provider credentials)
+- `VIDEO_AVATAR_API_BASE_URL` (required when `VIDEO_AVATAR_VENDOR=generic`)
 
 See [../simple-backend/.env.example](../simple-backend/.env.example) for a complete template with all VIDEO profile variables.
 
 **Profile Override:**
 
 You can override the default profile using the "Server Profile" field in the UI. Profile names are case-insensitive (VIDEO, video, or Video all work).
+
+Shared links can also override `voice_id`, `avatar_id`, and `avatar_api_base_url` via the page URL. Those values are forwarded to `simple-backend` when the session starts.
 
 **Start Services:**
 
