@@ -261,7 +261,9 @@ def build_avatar_config(avatar_vendor, constants, channel, agent_video_token, qu
         return None
 
     query_params = query_params or {}
-    avatar_id = query_params.get('avatar_id', constants["AVATAR_ID"])
+
+    # Avatar ID can be overridden via ?avatar_id= URL param
+    avatar_id = query_params.get('avatar_id') or constants.get("AVATAR_ID")
 
     # Validate generic avatar credentials
     if not constants.get("AVATAR_API_KEY"):
@@ -272,7 +274,7 @@ def build_avatar_config(avatar_vendor, constants, channel, agent_video_token, qu
     if not avatar_id:
         raise ValueError(
             f"AVATAR_ID is required when AVATAR_VENDOR={avatar_vendor}. "
-            f"Set AVATAR_ID in your .env file."
+            f"Set AVATAR_ID in your .env file or pass ?avatar_id= URL param."
         )
 
     if avatar_vendor == "heygen":

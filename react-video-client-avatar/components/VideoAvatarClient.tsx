@@ -95,6 +95,8 @@ export function VideoAvatarClient() {
   const [profile, setProfile] = useState("");
   const [prompt, setPrompt] = useState("");
   const [greeting, setGreeting] = useState("");
+  const [voiceIdOverride, setVoiceIdOverride] = useState("");
+  const [avatarIdOverride, setAvatarIdOverride] = useState("");
   const [activeTab, setActiveTab] = useState("video");
   const _conversationRef = useRef<HTMLDivElement>(null);
   const [autoConnect, setAutoConnect] = useState(false);
@@ -166,6 +168,14 @@ export function VideoAvatarClient() {
       const ru = params.get("returnurl");
       if (ru) {
         setReturnUrl(ru);
+      }
+      const vId = params.get("voice_id");
+      if (vId) {
+        setVoiceIdOverride(vId);
+      }
+      const aId = params.get("avatar_id");
+      if (aId) {
+        setAvatarIdOverride(aId);
       }
 
       let cleanedUrl = false;
@@ -434,6 +444,14 @@ export function VideoAvatarClient() {
       }
       if (greeting.trim()) {
         params.append("greeting", greeting.trim());
+      }
+
+      // URL-based voice / avatar overrides (any profile)
+      if (voiceIdOverride) {
+        params.append("voice_id", voiceIdOverride);
+      }
+      if (avatarIdOverride) {
+        params.append("avatar_id", avatarIdOverride);
       }
 
       // Phase 1: Get tokens only (don't start agent yet)
