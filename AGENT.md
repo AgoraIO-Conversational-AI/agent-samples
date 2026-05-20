@@ -325,6 +325,22 @@ VIDEO_MLLM_TRANSCRIBE_USER=true   # Required for user transcript
 - `video_heygen` - Alternative HeyGen configuration
 - `video_mllm_heygen` - MLLM mode with HeyGen avatar
 
+Recommended local avatar-switching profile names:
+
+- `anam` - Anam avatar profile for shared links
+- `generic_tru` - Trulience generic avatar profile
+- `generic_ls` - LemonSlice generic avatar profile
+
+For the video avatar client on `http://localhost:8084`, these profiles are intended to support direct share links such as:
+
+```text
+http://localhost:8084/?autoconnect=true&profile=anam
+http://localhost:8084/?autoconnect=true&profile=generic_tru
+http://localhost:8084/?autoconnect=true&profile=generic_ls
+```
+
+`voice_id`, `avatar_id`, and `avatar_api_base_url` can also be overridden per link via the query string.
+
 ---
 
 ## Local Development Quick Start

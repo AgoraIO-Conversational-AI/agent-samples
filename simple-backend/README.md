@@ -131,6 +131,40 @@ VIDEO_DEFAULT_PROMPT=You are Bella, a quiz master...
 VIDEO_ENABLE_CURL_DUMP=true
 ```
 
+**Recommended Avatar-Switching Profiles**
+
+For shareable video avatar links, define three complete backend profiles instead of editing `VIDEO_*` between sessions:
+
+```bash
+ANAM_*
+GENERIC_TRU_*
+GENERIC_LS_*
+```
+
+Recommended mapping:
+
+- `anam` -> `ANAM_*` variables with `ANAM_AVATAR_VENDOR=anam`
+- `generic_tru` -> `GENERIC_TRU_*` variables with `GENERIC_TRU_AVATAR_VENDOR=generic`
+- `generic_ls` -> `GENERIC_LS_*` variables with `GENERIC_LS_AVATAR_VENDOR=generic`
+
+Important: profile lookup does not fall back to base variables. If you use `?profile=generic_tru`, all required settings for Agora, LLM, TTS, ASR, and avatar must exist under `GENERIC_TRU_*`.
+
+Example local client URLs:
+
+```text
+http://localhost:8084/?autoconnect=true&profile=anam
+http://localhost:8084/?autoconnect=true&profile=generic_tru
+http://localhost:8084/?autoconnect=true&profile=generic_ls
+```
+
+Example with per-link overrides:
+
+```text
+http://localhost:8084/?autoconnect=true&profile=anam&avatar_id=<anam-avatar-id>&voice_id=<elevenlabs-voice-id>
+http://localhost:8084/?autoconnect=true&profile=generic_tru&avatar_id=<trulience-avatar-id>&voice_id=<elevenlabs-voice-id>
+http://localhost:8084/?autoconnect=true&profile=generic_ls&avatar_id=<lemonslice-avatar-id>&voice_id=<elevenlabs-voice-id>
+```
+
 ### Pipeline Mode (Agent Builder)
 
 Instead of configuring LLM/TTS/ASR inline, you can reference an [Agent Builder](https://console.agora.io) pipeline. When `PIPELINE_ID` is set, the backend sends a minimal payload and Agora resolves all STT/TTS/LLM config from the pipeline. **No LLM API key, TTS key, or ASR config is needed** — only Agora credentials and the pipeline ID.

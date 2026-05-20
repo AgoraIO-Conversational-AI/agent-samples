@@ -113,6 +113,30 @@ You can override the default profile using the "Server Profile" field in the UI.
 
 Shared links can also override `voice_id`, `avatar_id`, and `avatar_api_base_url` via the page URL. Those values are forwarded to `simple-backend` when the session starts.
 
+**Recommended Shared-Link Profiles:**
+
+For local avatar switching, define three complete backend profiles and link to them directly:
+
+- `anam` - Anam avatar profile
+- `generic_tru` - Trulience generic avatar profile
+- `generic_ls` - LemonSlice generic avatar profile
+
+Example local URLs:
+
+```text
+http://localhost:8084/?autoconnect=true&profile=anam
+http://localhost:8084/?autoconnect=true&profile=generic_tru
+http://localhost:8084/?autoconnect=true&profile=generic_ls
+```
+
+Example with explicit avatar and voice overrides:
+
+```text
+http://localhost:8084/?autoconnect=true&profile=anam&avatar_id=<anam-avatar-id>&voice_id=<elevenlabs-voice-id>
+http://localhost:8084/?autoconnect=true&profile=generic_tru&avatar_id=<trulience-avatar-id>&voice_id=<elevenlabs-voice-id>
+http://localhost:8084/?autoconnect=true&profile=generic_ls&avatar_id=<lemonslice-avatar-id>&voice_id=<elevenlabs-voice-id>
+```
+
 **Start Services:**
 
 1. **Start the Backend** (if not already running):
