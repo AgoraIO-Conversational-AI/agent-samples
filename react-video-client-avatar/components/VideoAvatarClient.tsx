@@ -473,7 +473,7 @@ export function VideoAvatarClient() {
         token: data.token || null,
         uid: parseInt(data.uid),
         participantRole: "guest",
-        rtmUid: data.user_rtm_uid, // Channel-scoped RTM UID for multi-session support
+        rtmUid: data.user_rtm_uid,
         agentUid: data.agent?.uid ? String(data.agent.uid) : undefined,
         agentRtmUid: data.agent_rtm_uid,
         mode: "avatar",

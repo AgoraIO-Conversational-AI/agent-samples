@@ -75,7 +75,7 @@ def lambda_handler(event, context):
             "agent": {
                 "uid": constants["AGENT_UID"]
             },
-            "agent_rtm_uid": f"{constants['AGENT_UID']}-{channel}",
+            "agent_rtm_uid": str(constants["AGENT_UID"]),
             "enable_string_uid": False,
             "token_generation_method": "v007 tokens with RTC+RTM services" if has_certificate else "APP_ID only (no APP_CERTIFICATE)",
             "agent_response": {
@@ -111,7 +111,7 @@ def lambda_handler(event, context):
         "agent": {
             "uid": constants["AGENT_UID"]
         },
-        "agent_rtm_uid": f"{constants['AGENT_UID']}-{channel}",
+        "agent_rtm_uid": str(constants["AGENT_UID"]),
         "enable_string_uid": False,
         "agent_response": agent_response
     }

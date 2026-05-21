@@ -145,10 +145,14 @@ def initialize_constants(profile=None):
         "MLLM_PROJECT_ID": get_env_var('MLLM_PROJECT_ID', profile),
         "MLLM_LOCATION": get_env_var('MLLM_LOCATION', profile),
         "MLLM_VOICE": get_env_var('MLLM_VOICE', profile),
+        "MLLM_LANGUAGE": get_env_var('MLLM_LANGUAGE', profile),
+        "MLLM_SAMPLE_RATE": get_env_var('MLLM_SAMPLE_RATE', profile, "24000"),
         "MLLM_TRANSCRIBE_AGENT": get_env_var('MLLM_TRANSCRIBE_AGENT', profile),
         "MLLM_TRANSCRIBE_USER": get_env_var('MLLM_TRANSCRIBE_USER', profile),
         "MLLM_HISTORY_CONTENT": get_env_var('MLLM_HISTORY_CONTENT', profile),
         "TURN_DETECTION_TYPE": get_env_var('TURN_DETECTION_TYPE', profile),
+        "TURN_DETECTION_START_OF_SPEECH_MODE": get_env_var('TURN_DETECTION_START_OF_SPEECH_MODE', profile),
+        "TURN_DETECTION_END_OF_SPEECH_MODE": get_env_var('TURN_DETECTION_END_OF_SPEECH_MODE', profile),
 
         # Avatar settings (vendor-neutral)
         "AVATAR_VENDOR": get_env_var('AVATAR_VENDOR', profile),

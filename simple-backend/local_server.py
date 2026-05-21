@@ -274,8 +274,7 @@ def start_agent():
     # Check if we have APP_CERTIFICATE for token generation
     has_certificate = bool(constants["APP_CERTIFICATE"] and constants["APP_CERTIFICATE"].strip())
 
-    # Generate tokens (RTM UID includes channel for uniqueness, like agent does)
-    user_rtm_uid = f"{constants['USER_UID']}-{channel}"
+    user_rtm_uid = str(constants["USER_UID"])
     if has_certificate:
         user_token_data = build_token_with_rtm(channel, constants["USER_UID"], constants, rtm_uid=user_rtm_uid)
         agent_video_token_data = build_token_with_rtm(channel, constants["AGENT_VIDEO_UID"], constants)
@@ -296,7 +295,7 @@ def start_agent():
             "agent": {
                 "uid": constants["AGENT_UID"]
             },
-            "agent_rtm_uid": f"{constants['AGENT_UID']}-{channel}",
+            "agent_rtm_uid": str(constants["AGENT_UID"]),
             "user_rtm_uid": user_rtm_uid,
             "enable_string_uid": False,
             "token_generation_method": "v007 tokens with RTC+RTM services" if has_certificate else "APP_ID only (no APP_CERTIFICATE)",
@@ -405,7 +404,7 @@ def start_agent():
         "agent": {
             "uid": constants["AGENT_UID"]
         },
-        "agent_rtm_uid": f"{constants['AGENT_UID']}-{channel}",
+        "agent_rtm_uid": str(constants["AGENT_UID"]),
         "user_rtm_uid": user_rtm_uid,
         "enable_string_uid": False,
         "agent_response": agent_response,
@@ -500,7 +499,7 @@ def join_meeting():
     )
     channel = join_data["channel_name"]
     participant_uid = str(join_data["participant_uid"])
-    participant_rtm_uid = f"{participant_uid}-{channel}"
+    participant_rtm_uid = participant_uid
     participant_token = build_token_with_rtm(
         channel,
         participant_uid,
@@ -529,7 +528,7 @@ def join_meeting():
 
     if should_register_meeting_services:
         sub_token_info = build_token_with_rtm(channel, "5000", constants)
-        llm_rtm_uid = join_data.get("rtm_uid") or f"5001-{channel}"
+        llm_rtm_uid = join_data.get("rtm_uid") or "5001"
         rtm_token_info = build_token_with_rtm(channel, "5001", constants, rtm_uid=llm_rtm_uid)
         transcription_bot_uid = "104" if transcription_enabled else ""
         transcription_bot_token = ""

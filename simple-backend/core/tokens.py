@@ -174,7 +174,7 @@ def build_token_with_rtm(channel_name, account, constants, rtm_uid=None):
     rtc_service.add_privilege(ServiceRtc.kPrivilegePublishDataStream, constants["PRIVILEGE_EXPIRE"])
     token.add_service(rtc_service)
 
-    # RTM Service — uses rtm_uid if provided (e.g. "100-channel" for agent)
+    # RTM Service — uses rtm_uid if provided (e.g. a dedicated service identity)
     rtm_service = ServiceRtm(rtm_uid if rtm_uid else account)
     rtm_service.add_privilege(ServiceRtm.kPrivilegeLogin, constants["TOKEN_EXPIRE"])
     token.add_service(rtm_service)

@@ -135,7 +135,7 @@ def build_asr_config(asr_vendor, constants, query_params=None):
 
 def build_mllm_config(constants, query_params=None):
     """
-    Builds MLLM (Multimodal LLM) configuration for Gemini Live or OpenAI Realtime.
+    Builds MLLM (Multimodal LLM) configuration for supported realtime vendors.
 
     Args:
         constants: Dictionary of constants
@@ -160,21 +160,32 @@ def build_mllm_config(constants, query_params=None):
 
     vendor = query_params.get('mllm_vendor', constants.get("MLLM_VENDOR", "vertexai"))
     prompt = query_params.get('prompt', constants.get("DEFAULT_PROMPT", "You are a friendly assistant."))
-
-    # Build vendor-specific params
-    params = {
-        "model": query_params.get('mllm_model', constants.get("MLLM_MODEL", "gemini-live-2.5-flash-preview-native-audio-09-2025")),
-        "voice": query_params.get('mllm_voice', constants.get("MLLM_VOICE", "Charon")),
-        "instructions": prompt,
-    }
+    voice = query_params.get('mllm_voice', constants.get("MLLM_VOICE", "Charon"))
 
     if vendor == "openai":
+        params = {
+            "model": query_params.get('mllm_model', constants.get("MLLM_MODEL", "gpt-4o-realtime-preview")),
+            "voice": voice,
+            "instructions": prompt,
+        }
         # OpenAI Realtime specific params
         params["input_audio_transcription"] = {
             "language": constants.get("ASR_LANGUAGE", "en-US")[:2],
             "model": "gpt-4o-mini-transcribe",
         }
+    elif vendor == "xai":
+        sample_rate_value = query_params.get('mllm_sample_rate', constants.get("MLLM_SAMPLE_RATE", "24000"))
+        params = {
+            "voice": voice or "eve",
+            "language": query_params.get('mllm_language', constants.get("MLLM_LANGUAGE")) or constants.get("ASR_LANGUAGE", "en-US")[:2],
+            "sample_rate": int(sample_rate_value),
+        }
     else:
+        params = {
+            "model": query_params.get('mllm_model', constants.get("MLLM_MODEL", "gemini-live-2.5-flash-preview-native-audio-09-2025")),
+            "voice": voice,
+            "instructions": prompt,
+        }
         # VertexAI/Gemini specific params
         params["temperature"] = 0.9
         params["max_tokens"] = 3000
@@ -187,6 +198,7 @@ def build_mllm_config(constants, query_params=None):
         params["transcribe_user"] = query_params.get('mllm_transcribe_user', constants.get("MLLM_TRANSCRIBE_USER", "true")).lower() == "true"
 
     mllm_config = {
+        "enable": True,
         "predefined_tools": ["_publish_message"],
         "vendor": vendor,
         "url": query_params.get('mllm_url') or constants.get("MLLM_URL") or "",
@@ -198,7 +210,7 @@ def build_mllm_config(constants, query_params=None):
             }
         ],
         "params": params,
-        "output_modalities": ["text", "audio"] if vendor == "openai" else ["audio"],
+        "output_modalities": ["audio", "text"] if vendor == "xai" else (["text", "audio"] if vendor == "openai" else ["audio"]),
         "max_history": 20,
         "greeting_message": query_params.get('greeting', constants.get("DEFAULT_GREETING", "Hey There Sir")),
         "failure_message": query_params.get('failure_message', constants.get("DEFAULT_FAILURE_MESSAGE", "Something went wrong"))
@@ -373,7 +385,7 @@ def _create_pipeline_payload(channel, pipeline_id, constants, query_params=None,
     query_params = query_params or {}
 
     # Generate agent token
-    agent_rtm_uid = f"{constants['AGENT_UID']}-{channel}"
+    agent_rtm_uid = str(constants["AGENT_UID"])
     if constants.get("APP_CERTIFICATE"):
         agent_token_info = build_token_with_rtm(
             channel, constants["AGENT_UID"], constants, rtm_uid=agent_rtm_uid
@@ -410,7 +422,7 @@ def _create_pipeline_payload(channel, pipeline_id, constants, query_params=None,
         # Generate subscriber token (UID 5000) for audio capture
         sub_token_info = build_token_with_rtm(channel, "5000", constants)
         # Generate RTM token (UID 5001) for messaging
-        llm_rtm_uid = f"5001-{channel}"
+        llm_rtm_uid = "5001"
         rtm_token_info = build_token_with_rtm(channel, "5001", constants, rtm_uid=llm_rtm_uid)
 
         llm_params = {
@@ -507,6 +519,7 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
 
     # Check if MLLM mode is enabled
     enable_mllm = query_params.get('enable_mllm', constants.get("ENABLE_MLLM", "false")).lower() == "true"
+    mllm_vendor = query_params.get('mllm_vendor', constants.get("MLLM_VENDOR", "vertexai")) if enable_mllm else None
 
     # Get other settings
     idle_timeout = int(query_params.get('idle_timeout', constants["IDLE_TIMEOUT"]))
@@ -590,7 +603,7 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
                 llm_config["params"]["agent_uid"] = constants["AGENT_UID"]
                 sub_token_info = build_token_with_rtm(channel, "5000", constants)
                 llm_config["params"]["subscriber_token"] = sub_token_info["token"]
-                llm_rtm_uid = f"5001-{channel}"
+                llm_rtm_uid = "5001"
                 rtm_token_info = build_token_with_rtm(channel, "5001", constants, rtm_uid=llm_rtm_uid)
                 llm_config["params"]["rtm_token"] = rtm_token_info["token"]
                 llm_config["params"]["rtm_uid"] = llm_rtm_uid
@@ -625,7 +638,7 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
     avatar_vendor = constants.get("AVATAR_VENDOR")
 
     # Generate agent token with RTC UID for channel join and RTM UID for messaging
-    agent_rtm_uid = f"{constants['AGENT_UID']}-{channel}"
+    agent_rtm_uid = str(constants["AGENT_UID"])
     if constants.get("APP_CERTIFICATE"):
         agent_token_info = build_token_with_rtm(
             channel, constants["AGENT_UID"], constants, rtm_uid=agent_rtm_uid
@@ -656,7 +669,7 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
         ("channel", channel),
         ("token", agent_channel_token),
         ("agent_rtc_uid", constants["AGENT_UID"]),
-        ("agent_rtm_uid", f"{constants['AGENT_UID']}-{channel}"),
+        ("agent_rtm_uid", str(constants["AGENT_UID"])),
         ("remote_rtc_uids", remote_rtc_uids),
         ("advanced_features", advanced_features),
         ("enable_string_uid", False),
@@ -677,12 +690,19 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
         properties["tts"] = tts_config
 
     # Build turn_detection config
-    # Use semantic end-of-speech when AIVAD was enabled (replaces deprecated enable_aivad)
-    end_of_speech_mode = "semantic" if enable_aivad else "vad"
-    turn_detection_config = {
-        "end_of_speech": {
-            "mode": end_of_speech_mode
+    start_of_speech_mode = query_params.get('turn_detection_start_of_speech_mode') or constants.get("TURN_DETECTION_START_OF_SPEECH_MODE")
+    end_of_speech_mode = (
+        query_params.get('turn_detection_end_of_speech_mode')
+        or constants.get("TURN_DETECTION_END_OF_SPEECH_MODE")
+        or ("semantic" if enable_aivad else "vad")
+    )
+    turn_detection_config = {}
+    if start_of_speech_mode:
+        turn_detection_config["start_of_speech"] = {
+            "mode": start_of_speech_mode
         }
+    turn_detection_config["end_of_speech"] = {
+        "mode": end_of_speech_mode
     }
     # Add VAD silence_duration_ms only if explicitly set in profile .env
     if vad_silence_duration is not None:
@@ -691,10 +711,15 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
         }
 
     if enable_mllm:
-        properties["turn_detection"] = {
-            "mode": query_params.get('turn_detection_type') or constants.get("TURN_DETECTION_TYPE") or "server_vad",
+        turn_detection = {
             "config": turn_detection_config
         }
+        turn_detection_type = query_params.get('turn_detection_type') or constants.get("TURN_DETECTION_TYPE")
+        if turn_detection_type:
+            turn_detection["mode"] = turn_detection_type
+        elif mllm_vendor != "xai":
+            turn_detection["mode"] = "server_vad"
+        properties["turn_detection"] = turn_detection
     else:
         properties["turn_detection"] = {
             "config": turn_detection_config

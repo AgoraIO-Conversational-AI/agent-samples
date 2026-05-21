@@ -1,7 +1,7 @@
 """Tests for core.agent module"""
 
 import pytest
-from core.agent import build_tts_config, build_asr_config, create_agent_payload
+from core.agent import build_tts_config, build_asr_config, build_mllm_config, create_agent_payload
 
 
 @pytest.mark.unit
@@ -73,6 +73,40 @@ class TestBuildASRConfig:
 
 
 @pytest.mark.unit
+class TestBuildMLLMConfig:
+    """Tests for build_mllm_config function"""
+
+    def test_xai_mllm_config(self, test_constants):
+        """Test xAI MLLM configuration uses the Agora xAI shape"""
+        constants = test_constants.copy()
+        constants.update({
+            "MLLM_VENDOR": "xai",
+            "MLLM_URL": "wss://api.x.ai/v1/realtime",
+            "MLLM_API_KEY": "test_xai_key",
+            "MLLM_VOICE": "eve",
+            "MLLM_LANGUAGE": "en",
+            "MLLM_SAMPLE_RATE": "24000",
+            "DEFAULT_PROMPT": "You are a helpful assistant",
+            "DEFAULT_GREETING": "Hello",
+            "DEFAULT_FAILURE_MESSAGE": "Error",
+        })
+
+        config = build_mllm_config(constants)
+
+        assert config["enable"] is True
+        assert config["vendor"] == "xai"
+        assert config["url"] == "wss://api.x.ai/v1/realtime"
+        assert config["api_key"] == "test_xai_key"
+        assert config["messages"] == [{"role": "system", "content": "You are a helpful assistant"}]
+        assert config["params"] == {
+            "voice": "eve",
+            "language": "en",
+            "sample_rate": 24000,
+        }
+        assert config["output_modalities"] == ["audio", "text"]
+
+
+@pytest.mark.unit
 class TestCreateAgentPayload:
     """Tests for create_agent_payload function"""
 
@@ -108,6 +142,7 @@ class TestCreateAgentPayload:
         assert "tts" in payload["properties"]
         assert "llm" in payload["properties"]
         assert "asr" in payload["properties"]
+        assert payload["properties"]["parameters"]["transcript"]["enable"] is True
 
     def test_payload_with_avatar(self, test_constants):
         """Test payload includes avatar when vendor is set"""
@@ -444,3 +479,42 @@ class TestCreateAgentPayload:
                 query_params={},
                 agent_video_token="video_token"
             )
+
+    def test_xai_mllm_payload_with_avatar_and_semantic_turn_detection(self, test_constants):
+        """Test xAI MLLM payload shape for LemonSlice avatar profile"""
+        constants = test_constants.copy()
+        constants.update({
+            "ENABLE_MLLM": "true",
+            "MLLM_VENDOR": "xai",
+            "MLLM_URL": "wss://api.x.ai/v1/realtime",
+            "MLLM_API_KEY": "test_xai_key",
+            "MLLM_VOICE": "eve",
+            "MLLM_LANGUAGE": "en",
+            "MLLM_SAMPLE_RATE": "24000",
+            "DEFAULT_PROMPT": "You are a helpful assistant",
+            "DEFAULT_GREETING": "Hello",
+            "DEFAULT_FAILURE_MESSAGE": "Error",
+            "AVATAR_VENDOR": "generic",
+            "AVATAR_API_KEY": "test_avatar_key",
+            "AVATAR_ID": "https://example.com/avatar.jpg",
+            "AVATAR_API_BASE_URL": "https://example.com/api/liveai/agora",
+            "TURN_DETECTION_START_OF_SPEECH_MODE": "semantic",
+            "TURN_DETECTION_END_OF_SPEECH_MODE": "semantic",
+        })
+
+        payload = create_agent_payload(
+            channel="test_channel",
+            constants=constants,
+            query_params={},
+            agent_video_token="video_token_here"
+        )
+
+        properties = payload["properties"]
+        assert "mllm" in properties
+        assert "llm" not in properties
+        assert "tts" not in properties
+        assert properties["mllm"]["vendor"] == "xai"
+        assert properties["avatar"]["vendor"] == "generic"
+        assert properties["turn_detection"]["config"]["start_of_speech"]["mode"] == "semantic"
+        assert properties["turn_detection"]["config"]["end_of_speech"]["mode"] == "semantic"
+        assert "mode" not in properties["turn_detection"]
