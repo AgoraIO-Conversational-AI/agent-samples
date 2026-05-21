@@ -147,6 +147,14 @@ def build_mllm_config(constants, query_params=None):
     query_params = query_params or {}
     import base64
 
+    def _bool_override(query_key, constant_key, default="true"):
+        value = query_params.get(query_key)
+        if value is None:
+            value = constants.get(constant_key)
+        if value is None:
+            value = default
+        return str(value).lower() == "true"
+
     # Get adc_credentials_string - can be stringified JSON or base64
     adc_credentials = query_params.get('adc_credentials_string', constants.get("MLLM_ADC_CREDENTIALS_STRING", ""))
 
@@ -194,8 +202,8 @@ def build_mllm_config(constants, query_params=None):
         params["adc_credentials_string"] = adc_credentials
         params["project_id"] = query_params.get('mllm_project_id', constants.get("MLLM_PROJECT_ID", ""))
         params["location"] = query_params.get('mllm_location', constants.get("MLLM_LOCATION", "us-central1"))
-        params["transcribe_agent"] = query_params.get('mllm_transcribe_agent', constants.get("MLLM_TRANSCRIBE_AGENT", "true")).lower() == "true"
-        params["transcribe_user"] = query_params.get('mllm_transcribe_user', constants.get("MLLM_TRANSCRIBE_USER", "true")).lower() == "true"
+        params["transcribe_agent"] = _bool_override('mllm_transcribe_agent', "MLLM_TRANSCRIBE_AGENT")
+        params["transcribe_user"] = _bool_override('mllm_transcribe_user', "MLLM_TRANSCRIBE_USER")
 
     mllm_config = {
         "enable": True,

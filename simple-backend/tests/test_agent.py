@@ -105,6 +105,28 @@ class TestBuildMLLMConfig:
         }
         assert config["output_modalities"] == ["audio", "text"]
 
+    def test_vertex_mllm_config_tolerates_missing_transcribe_flags(self, test_constants):
+        """Test Vertex/Gemini MLLM configuration handles missing transcribe flags"""
+        constants = test_constants.copy()
+        constants.update({
+            "MLLM_VENDOR": "vertexai",
+            "MLLM_MODEL": "gemini-live-2.5-flash-preview-native-audio-09-2025",
+            "MLLM_ADC_CREDENTIALS_STRING": "",
+            "MLLM_PROJECT_ID": "",
+            "MLLM_LOCATION": "us-central1",
+            "MLLM_TRANSCRIBE_AGENT": None,
+            "MLLM_TRANSCRIBE_USER": None,
+            "DEFAULT_PROMPT": "You are a helpful assistant",
+            "DEFAULT_GREETING": "Hello",
+            "DEFAULT_FAILURE_MESSAGE": "Error",
+        })
+
+        config = build_mllm_config(constants)
+
+        assert config["vendor"] == "vertexai"
+        assert config["params"]["transcribe_agent"] is True
+        assert config["params"]["transcribe_user"] is True
+
 
 @pytest.mark.unit
 class TestCreateAgentPayload:
