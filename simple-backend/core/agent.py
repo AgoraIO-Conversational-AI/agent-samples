@@ -168,7 +168,7 @@ def build_mllm_config(constants, query_params=None):
 
     vendor = query_params.get('mllm_vendor', constants.get("MLLM_VENDOR", "vertexai"))
     prompt = query_params.get('prompt', constants.get("DEFAULT_PROMPT", "You are a friendly assistant."))
-    voice = query_params.get('mllm_voice', constants.get("MLLM_VOICE", "Charon"))
+    voice = query_params.get('mllm_voice') or query_params.get('voice_id') or constants.get("MLLM_VOICE", "Charon")
 
     if vendor == "openai":
         params = {
