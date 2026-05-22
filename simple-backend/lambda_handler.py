@@ -11,6 +11,7 @@ from core.config import initialize_constants
 from core.tokens import build_token_with_rtm
 from core.agent import create_agent_payload, send_agent_to_channel, hangup_agent
 from core.utils import generate_random_channel, json_response
+from x.profile_prompt import XApiError, build_profile_overrides_from_handle
 
 
 def lambda_handler(event, context):
@@ -84,6 +85,21 @@ def lambda_handler(event, context):
                 "success": True
             }
         })
+
+    xhandle = (query_params.get("xhandle") or "").strip()
+    if xhandle:
+        try:
+            overrides = build_profile_overrides_from_handle(
+                xhandle,
+                bearer_token=constants.get("X_API_BEARER_TOKEN"),
+                timeout_seconds=float(constants.get("X_API_TIMEOUT_SECONDS", "8")),
+            )
+        except XApiError as exc:
+            return json_response(502, {"error": str(exc)})
+        query_params["prompt"] = overrides["prompt"]
+        query_params["greeting"] = overrides["greeting"]
+        if overrides.get("avatar_id"):
+            query_params["avatar_id"] = overrides["avatar_id"]
 
     # Normal flow: create and send agent
     try:

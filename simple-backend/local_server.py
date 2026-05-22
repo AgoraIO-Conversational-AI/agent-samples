@@ -33,6 +33,7 @@ from core.consultant_dashboard import (
 )
 from core.meeting_mode import authorize_meeting_join, notify_meeting_end, notify_meeting_event, verify_join_bootstrap
 from core.utils import generate_random_channel
+from x.profile_prompt import XApiError, build_profile_overrides_from_handle
 import copy
 import re
 
@@ -63,6 +64,23 @@ class TenantPrefixMiddleware:
 
 app.wsgi_app = TenantPrefixMiddleware(app.wsgi_app)
 app.register_blueprint(auth_bp)
+
+
+def _apply_xhandle_overrides(query_params, constants):
+    xhandle = (query_params.get("xhandle") or "").strip()
+    if not xhandle:
+        return
+
+    overrides = build_profile_overrides_from_handle(
+        xhandle,
+        bearer_token=constants.get("X_API_BEARER_TOKEN"),
+        timeout_seconds=float(constants.get("X_API_TIMEOUT_SECONDS", "8")),
+    )
+
+    query_params["prompt"] = overrides["prompt"]
+    query_params["greeting"] = overrides["greeting"]
+    if overrides.get("avatar_id"):
+        query_params["avatar_id"] = overrides["avatar_id"]
 
 
 @app.context_processor
@@ -243,6 +261,11 @@ def start_agent():
     query_params['user_id'] = user_id
     if user_name:
         query_params['user_name'] = user_name
+
+    try:
+        _apply_xhandle_overrides(query_params, constants)
+    except XApiError as exc:
+        return jsonify({"error": str(exc)}), 502
 
     dashboard_context = fetch_dashboard_context(constants, user_id)
     if dashboard_client_required(constants) and dashboard_context.get('status') != 'resolved':

@@ -97,6 +97,7 @@ export function VideoAvatarClient() {
   const [greeting, setGreeting] = useState("");
   const [voiceIdOverride, setVoiceIdOverride] = useState("");
   const [avatarIdOverride, setAvatarIdOverride] = useState("");
+  const [xHandleOverride, setXHandleOverride] = useState("");
   const [activeTab, setActiveTab] = useState("video");
   const _conversationRef = useRef<HTMLDivElement>(null);
   const [autoConnect, setAutoConnect] = useState(false);
@@ -176,6 +177,10 @@ export function VideoAvatarClient() {
       const aId = params.get("avatar_id");
       if (aId) {
         setAvatarIdOverride(aId);
+      }
+      const xh = params.get("xhandle");
+      if (xh) {
+        setXHandleOverride(xh);
       }
 
       let cleanedUrl = false;
@@ -452,6 +457,9 @@ export function VideoAvatarClient() {
       }
       if (avatarIdOverride) {
         params.append("avatar_id", avatarIdOverride);
+      }
+      if (xHandleOverride) {
+        params.append("xhandle", xHandleOverride);
       }
 
       // Phase 1: Get tokens only (don't start agent yet)

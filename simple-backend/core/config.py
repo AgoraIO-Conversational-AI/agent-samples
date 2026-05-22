@@ -174,6 +174,10 @@ def initialize_constants(profile=None):
         # Integration API keys (passed to custom LLM via register-agent)
         "THYMIA_API_KEY": get_env_var('THYMIA_API_KEY', profile),
 
+        # X profile prompt enrichment
+        "X_API_BEARER_TOKEN": get_env_var('X_API_BEARER_TOKEN', profile),
+        "X_API_TIMEOUT_SECONDS": get_env_var('X_API_TIMEOUT_SECONDS', profile, "8"),
+
         # Auth settings (optional — omit to disable auth for this profile)
         "AUTH_JWT_SECRET": get_env_var('AUTH_JWT_SECRET', profile),
         "GOOGLE_CLIENT_ID": get_env_var('GOOGLE_CLIENT_ID', profile),

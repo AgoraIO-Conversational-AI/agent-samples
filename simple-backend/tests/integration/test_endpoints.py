@@ -89,6 +89,60 @@ class TestStartAgentEndpoint:
         for field in required_fields:
             assert field in data, f"Missing required field: {field}"
 
+    def test_start_agent_xhandle_overrides_prompt_and_greeting(self, client, monkeypatch):
+        captured = {}
+
+        monkeypatch.setattr(
+            "local_server.build_profile_overrides_from_handle",
+            lambda handle, bearer_token, timeout_seconds: {
+                "prompt": "Prompt from X",
+                "greeting": "Greeting from X",
+                "avatar_id": "https://example.com/avatar.jpg",
+            },
+        )
+
+        def fake_create_agent_payload(channel, constants, query_params, agent_video_token):
+            captured["prompt"] = query_params["prompt"]
+            captured["greeting"] = query_params["greeting"]
+            captured["avatar_id"] = query_params["avatar_id"]
+            return {"name": channel, "properties": {}}
+
+        monkeypatch.setattr("local_server.create_agent_payload", fake_create_agent_payload)
+        monkeypatch.setattr(
+            "local_server.send_agent_to_channel",
+            lambda channel, agent_payload, constants: {
+                "status_code": 200,
+                "response": "{\"agent_id\":\"agent-123\",\"status\":\"RUNNING\"}",
+                "success": True,
+            },
+        )
+
+        response = client.get(
+            "/start-agent?channel=testx&xhandle=paulg&prompt=userprompt&greeting=usergreeting"
+        )
+
+        assert response.status_code == 200
+        assert captured["prompt"] == "Prompt from X"
+        assert captured["greeting"] == "Greeting from X"
+        assert captured["avatar_id"] == "https://example.com/avatar.jpg"
+
+    def test_start_agent_token_only_does_not_resolve_xhandle(self, client, monkeypatch):
+        called = {"value": False}
+
+        def fake_build_profile_overrides_from_handle(handle, bearer_token, timeout_seconds):
+            called["value"] = True
+            return {}
+
+        monkeypatch.setattr(
+            "local_server.build_profile_overrides_from_handle",
+            fake_build_profile_overrides_from_handle,
+        )
+
+        response = client.get('/start-agent?connect=false&xhandle=paulg')
+
+        assert response.status_code == 200
+        assert called["value"] is False
+
     def test_start_agent_includes_scheduled_meeting_signal_flags(self, client, monkeypatch):
         monkeypatch.setattr(
             "local_server.fetch_dashboard_meeting_signals",
