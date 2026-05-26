@@ -62,6 +62,7 @@ export function useAgoraVideoClient() {
   const [sessionMode, setSessionMode] = useState<"avatar" | "meeting">("avatar");
   const [remoteAudioTrack, setRemoteAudioTrack] = useState<any>(null);
   const [remoteVideoTrack, setRemoteVideoTrack] = useState<any>(null);
+  const [remoteUserLeftAt, setRemoteUserLeftAt] = useState<number>(0);
 
   const rtcClientRef = useRef<IAgoraRTCClient | null>(null);
   const rtmClientRef = useRef<InstanceType<typeof AgoraRTM.RTM> | null>(null);
@@ -142,6 +143,7 @@ export function useAgoraVideoClient() {
       setIsAgentSpeaking(false);
       setRemoteAudioTrack(null);
       setRemoteVideoTrack(null);
+      setRemoteUserLeftAt(Date.now());
     };
 
     rtcClient.on("user-published", handleUserPublished);
@@ -538,6 +540,7 @@ export function useAgoraVideoClient() {
     isAgentSpeaking,
     localAudioTrack,
     remoteVideoTrack,
+    remoteUserLeftAt,
     joinChannel,
     leaveChannel,
     toggleMute,

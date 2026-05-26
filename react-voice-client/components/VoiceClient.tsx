@@ -17,7 +17,8 @@ import { Conversation, ConversationContent } from "@agora/agent-ui-kit";
 import { Message, MessageContent } from "@agora/agent-ui-kit";
 import { Response } from "@agora/agent-ui-kit";
 import { AgoraLogo } from "@agora/agent-ui-kit";
-import { SettingsDialog, SessionPanel } from "@agora/agent-ui-kit";
+import { SettingsDialog } from "@agora/agent-ui-kit";
+import { SessionInfoPanel } from "./SessionInfoPanel";
 import { cn } from "@/lib/utils";
 import { MobileTabs } from "@agora/agent-ui-kit";
 import { ThymiaPanel, useThymia } from "@agora/agent-ui-kit/thymia";
@@ -62,6 +63,26 @@ const SENSITIVE_KEYS = [
 ];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractResolvedPromptAndGreeting(payload: any): { prompt: string; greeting: string } {
+  const props = payload?.properties;
+  if (!props) return { prompt: "", greeting: "" };
+  if (props.mllm) {
+    return {
+      prompt: props.mllm.messages?.[0]?.content || "",
+      greeting: props.mllm.greeting_message || "",
+    };
+  }
+  if (props.llm) {
+    return {
+      prompt: props.llm.system_messages?.[0]?.content || "",
+      greeting: props.llm.greeting_message || "",
+    };
+  }
+  return { prompt: "", greeting: "" };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function redactSensitiveFields(obj: any): any {
   if (typeof obj !== "object" || obj === null) return obj;
   if (Array.isArray(obj)) return obj.map(redactSensitiveFields);
@@ -90,8 +111,11 @@ export function VoiceClient() {
   const [greeting, setGreeting] = useState("");
   const [sessionAgentId, setSessionAgentId] = useState<string | null>(null);
   const [sessionPayload, setSessionPayload] = useState<object | null>(null);
+  const [sessionPrompt, setSessionPrompt] = useState<string>("");
+  const [sessionGreeting, setSessionGreeting] = useState<string>("");
   const [autoConnect, setAutoConnect] = useState(false);
   const [returnUrl, setReturnUrl] = useState<string | null>(null);
+  const [xHandleOverride, setXHandleOverride] = useState("");
   const [selectedMic, setSelectedMic] = useState(() =>
     typeof window !== "undefined"
       ? localStorage.getItem("selectedMicId") || ""
@@ -118,6 +142,10 @@ export function VoiceClient() {
       if (ru) {
         setReturnUrl(ru);
       }
+      const xh = params.get("xhandle");
+      if (xh) {
+        setXHandleOverride(xh);
+      }
     }
   }, []);
 
@@ -135,6 +163,7 @@ export function VoiceClient() {
     sendMessage,
     agentUid,
     rtmClientRef,
+    remoteUserLeftAt,
   } = useAgoraVoiceClient();
 
   // RTM event source adapter for Thymia hooks
@@ -214,6 +243,23 @@ export function VoiceClient() {
       if (greeting.trim()) {
         params.append("greeting", greeting.trim());
       }
+      if (xHandleOverride) {
+        params.append("xhandle", xHandleOverride);
+      }
+      // Pass-through latency-test params from page URL
+      if (typeof window !== "undefined") {
+        const pageParams = new URLSearchParams(window.location.search);
+        for (const k of [
+          "turn_detection_mode",
+          "turn_detection_threshold",
+          "turn_detection_prefix_padding_ms",
+          "turn_detection_silence_duration_ms",
+          "turn_detection_interrupt_duration_ms",
+        ]) {
+          const v = pageParams.get(k);
+          if (v) params.append(k, v);
+        }
+      }
 
       // Phase 1: Get tokens only (don't start agent yet)
       params.append("connect", "false");
@@ -272,6 +318,9 @@ export function VoiceClient() {
       // Store redacted payload for session panel
       if (agentData.debug?.agent_payload) {
         setSessionPayload(redactSensitiveFields(agentData.debug.agent_payload));
+        const resolved = extractResolvedPromptAndGreeting(agentData.debug.agent_payload);
+        setSessionPrompt(resolved.prompt);
+        setSessionGreeting(resolved.greeting);
       }
     } catch (error) {
       console.error("Failed to start:", error);
@@ -307,12 +356,23 @@ export function VoiceClient() {
     setChannelName(undefined);
     setSessionAgentId(null);
     setSessionPayload(null);
+    setSessionPrompt("");
+    setSessionGreeting("");
     await leaveChannel();
     if (returnUrl) {
       window.location.href = returnUrl;
       return;
     }
   };
+
+  // If the remote agent leaves the channel while we have an active session,
+  // the server (or ConvoAI) ended the call — clean up like the user pressed stop.
+  useEffect(() => {
+    if (remoteUserLeftAt && agentId) {
+      handleStop();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remoteUserLeftAt]);
 
   const handleSendMessage = async () => {
     if (!chatMessage.trim() || !isConnected) return;
@@ -694,7 +754,12 @@ export function VoiceClient() {
         selectedMicId={selectedMic}
         onMicChange={handleMicChange}
       >
-        <SessionPanel agentId={sessionAgentId} payload={sessionPayload} />
+        <SessionInfoPanel
+          agentId={sessionAgentId}
+          greeting={sessionGreeting}
+          prompt={sessionPrompt}
+          payload={sessionPayload}
+        />
       </SettingsDialog>
     </div>
   );

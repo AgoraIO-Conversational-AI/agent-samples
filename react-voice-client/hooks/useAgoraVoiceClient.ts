@@ -48,6 +48,7 @@ export function useAgoraVoiceClient() {
   const [currentInProgressMessage, setCurrentInProgressMessage] =
     useState<IMessageListItem | null>(null);
   const [isAgentSpeaking, setIsAgentSpeaking] = useState(false);
+  const [remoteUserLeftAt, setRemoteUserLeftAt] = useState<number>(0);
   const [agentUid, setAgentUid] = useState<string | undefined>(undefined);
   const [agentRtmUid, setAgentRtmUid] = useState<string | undefined>(undefined);
   const [remoteAudioTrack, setRemoteAudioTrack] =
@@ -88,6 +89,7 @@ export function useAgoraVoiceClient() {
     const handleUserLeft = () => {
       setIsAgentSpeaking(false);
       setRemoteAudioTrack(null);
+      setRemoteUserLeftAt(Date.now());
     };
 
     rtcClient.on("user-published", handleUserPublished);
@@ -321,5 +323,6 @@ export function useAgoraVoiceClient() {
     sendMessage,
     agentUid,
     rtmClientRef,
+    remoteUserLeftAt,
   };
 }

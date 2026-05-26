@@ -20,7 +20,8 @@ import { Response } from "@agora/agent-ui-kit";
 import { AvatarVideoDisplay, LocalVideoPreview } from "@agora/agent-ui-kit";
 import { VideoGrid, MobileTabs } from "@agora/agent-ui-kit";
 import { AgoraLogo } from "@agora/agent-ui-kit";
-import { SettingsDialog, SessionPanel } from "@agora/agent-ui-kit";
+import { SettingsDialog } from "@agora/agent-ui-kit";
+import { SessionInfoPanel } from "./SessionInfoPanel";
 import { ShenPanel } from "@agora/agent-ui-kit";
 import { ThymiaPanel, useThymia } from "@agora/agent-ui-kit/thymia";
 import { useShenai } from "@/hooks/useShenai";
@@ -68,6 +69,25 @@ const SENSITIVE_KEYS = [
 ];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractResolvedPromptAndGreeting(payload: any): { prompt: string; greeting: string } {
+  const props = payload?.properties;
+  if (!props) return { prompt: "", greeting: "" };
+  if (props.mllm) {
+    return {
+      prompt: props.mllm.messages?.[0]?.content || "",
+      greeting: props.mllm.greeting_message || "",
+    };
+  }
+  if (props.llm) {
+    return {
+      prompt: props.llm.system_messages?.[0]?.content || "",
+      greeting: props.llm.greeting_message || "",
+    };
+  }
+  return { prompt: "", greeting: "" };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function redactSensitiveFields(obj: any): any {
   if (typeof obj !== "object" || obj === null) return obj;
   if (Array.isArray(obj)) return obj.map(redactSensitiveFields);
@@ -110,6 +130,8 @@ export function VideoAvatarClient() {
   );
   const [sessionAgentId, setSessionAgentId] = useState<string | null>(null);
   const [sessionPayload, setSessionPayload] = useState<object | null>(null);
+  const [sessionPrompt, setSessionPrompt] = useState<string>("");
+  const [sessionGreeting, setSessionGreeting] = useState<string>("");
   const [authChecked, setAuthChecked] = useState(false);
   const [authUser, setAuthUser] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -252,6 +274,7 @@ export function VideoAvatarClient() {
     isAgentSpeaking: _isAgentSpeaking,
     localAudioTrack,
     remoteVideoTrack: avatarVideoTrack,
+    remoteUserLeftAt,
     joinChannel,
     leaveChannel,
     toggleMute,
@@ -461,6 +484,20 @@ export function VideoAvatarClient() {
       if (xHandleOverride) {
         params.append("xhandle", xHandleOverride);
       }
+      // Pass-through latency-test params from page URL
+      if (typeof window !== "undefined") {
+        const pageParams = new URLSearchParams(window.location.search);
+        for (const k of [
+          "turn_detection_mode",
+          "turn_detection_threshold",
+          "turn_detection_prefix_padding_ms",
+          "turn_detection_silence_duration_ms",
+          "turn_detection_interrupt_duration_ms",
+        ]) {
+          const v = pageParams.get(k);
+          if (v) params.append(k, v);
+        }
+      }
 
       // Phase 1: Get tokens only (don't start agent yet)
       params.append("connect", "false");
@@ -530,6 +567,9 @@ export function VideoAvatarClient() {
       // Store redacted payload for session panel
       if (agentData.debug?.agent_payload) {
         setSessionPayload(redactSensitiveFields(agentData.debug.agent_payload));
+        const resolved = extractResolvedPromptAndGreeting(agentData.debug.agent_payload);
+        setSessionPrompt(resolved.prompt);
+        setSessionGreeting(resolved.greeting);
       }
     } catch (error) {
       console.error("Failed to start:", error);
@@ -602,11 +642,22 @@ export function VideoAvatarClient() {
     await leaveChannel();
     setSessionAgentId(null);
     setSessionPayload(null);
+    setSessionPrompt("");
+    setSessionGreeting("");
     if (returnUrl) {
       window.location.href = returnUrl;
       return;
     }
   };
+
+  // If the remote agent leaves the channel while we have an active session,
+  // the server (or ConvoAI) ended the call — clean up like the user pressed stop.
+  useEffect(() => {
+    if (remoteUserLeftAt && agentId) {
+      handleStop();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remoteUserLeftAt]);
 
   const handleSendMessage = async () => {
     if (!chatMessage.trim() || !isConnected) return;
@@ -954,6 +1005,7 @@ export function VideoAvatarClient() {
                                 }
                                 className="h-full w-full"
                                 useMediaStream={true}
+                                objectFit="contain"
                               />
                             </div>
                           ),
@@ -999,6 +1051,7 @@ export function VideoAvatarClient() {
                         state={avatarVideoTrack ? "connected" : "disconnected"}
                         className="h-full w-full"
                         useMediaStream={true}
+                        objectFit="contain"
                       />
                     </div>
                   )}
@@ -1089,6 +1142,7 @@ export function VideoAvatarClient() {
                             }
                             className="h-full w-full"
                             useMediaStream={true}
+                            objectFit="contain"
                           />
                         </div>
 
@@ -1126,6 +1180,7 @@ export function VideoAvatarClient() {
                             }
                             className="h-full w-full"
                             useMediaStream={true}
+                            objectFit="contain"
                           />
                         </div>
 
@@ -1330,7 +1385,14 @@ export function VideoAvatarClient() {
         selectedMicId={selectedMic}
         onMicChange={handleMicChange}
       >
-        {!meetingMode && <SessionPanel agentId={sessionAgentId} payload={sessionPayload} />}
+        {!meetingMode && (
+          <SessionInfoPanel
+            agentId={sessionAgentId}
+            greeting={sessionGreeting}
+            prompt={sessionPrompt}
+            payload={sessionPayload}
+          />
+        )}
       </SettingsDialog>
     </div>
   );
