@@ -38,9 +38,9 @@ DEFAULT_MIN_POST_LENGTH = 80
 DEFAULT_MAX_EXAMPLE_CHARS = 400
 DEFAULT_MAX_PROMPT_CHARS = 4000
 
-# Curated map of X handles to the casual name a public figure is commonly known by.
-# Lookup is case-insensitive on the handle. Used in greeting + system prompt header
-# when set; falls back to the X "name" field otherwise.
+# Curated map of X handles to casual name + speciality. Each value may be a
+# string (just the casual name) or a dict {"name": ..., "speciality": ...}.
+# Lookup is case-insensitive. Falls back to the X "name" field when missing.
 HANDLE_NAMES_PATH = os.path.join(os.path.dirname(__file__), "handle_names.json")
 try:
     with open(HANDLE_NAMES_PATH) as _f:
@@ -49,12 +49,22 @@ except FileNotFoundError:
     HANDLE_NAMES = {}
 
 
+def _handle_entry(username: str) -> dict:
+    entry = HANDLE_NAMES.get((username or "").lower())
+    if isinstance(entry, str):
+        return {"name": entry}
+    return entry or {}
+
+
 def resolve_display_name(user: dict) -> str:
-    username = (user.get("username") or "").lower()
-    casual = HANDLE_NAMES.get(username)
-    if casual:
-        return casual
+    entry = _handle_entry(user.get("username") or "")
+    if entry.get("name"):
+        return entry["name"]
     return user.get("name") or user.get("username") or "Unknown"
+
+
+def resolve_speciality(user: dict) -> str:
+    return _handle_entry(user.get("username") or "").get("speciality", "")
 
 STOPWORDS = {
     "a", "about", "after", "all", "also", "am", "an", "and", "any", "are", "around", "as", "at",
@@ -73,7 +83,7 @@ STOPWORDS = {
 TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9_'-]{2,}")
 WHITESPACE_RE = re.compile(r"\s+")
 URL_RE = re.compile(r"https?://\S+|t\.co/\S+")
-EMOJI_HINT_RE = re.compile(r"[\U0001F300-\U0001FAFF\u2600-\u27BF]")
+EMOJI_HINT_RE = re.compile(r"[\U0001F300-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF]")
 PROFILE_SIZE_SUFFIX_RE = re.compile(r"_(normal|bigger|mini)(\.[A-Za-z0-9]+)$")
 
 
@@ -340,13 +350,13 @@ def sample_examples(posts: list[dict], count: int) -> list[dict]:
 
 
 def clean_example_text(text: str, max_chars: int) -> str:
-    return shorten_text(clean_text(URL_RE.sub("", text)), max_chars)
+    return shorten_text(clean_for_speech(clean_text(text)), max_chars)
 
 
 def render_prompt(user: dict, stats: dict, examples: list[dict], *, max_prompt_chars: int) -> str:
     name = resolve_display_name(user)
     username = user.get("username") or "unknown"
-    bio = clean_text(user.get("description") or "")
+    bio = clean_for_speech(clean_text(user.get("description") or ""))
     verified_type = (user.get("verified_type") or "").lower()
     followers = ((user.get("public_metrics") or {}).get("followers_count"))
 
@@ -409,18 +419,21 @@ def clean_for_speech(text: str) -> str:
     out = SPEECH_INVISIBLE_RE.sub("", out)
     out = URL_RE.sub("", out)
     out = re.sub(r"@\w+", "", out)
-    return WHITESPACE_RE.sub(" ", out).strip(" ,.;:-")
+    # Collapse leftover "of .", " ." etc. after @-mention removal
+    out = re.sub(r"\s+([.,;:!?])", r"\1", out)
+    out = re.sub(r"\s+(?:of|by|at|from|to|with|for)\s*\.", ".", out, flags=re.IGNORECASE)
+    return WHITESPACE_RE.sub(" ", out).strip(" ,;:-")
 
 
 def build_greeting(user: dict, stats: dict) -> str:
-    raw_name = resolve_display_name(user)
-    name = clean_for_speech(raw_name) or "there"
+    name = clean_for_speech(resolve_display_name(user)) or "there"
+    speciality = resolve_speciality(user)
+    if speciality:
+        return f"Hi, I'm {name} and I'm interested in {speciality}."
     topics = [t for t in stats.get("top_terms", []) if len(t) >= 5][:2]
-
-    parts = [f"Hi, I'm {name}."]
     if topics:
-        parts.append(f"I post about {format_series(topics)}.")
-    return " ".join(parts)
+        return f"Hi, I'm {name}. I post about {format_series(topics)}."
+    return f"Hi, I'm {name}."
 
 
 def build_profile_overrides_from_handle(
