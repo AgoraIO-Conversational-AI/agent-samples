@@ -66,19 +66,69 @@ app.wsgi_app = TenantPrefixMiddleware(app.wsgi_app)
 app.register_blueprint(auth_bp)
 
 
-def _apply_xhandle_overrides(query_params, constants):
-    xhandle = (query_params.get("xhandle") or "").strip()
-    if not xhandle:
+_max_duration_timers: dict[str, threading.Timer] = {}
+_max_duration_lock = threading.Lock()
+
+
+def _schedule_max_duration_hangup(agent_id: str, constants: dict) -> None:
+    """Auto-hangup an agent after MAX_CALL_DURATION_SECONDS. Cancellable on manual hangup."""
+    raw = str(constants.get("MAX_CALL_DURATION_SECONDS", "600")).strip()
+    try:
+        duration = int(raw)
+    except ValueError:
+        return
+    if duration <= 0:
         return
 
-    overrides = build_profile_overrides_from_handle(
-        xhandle,
-        bearer_token=constants.get("X_API_BEARER_TOKEN"),
-        timeout_seconds=float(constants.get("X_API_TIMEOUT_SECONDS", "8")),
-    )
+    constants_snapshot = dict(constants)
 
-    query_params["prompt"] = overrides["prompt"]
-    query_params["greeting"] = overrides["greeting"]
+    def _fire():
+        try:
+            hangup_agent(agent_id, constants_snapshot)
+            print(f"[MaxDuration] Auto-hung up agent {agent_id} after {duration}s", flush=True)
+        except Exception as exc:
+            print(f"[MaxDuration] Auto-hangup of agent {agent_id} failed: {exc}", flush=True)
+        finally:
+            with _max_duration_lock:
+                _max_duration_timers.pop(agent_id, None)
+
+    timer = threading.Timer(duration, _fire)
+    timer.daemon = True
+    with _max_duration_lock:
+        existing = _max_duration_timers.pop(agent_id, None)
+        if existing is not None:
+            existing.cancel()
+        _max_duration_timers[agent_id] = timer
+    timer.start()
+    print(f"[MaxDuration] Scheduled hangup of agent {agent_id} in {duration}s", flush=True)
+
+
+def _cancel_max_duration_timer(agent_id: str) -> None:
+    with _max_duration_lock:
+        timer = _max_duration_timers.pop(agent_id, None)
+    if timer is not None:
+        timer.cancel()
+
+
+def _apply_xhandle_overrides(query_params, constants, *, skip=False):
+    xhandle = (query_params.get("xhandle") or "").strip()
+    if not xhandle or skip:
+        return
+
+    try:
+        overrides = build_profile_overrides_from_handle(
+            xhandle,
+            bearer_token=constants.get("X_API_BEARER_TOKEN"),
+            timeout_seconds=float(constants.get("X_API_TIMEOUT_SECONDS", "8")),
+        )
+    except XApiError as exc:
+        app.logger.warning("xhandle '%s' fetch failed, falling back to profile defaults: %s", xhandle, exc)
+        return
+
+    if overrides.get("prompt"):
+        query_params["prompt"] = overrides["prompt"]
+    if overrides.get("greeting"):
+        query_params["greeting"] = overrides["greeting"]
     if overrides.get("avatar_id"):
         query_params["avatar_id"] = overrides["avatar_id"]
 
@@ -262,11 +312,6 @@ def start_agent():
     if user_name:
         query_params['user_name'] = user_name
 
-    try:
-        _apply_xhandle_overrides(query_params, constants)
-    except XApiError as exc:
-        return jsonify({"error": str(exc)}), 502
-
     dashboard_context = fetch_dashboard_context(constants, user_id)
     if dashboard_client_required(constants) and dashboard_context.get('status') != 'resolved':
         return jsonify({
@@ -287,6 +332,9 @@ def start_agent():
 
     # Check if token-only mode
     token_only_mode = query_params.get('connect', 'true').lower() == 'false'
+
+    # Apply xhandle persona overrides (skipped in token-only mode to avoid wasted X API calls)
+    _apply_xhandle_overrides(query_params, constants, skip=token_only_mode)
 
     # Check if avatar mode is enabled (avatar vendor determines mode)
     avatar_vendor = constants.get("AVATAR_VENDOR")
@@ -359,6 +407,7 @@ def start_agent():
             resp_body = json.loads(agent_response.get("response", "{}"))
             agent_id = resp_body.get("agent_id")
             if agent_id:
+                _schedule_max_duration_hangup(agent_id, constants)
                 llm_base = _derive_llm_base_url(constants)
                 register_url = f"{llm_base}/register-agent"
                 # Extract custom LLM params (tokens, UIDs, API keys)
@@ -806,6 +855,7 @@ def hangup_agent_route():
         return jsonify({"error": "Missing agent_id parameter"}), 400
 
     agent_id = query_params['agent_id']
+    _cancel_max_duration_timer(agent_id)
     hangup_response = hangup_agent(agent_id, constants)
 
     # Unregister agent from custom LLM (non-blocking) to clean up audio subscriber + Thymia

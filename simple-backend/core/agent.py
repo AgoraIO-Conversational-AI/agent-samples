@@ -229,6 +229,35 @@ def build_mllm_config(constants, query_params=None):
     if style:
         mllm_config["style"] = style
 
+    # xAI MLLM turn detection (under mllm.turn_detection; top-level is ignored when this is set).
+    # Defaults per https://docs.agora.io/en/conversational-ai/models/mllm/xai
+    if vendor == "xai":
+        mode = (query_params.get('turn_detection_mode') or constants.get("MLLM_TURN_DETECTION_MODE") or "agora_vad").lower()
+        if mode in ("agora_vad", "server_vad"):
+            def _qp(name, default):
+                v = query_params.get(name) or constants.get(f"MLLM_TURN_DETECTION_{name.upper()}")
+                return v if v not in (None, "") else default
+            if mode == "agora_vad":
+                td = {
+                    "mode": "agora_vad",
+                    "agora_vad_config": {
+                        "threshold": float(_qp("turn_detection_threshold", 0.5)),
+                        "interrupt_duration_ms": int(_qp("turn_detection_interrupt_duration_ms", 160)),
+                        "prefix_padding_ms": int(_qp("turn_detection_prefix_padding_ms", 800)),
+                        "silence_duration_ms": int(_qp("turn_detection_silence_duration_ms", 640)),
+                    },
+                }
+            else:
+                td = {
+                    "mode": "server_vad",
+                    "server_vad_config": {
+                        "threshold": float(_qp("turn_detection_threshold", 0.5)),
+                        "prefix_padding_ms": int(_qp("turn_detection_prefix_padding_ms", 640)),
+                        "silence_duration_ms": int(_qp("turn_detection_silence_duration_ms", 900)),
+                    },
+                }
+            mllm_config["turn_detection"] = td
+
     return mllm_config
 
 

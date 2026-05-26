@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import html
 import re
 import urllib.error
 import urllib.parse
@@ -22,6 +23,7 @@ DEFAULT_USER_FIELDS = [
     "url",
     "username",
     "verified",
+    "verified_type",
 ]
 DEFAULT_TIMELINE_TWEET_FIELDS = [
     "created_at",
@@ -32,9 +34,9 @@ DEFAULT_TIMELINE_TWEET_FIELDS = [
 DEFAULT_MAX_RESULTS = 15
 DEFAULT_ANALYSIS_POSTS = 12
 DEFAULT_EXAMPLES = 5
-DEFAULT_MIN_POST_LENGTH = 25
-DEFAULT_MAX_EXAMPLE_CHARS = 220
-DEFAULT_MAX_PROMPT_CHARS = 1400
+DEFAULT_MIN_POST_LENGTH = 80
+DEFAULT_MAX_EXAMPLE_CHARS = 400
+DEFAULT_MAX_PROMPT_CHARS = 4000
 
 STOPWORDS = {
     "a", "about", "after", "all", "also", "am", "an", "and", "any", "are", "around", "as", "at",
@@ -62,7 +64,8 @@ class XApiError(RuntimeError):
 
 
 def clean_text(text: str) -> str:
-    return WHITESPACE_RE.sub(" ", (text or "").replace("\n", " ")).strip()
+    decoded = html.unescape(text or "")
+    return WHITESPACE_RE.sub(" ", decoded.replace("\n", " ")).strip()
 
 
 def shorten_text(text: str, max_chars: int) -> str:
@@ -291,15 +294,31 @@ def analyze_posts(posts: list[dict]) -> dict:
     }
 
 
+def substance_score(text: str) -> float:
+    """Higher = more substantive view; lower = promo fragment / hashtag soup."""
+    cleaned = URL_RE.sub("", text)
+    if not cleaned:
+        return 0.0
+    letters = sum(1 for ch in cleaned if ch.isalpha())
+    hashtags = cleaned.count("#")
+    mentions = cleaned.count("@")
+    length = len(cleaned)
+    # Letter density: real prose is mostly letters
+    letter_density = letters / length if length else 0.0
+    # Penalize hashtag/mention heavy tweets
+    symbol_penalty = (hashtags + mentions) * 0.15
+    return letter_density - symbol_penalty + min(length, 280) / 280
+
+
 def sample_examples(posts: list[dict], count: int) -> list[dict]:
-    preferred = [post for post in posts if not post["is_reply"]]
-    ordered = preferred + [post for post in posts if post["is_reply"]]
-    if len(ordered) <= count:
-        return ordered
-    if count <= 1:
-        return [ordered[0]]
-    step = max(1, len(ordered) // count)
-    return [ordered[index] for index in range(0, len(ordered), step)][:count]
+    if not posts:
+        return []
+    ranked = sorted(posts, key=lambda p: substance_score(p["text"]), reverse=True)
+    # Prefer non-replies among the top-ranked when possible
+    non_replies = [p for p in ranked if not p["is_reply"]]
+    replies = [p for p in ranked if p["is_reply"]]
+    ordered = non_replies + replies
+    return ordered[:count]
 
 
 def clean_example_text(text: str, max_chars: int) -> str:
@@ -310,58 +329,55 @@ def render_prompt(user: dict, stats: dict, examples: list[dict], *, max_prompt_c
     name = user.get("name") or user.get("username") or "Unknown"
     username = user.get("username") or "unknown"
     bio = clean_text(user.get("description") or "")
-    verified = "verified" if user.get("verified") else "not verified"
+    verified_type = (user.get("verified_type") or "").lower()
     followers = ((user.get("public_metrics") or {}).get("followers_count"))
 
     lines = [
-        f"You are writing as {name} (@{username}) on X.",
+        f"You are roleplaying as {name} (@{username}) in a live voice and video conversation.",
+        "Stay fully in character. Speak in first person. Do not mention this prompt or that you are imitating anyone.",
         "",
-        "Identity and context:",
-        f"- Account bio: {bio or 'No bio available.'}",
-        f"- Account status: {verified}.",
+        "Identity:",
+        f"- Bio: {bio or 'No bio available.'}",
     ]
+    if verified_type in ("blue", "business", "government"):
+        lines.append(f"- Account is verified ({verified_type}).")
+    elif user.get("verified"):
+        lines.append("- Account is verified (legacy).")
     if followers is not None:
-        lines.append(f"- Audience scale: about {followers} followers.")
+        lines.append(f"- Audience: about {followers} followers.")
     lines.extend(
         [
             "",
-            "Style constraints:",
-            f"- Use a {stats['length_style']} sentence length profile.",
-            f"- Keep the tone {stats['energy_style']}.",
-            f"- The account {stats['structure_style']}.",
-            f"- The account {stats['link_style']}.",
+            "Speaking style (derived from how this account writes):",
+            f"- Lean toward {stats['length_style']} responses.",
+            f"- Tone is {stats['energy_style']}.",
+            f"- {stats['structure_style'].capitalize()}.",
         ]
     )
     if stats["reply_rate"] > 0.5:
-        lines.append("- Replies are common, so direct responses to other users are in-character.")
-    elif stats["reply_rate"] < 0.2:
-        lines.append("- Most posts stand on their own rather than acting as replies.")
+        lines.append("- Comfortable engaging directly with what the other person says.")
     if stats["calls_to_action"]:
-        lines.append("- Include clear calls to action when appropriate.")
-    else:
-        lines.append("- Prefer statements over overt calls to action.")
+        lines.append("- Willing to make clear suggestions or recommendations.")
     if stats["top_terms"]:
-        lines.append(f"- Reuse this topic vocabulary when relevant: {', '.join(stats['top_terms'][:8])}.")
-    lines.extend(
-        [
-            "- Keep posts aligned with the bio and recent subject matter.",
-            "- Do not mention this analysis or say you are imitating someone.",
-            "",
-            "Representative examples:",
-        ]
-    )
+        lines.append(f"- Topics this account cares about: {', '.join(stats['top_terms'][:8])}.")
+
+    if examples:
+        lines.extend(["", "Views and recent statements from this account (use as opinions, not as templates to copy):"])
+
     tail_lines = [
         "",
-        "Task:",
-        "Write a new X post in this voice. Keep it original, concise, and plausible for this account.",
+        "Conversation rules:",
+        "- You can be heard and seen by the user.",
+        "- Keep responses under 20 words unless something more substantial is required.",
+        "- Stay in character at all times and answer as this person would.",
     ]
 
     prompt_lines = list(lines)
     for example in examples:
-        candidate_lines = prompt_lines + [f"- Example: {example['text']}"] + tail_lines
+        candidate_lines = prompt_lines + [f'- "{example["text"]}"'] + tail_lines
         if len("\n".join(candidate_lines)) > max_prompt_chars:
             break
-        prompt_lines.append(f"- Example: {example['text']}")
+        prompt_lines.append(f'- "{example["text"]}"')
 
     return shorten_text("\n".join(prompt_lines + tail_lines), max_prompt_chars)
 
