@@ -37,13 +37,15 @@ For xAI MLLM the engine ignores top-level `properties.turn_detection`. Configura
   "turn_detection": {
     "mode": "server_vad",
     "server_vad_config": {
-      "threshold": 0.5,
-      "prefix_padding_ms": 640,
-      "silence_duration_ms": 900
+      "threshold": 0.7,
+      "prefix_padding_ms": 333,
+      "silence_duration_ms": 200
     }
   }
 }
 ```
+
+Defaults tuned for faster response (lower `silence_duration_ms` than docs' 900) with a stricter VAD `threshold` (0.7 vs docs' 0.5) to suppress false speech-onset triggers.
 
 See `build_mllm_config` in `core/agent.py`. Defaults match the docs at https://docs.agora.io/en/conversational-ai/models/mllm/xai.
 

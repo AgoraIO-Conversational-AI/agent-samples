@@ -251,9 +251,9 @@ def build_mllm_config(constants, query_params=None):
                 td = {
                     "mode": "server_vad",
                     "server_vad_config": {
-                        "threshold": float(_qp("turn_detection_threshold", 0.5)),
-                        "prefix_padding_ms": int(_qp("turn_detection_prefix_padding_ms", 640)),
-                        "silence_duration_ms": int(_qp("turn_detection_silence_duration_ms", 900)),
+                        "threshold": float(_qp("turn_detection_threshold", 0.7)),
+                        "prefix_padding_ms": int(_qp("turn_detection_prefix_padding_ms", 333)),
+                        "silence_duration_ms": int(_qp("turn_detection_silence_duration_ms", 200)),
                     },
                 }
             mllm_config["turn_detection"] = td
