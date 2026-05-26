@@ -232,7 +232,7 @@ def build_mllm_config(constants, query_params=None):
     # xAI MLLM turn detection (under mllm.turn_detection; top-level is ignored when this is set).
     # Defaults per https://docs.agora.io/en/conversational-ai/models/mllm/xai
     if vendor == "xai":
-        mode = (query_params.get('turn_detection_mode') or constants.get("MLLM_TURN_DETECTION_MODE") or "agora_vad").lower()
+        mode = (query_params.get('turn_detection_mode') or constants.get("MLLM_TURN_DETECTION_MODE") or "server_vad").lower()
         if mode in ("agora_vad", "server_vad"):
             def _qp(name, default):
                 v = query_params.get(name) or constants.get(f"MLLM_TURN_DETECTION_{name.upper()}")

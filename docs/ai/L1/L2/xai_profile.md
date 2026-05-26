@@ -21,7 +21,7 @@ All work on either client's page URL and are forwarded to `/start-agent`.
 | `xhandle` | Generate a persona prompt + greeting + (XLS only) avatar image from a public X handle. Replaces the profile's DEFAULT_PROMPT entirely; falls back to the profile default on X API error. |
 | `voice_id` | Override `mllm.params.voice`. For xAI valid values include `eve`, `ara`, etc. |
 | `avatar_id` | XLS only. Overrides `XLS_AVATAR_ID`. For LemonSlice, this is the public image URL (URL-encoded). |
-| `turn_detection_mode` | `agora_vad` (default) or `server_vad`. Drives `mllm.turn_detection`. |
+| `turn_detection_mode` | `server_vad` (default — matches xAI's native behavior) or `agora_vad`. Drives `mllm.turn_detection`. |
 | `turn_detection_threshold` | float, default `0.5`. |
 | `turn_detection_prefix_padding_ms` | int. agora_vad default `800`; server_vad default `640`. |
 | `turn_detection_silence_duration_ms` | int. agora_vad default `640`; server_vad default `900`. Lower = faster response. |
@@ -35,12 +35,11 @@ For xAI MLLM the engine ignores top-level `properties.turn_detection`. Configura
 "mllm": {
   "vendor": "xai",
   "turn_detection": {
-    "mode": "agora_vad",
-    "agora_vad_config": {
+    "mode": "server_vad",
+    "server_vad_config": {
       "threshold": 0.5,
-      "interrupt_duration_ms": 160,
-      "prefix_padding_ms": 800,
-      "silence_duration_ms": 640
+      "prefix_padding_ms": 640,
+      "silence_duration_ms": 900
     }
   }
 }

@@ -23,7 +23,7 @@
 | `voice_id` | Overrides TTS voice or, in MLLM mode, `mllm.params.voice`. | `core/agent.py` |
 | `avatar_id` | Overrides `{PROFILE}_AVATAR_ID`. | `core/agent.py` |
 | `xhandle` | Generates persona prompt + greeting (+ avatar image, where applicable) from a public X handle. Replaces the profile default prompt. Skipped on `connect=false`. Falls back to profile defaults on X API error. | `x/profile_prompt.py` |
-| `turn_detection_mode` | xAI only: `agora_vad` (default) or `server_vad`. Emitted under `mllm.turn_detection`. | `core/agent.py` |
+| `turn_detection_mode` | xAI only: `server_vad` (default — matches xAI's native behavior) or `agora_vad`. Emitted under `mllm.turn_detection`. | `core/agent.py` |
 | `turn_detection_threshold` / `_prefix_padding_ms` / `_silence_duration_ms` / `_interrupt_duration_ms` | xAI tunables; defaults match Agora's xAI docs. | `core/agent.py` |
 
 ## Profile-Level Behavior
