@@ -123,7 +123,7 @@ def initialize_constants(profile=None):
         # Agent settings
         "PIPELINE_ID": get_env_var('PIPELINE_ID', profile),
         "IDLE_TIMEOUT": get_env_var('IDLE_TIMEOUT', profile, "120"),
-        "MAX_CALL_DURATION_SECONDS": get_env_var('MAX_CALL_DURATION_SECONDS', profile, "600"),
+        "MAX_CALL_DURATION_SECONDS": get_env_var('MAX_CALL_DURATION_SECONDS', profile, "300"),
         "MAX_HISTORY": get_env_var('MAX_HISTORY', profile, "32"),
 
         # SAL (Selective Attention Locking) — beta, off by default
