@@ -40,7 +40,8 @@ def test_build_profile_overrides_from_handle(monkeypatch):
 
     assert payload["avatar_id"] == "https://pbs.twimg.com/profile_images/123/paulg.jpg"
     assert payload["avatar_url_normal"] == "https://pbs.twimg.com/profile_images/123/paulg_normal.jpg"
-    assert payload["greeting"] == "Hi, I'm Paul Graham. Essays, startups, and technology."
+    assert payload["greeting"].startswith("Hi, I'm Paul Graham.")
+    assert len(payload["greeting"]) < 120
     assert "You are roleplaying as Paul Graham (@paulg) in a live voice and video conversation." in payload["prompt"]
     assert "Bio: Essays, startups, and technology." in payload["prompt"]
     assert "Keep responses under 20 words unless something more substantial is required." in payload["prompt"]

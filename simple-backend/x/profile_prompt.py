@@ -38,6 +38,24 @@ DEFAULT_MIN_POST_LENGTH = 80
 DEFAULT_MAX_EXAMPLE_CHARS = 400
 DEFAULT_MAX_PROMPT_CHARS = 4000
 
+# Curated map of X handles to the casual name a public figure is commonly known by.
+# Lookup is case-insensitive on the handle. Used in greeting + system prompt header
+# when set; falls back to the X "name" field otherwise.
+HANDLE_NAMES_PATH = os.path.join(os.path.dirname(__file__), "handle_names.json")
+try:
+    with open(HANDLE_NAMES_PATH) as _f:
+        HANDLE_NAMES = {k.lower(): v for k, v in json.load(_f).items()}
+except FileNotFoundError:
+    HANDLE_NAMES = {}
+
+
+def resolve_display_name(user: dict) -> str:
+    username = (user.get("username") or "").lower()
+    casual = HANDLE_NAMES.get(username)
+    if casual:
+        return casual
+    return user.get("name") or user.get("username") or "Unknown"
+
 STOPWORDS = {
     "a", "about", "after", "all", "also", "am", "an", "and", "any", "are", "around", "as", "at",
     "back", "be", "because", "been", "before", "being", "between", "both", "but", "by", "can",
@@ -326,7 +344,7 @@ def clean_example_text(text: str, max_chars: int) -> str:
 
 
 def render_prompt(user: dict, stats: dict, examples: list[dict], *, max_prompt_chars: int) -> str:
-    name = user.get("name") or user.get("username") or "Unknown"
+    name = resolve_display_name(user)
     username = user.get("username") or "unknown"
     bio = clean_text(user.get("description") or "")
     verified_type = (user.get("verified_type") or "").lower()
@@ -382,27 +400,26 @@ def render_prompt(user: dict, stats: dict, examples: list[dict], *, max_prompt_c
     return shorten_text("\n".join(prompt_lines + tail_lines), max_prompt_chars)
 
 
+SPEECH_INVISIBLE_RE = re.compile(r"[\u200b-\u200f\u2028-\u202f\ufe0e\ufe0f]")
+
+
+def clean_for_speech(text: str) -> str:
+    """Strip emojis, @mentions, URLs and invisible chars that do not speak well."""
+    out = EMOJI_HINT_RE.sub("", text)
+    out = SPEECH_INVISIBLE_RE.sub("", out)
+    out = URL_RE.sub("", out)
+    out = re.sub(r"@\w+", "", out)
+    return WHITESPACE_RE.sub(" ", out).strip(" ,.;:-")
+
+
 def build_greeting(user: dict, stats: dict) -> str:
-    name = user.get("name") or user.get("username") or "there"
-    bio = ensure_sentence(user.get("description") or "")
-    topics = [term for term in stats.get("top_terms", []) if len(term) >= 5][:3]
-    reply_heavy = stats.get("reply_rate", 0) > 0.5
+    raw_name = resolve_display_name(user)
+    name = clean_for_speech(raw_name) or "there"
+    topics = [t for t in stats.get("top_terms", []) if len(t) >= 5][:2]
 
     parts = [f"Hi, I'm {name}."]
-    if bio:
-        parts.append(bio)
-    elif topics and not reply_heavy:
-        parts.append(f"I usually post about {format_series(topics)}.")
-    else:
-        parts.append("I share thoughts, reactions, and observations on X.")
-
-    if reply_heavy:
-        parts.append("I often respond directly and conversationally.")
-    elif stats.get("length_style") == "longer and more detailed":
-        parts.append("I tend to write in a more detailed, reflective style.")
-    elif stats.get("length_style") == "short and punchy":
-        parts.append("I tend to keep things short and direct.")
-
+    if topics:
+        parts.append(f"I post about {format_series(topics)}.")
     return " ".join(parts)
 
 
