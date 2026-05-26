@@ -58,51 +58,16 @@ export function useAgoraVoiceClient() {
   const rtmClientRef = useRef<InstanceType<typeof AgoraRTM.RTM> | null>(null);
   const voiceAIRef = useRef<AgoraVoiceAI | null>(null);
   const volumeCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Tracks RTC track-event handlers so they can be unregistered on leave.
+  const rtcTrackHandlersRef = useRef<{
+    onPublished?: (user: IAgoraRTCRemoteUser, mediaType: "audio" | "video") => void;
+    onUnpublished?: (user: IAgoraRTCRemoteUser, mediaType: "audio" | "video") => void;
+    onLeft?: () => void;
+  }>({});
 
-  // Setup RTC event listeners
-  useEffect(() => {
-    const rtcClient = rtcClientRef.current;
-    if (!rtcClient) return;
-
-    const handleUserPublished = async (
-      user: IAgoraRTCRemoteUser,
-      mediaType: "audio" | "video",
-    ) => {
-      if (mediaType === "audio") {
-        await rtcClient.subscribe(user, mediaType);
-        user.audioTrack?.play();
-        setRemoteAudioTrack(user.audioTrack ?? null);
-        setIsAgentSpeaking(true);
-      }
-    };
-
-    const handleUserUnpublished = (
-      _user: IAgoraRTCRemoteUser,
-      mediaType: "audio" | "video",
-    ) => {
-      if (mediaType === "audio") {
-        setIsAgentSpeaking(false);
-        setRemoteAudioTrack(null);
-      }
-    };
-
-    const handleUserLeft = () => {
-      setIsAgentSpeaking(false);
-      setRemoteAudioTrack(null);
-      setRemoteUserLeftAt(Date.now());
-    };
-
-    rtcClient.on("user-published", handleUserPublished);
-    rtcClient.on("user-unpublished", handleUserUnpublished);
-    rtcClient.on("user-left", handleUserLeft);
-
-    return () => {
-      rtcClient.off("user-published", handleUserPublished);
-      rtcClient.off("user-unpublished", handleUserUnpublished);
-      rtcClient.off("user-left", handleUserLeft);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rtcClientRef.current]);
+  // Handlers are registered inside joinChannel against the freshly-created
+  // rtcClient (and cleaned up inside leaveChannel). This avoids a stale-ref
+  // race that previously caused the second session to miss `user-published`.
 
   // Monitor remote audio volume levels
   useEffect(() => {
@@ -157,6 +122,11 @@ export function useAgoraVoiceClient() {
       }
 
       if (rtcClientRef.current) {
+        const handlers = rtcTrackHandlersRef.current;
+        if (handlers.onPublished) rtcClientRef.current.off("user-published", handlers.onPublished);
+        if (handlers.onUnpublished) rtcClientRef.current.off("user-unpublished", handlers.onUnpublished);
+        if (handlers.onLeft) rtcClientRef.current.off("user-left", handlers.onLeft);
+        rtcTrackHandlersRef.current = {};
         await rtcClientRef.current.leave();
         rtcClientRef.current = null;
       }
@@ -186,6 +156,38 @@ export function useAgoraVoiceClient() {
         // Create RTC client
         const rtcClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
         rtcClientRef.current = rtcClient;
+
+        // Register track-event handlers immediately so we don't miss the
+        // agent's first `user-published` event during cold start.
+        const onPublished = async (
+          user: IAgoraRTCRemoteUser,
+          mediaType: "audio" | "video",
+        ) => {
+          if (mediaType === "audio") {
+            await rtcClient.subscribe(user, mediaType);
+            user.audioTrack?.play();
+            setRemoteAudioTrack(user.audioTrack ?? null);
+            setIsAgentSpeaking(true);
+          }
+        };
+        const onUnpublished = (
+          _user: IAgoraRTCRemoteUser,
+          mediaType: "audio" | "video",
+        ) => {
+          if (mediaType === "audio") {
+            setIsAgentSpeaking(false);
+            setRemoteAudioTrack(null);
+          }
+        };
+        const onLeft = () => {
+          setIsAgentSpeaking(false);
+          setRemoteAudioTrack(null);
+          setRemoteUserLeftAt(Date.now());
+        };
+        rtcClient.on("user-published", onPublished);
+        rtcClient.on("user-unpublished", onUnpublished);
+        rtcClient.on("user-left", onLeft);
+        rtcTrackHandlersRef.current = { onPublished, onUnpublished, onLeft };
 
         // Create RTM client
         const rtmUid = config.rtmUid || `${config.uid}`;
