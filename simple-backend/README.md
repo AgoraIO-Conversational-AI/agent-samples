@@ -266,6 +266,21 @@ The `/speak` endpoint pushes text directly to a running agent's TTS pipeline via
 curl "http://localhost:8082/health"
 ```
 
+### URL Query Parameters for `/start-agent`
+
+| Param | Effect |
+| --- | --- |
+| `profile` | Which `{PROFILE}_*` env block to use. |
+| `channel` | RTC channel name; auto-generated if omitted. |
+| `connect=false` | Token-only mode — skip ConvoAI `/join` and skip `xhandle` resolution. |
+| `prompt`, `greeting` | Override `{PROFILE}_DEFAULT_PROMPT` / `{PROFILE}_DEFAULT_GREETING`. |
+| `voice_id` | Override TTS voice. In MLLM mode (xai/openai/vertexai), also overrides `mllm.params.voice`. |
+| `avatar_id` | Override `{PROFILE}_AVATAR_ID`. For the `generic` avatar vendor (e.g. LemonSlice), this is the public image URL — URL-encode it when embedding. |
+| `xhandle` | Public X (Twitter) handle. Backend calls X API v2 to generate a persona system prompt, a first-person greeting, and (when applicable) an avatar image. Replaces the profile's default prompt. On X API error, silently falls back to the profile default. Skipped on `connect=false`. Requires `X_API_BEARER_TOKEN` env var. |
+| `turn_detection_mode` | xAI only. `agora_vad` (default) or `server_vad`. Emitted under `mllm.turn_detection`. |
+| `turn_detection_threshold`, `turn_detection_prefix_padding_ms`, `turn_detection_silence_duration_ms`, `turn_detection_interrupt_duration_ms` | xAI tunables. Defaults match [Agora's xAI docs](https://docs.agora.io/en/conversational-ai/models/mllm/xai). |
+| `debug=true` | Include `agent_payload` (with sensitive fields redacted client-side) in the response so clients can show resolved prompt/greeting. |
+
 **API Documentation:**
 
 - [Start agent REST API](https://docs.agora.io/en/conversational-ai/rest-api/agent/join)
@@ -311,6 +326,7 @@ The backend builds the Agora ConvoAI agent payload in `core/agent.py`. Key secti
 | `enable_sal`   | `false`     | Selective Attention Locking (beta). Blocks ~95% of ambient voices so the agent focuses on the primary speaker. Set `ENABLE_SAL=true` to enable. |
 | `enable_mllm`  | `false`     | Enables multimodal LLM mode (Gemini Live or OpenAI Realtime). Set `ENABLE_MLLM=true` to enable.                                                 |
 | `enable_tools` | conditional | Automatically enabled when MCP servers are configured.                                                                                          |
+| Call duration cap | `300` (sec) | Wall-clock max session length. Backend schedules an auto-hangup at `MAX_CALL_DURATION_SECONDS` (profile-overridable); manual `/hangup-agent` cancels the timer. Clients auto-clean up when the agent's RTC user leaves the channel. |
 
 ### Turn Detection
 
@@ -332,6 +348,8 @@ Turn detection controls how the agent detects when the user has finished speakin
 | Silence duration   | `VAD_SILENCE_DURATION_MS` | _(omitted)_           | Only included when explicitly set in `.env`. Controls ms of silence before end-of-speech triggers. Omit to use server defaults. |
 
 In MLLM mode, `turn_detection` also includes a top-level `mode` field (defaults to `"server_vad"`, configurable via `TURN_DETECTION_TYPE`).
+
+**xAI MLLM (`mllm_vendor=xai`):** the top-level `turn_detection` block is ignored by ConvoAI. Configuration goes under `mllm.turn_detection` instead, in the shape `{ "mode": "agora_vad" | "server_vad", "<mode>_config": { ... } }`. Backend emits this automatically with docs-default values and exposes URL params `turn_detection_mode`, `turn_detection_threshold`, `turn_detection_prefix_padding_ms`, `turn_detection_silence_duration_ms`, `turn_detection_interrupt_duration_ms` for runtime tuning / latency A/B. See [docs/ai/L1/L2/xai_profile.md](../docs/ai/L1/L2/xai_profile.md) for the full xAI profile contract.
 
 ### Parameters
 
