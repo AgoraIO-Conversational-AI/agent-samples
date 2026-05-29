@@ -116,6 +116,7 @@ export function VoiceClient() {
   const [autoConnect, setAutoConnect] = useState(false);
   const [returnUrl, setReturnUrl] = useState<string | null>(null);
   const [xHandleOverride, setXHandleOverride] = useState("");
+  const [voiceIdOverride, setVoiceIdOverride] = useState("");
   const [selectedMic, setSelectedMic] = useState(() =>
     typeof window !== "undefined"
       ? localStorage.getItem("selectedMicId") || ""
@@ -145,6 +146,10 @@ export function VoiceClient() {
       const xh = params.get("xhandle");
       if (xh) {
         setXHandleOverride(xh);
+      }
+      const vid = params.get("voice_id");
+      if (vid) {
+        setVoiceIdOverride(vid);
       }
     }
   }, []);
@@ -245,6 +250,9 @@ export function VoiceClient() {
       }
       if (xHandleOverride) {
         params.append("xhandle", xHandleOverride);
+      }
+      if (voiceIdOverride) {
+        params.append("voice_id", voiceIdOverride);
       }
       // Pass-through latency-test params from page URL
       if (typeof window !== "undefined") {
