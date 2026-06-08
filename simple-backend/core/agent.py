@@ -54,7 +54,12 @@ def build_tts_config(tts_vendor, constants, query_params=None):
             "model_id": query_params.get('tts_model', constants["ELEVENLABS_MODEL"]),
             "voice_id": voice_id,
             "stability": float(query_params.get('voice_stability', constants["ELEVENLABS_STABILITY"])),
-            "sample_rate": int(query_params.get('sample_rate', constants["TTS_SAMPLE_RATE"]))
+            "sample_rate": int(query_params.get('sample_rate', constants["TTS_SAMPLE_RATE"])),
+            "language_code": (
+                query_params.get('tts_language')
+                or constants.get("TTS_LANGUAGE")
+                or (constants.get("ASR_LANGUAGE") or "en-US").split("-")[0].lower()
+            ),
         }
 
     elif tts_vendor == "openai":

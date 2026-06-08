@@ -25,6 +25,7 @@
 | `xhandle` | Generates persona prompt + greeting (+ avatar image, where applicable) from a public X handle. Replaces the profile default prompt. Skipped on `connect=false`. Falls back to profile defaults on X API error. | `x/profile_prompt.py` |
 | `turn_detection_mode` | xAI only: `server_vad` (default — matches xAI's native behavior) or `agora_vad`. Emitted under `mllm.turn_detection`. | `core/agent.py` |
 | `turn_detection_threshold` / `_prefix_padding_ms` / `_silence_duration_ms` / `_interrupt_duration_ms` | xAI tunables; defaults match Agora's xAI docs. | `core/agent.py` |
+| `tts_language` | ElevenLabs only: ISO 639-1 code sent as `language_code` to flash_v2_5 / turbo_v2_5. Locks TTS pronunciation rules to one language so the model doesn't auto-detect and switch mid-response. Defaults to `TTS_LANGUAGE` env, then the first two chars of `ASR_LANGUAGE` (e.g. `en-US` → `en`). | `core/agent.py` |
 
 ## Profile-Level Behavior
 

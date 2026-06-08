@@ -279,6 +279,7 @@ curl "http://localhost:8082/health"
 | `xhandle` | Public X (Twitter) handle. Backend calls X API v2 to generate a persona system prompt, a first-person greeting, and (when applicable) an avatar image. Replaces the profile's default prompt. On X API error, silently falls back to the profile default. Skipped on `connect=false`. Requires `X_API_BEARER_TOKEN` env var. |
 | `turn_detection_mode` | xAI only. `agora_vad` (default) or `server_vad`. Emitted under `mllm.turn_detection`. |
 | `turn_detection_threshold`, `turn_detection_prefix_padding_ms`, `turn_detection_silence_duration_ms`, `turn_detection_interrupt_duration_ms` | xAI tunables. Defaults match [Agora's xAI docs](https://docs.agora.io/en/conversational-ai/models/mllm/xai). |
+| `tts_language` | ElevenLabs only. ISO 639-1 code (`en`, `es`, etc.) sent as `language_code` so flash_v2_5 / turbo_v2_5 won't auto-detect and switch languages mid-response. Defaults to `{PROFILE}_TTS_LANGUAGE`, then the first two chars of `ASR_LANGUAGE`. |
 | `debug=true` | Include `agent_payload` (with sensitive fields redacted client-side) in the response so clients can show resolved prompt/greeting. |
 
 **API Documentation:**
