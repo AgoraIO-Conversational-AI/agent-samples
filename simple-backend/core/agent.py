@@ -61,6 +61,12 @@ def build_tts_config(tts_vendor, constants, query_params=None):
                 or (constants.get("ASR_LANGUAGE") or "en-US").split("-")[0].lower()
             ),
         }
+        # ElevenLabs supports a speed param (0.7 slow … 1.2 fast). Only
+        # include it when explicitly set so we don't accidentally pin
+        # 1.0 on profiles that want the model default.
+        el_speed = query_params.get('voice_speed', constants.get("ELEVENLABS_SPEED"))
+        if el_speed not in (None, ""):
+            tts_config["params"]["speed"] = float(el_speed)
 
     elif tts_vendor == "openai":
         tts_config["params"] = {
@@ -80,6 +86,26 @@ def build_tts_config(tts_vendor, constants, query_params=None):
                 "mode": "id",
                 "id": query_params.get('voice_id', constants["TTS_VOICE_ID"])
             }
+        }
+
+    elif tts_vendor == "gradium":
+        # Ride ConvoAI's Cartesia TTS schema (x-api-key auth matches
+        # Gradium) but point at the Gradium WebSocket endpoint with the
+        # Gradium key + voice id.
+        tts_config["vendor"] = "cartesia"
+        tts_config["params"] = {
+            "api_key": constants["TTS_KEY"],
+            "model_id": "sonic-2",
+            "base_url": "wss://api.gradium.ai/api/speech/tts",
+            "voice": {
+                "mode": "id",
+                "id": query_params.get('voice_id', constants["TTS_VOICE_ID"]),
+            },
+            "output_format": {
+                "container": "raw",
+                "sample_rate": int(query_params.get('sample_rate', constants.get("TTS_SAMPLE_RATE", "16000"))),
+            },
+            "language": query_params.get('tts_language', "en"),
         }
 
     elif tts_vendor == "rime":
@@ -193,6 +219,14 @@ def build_mllm_config(constants, query_params=None):
             "language": query_params.get('mllm_language', constants.get("MLLM_LANGUAGE")) or constants.get("ASR_LANGUAGE", "en-US")[:2],
             "sample_rate": int(sample_rate_value),
         }
+    elif vendor == "gemini":
+        # Gemini Realtime via Google AI Studio (api_key auth, no Vertex ADC).
+        # Docs: https://docs.agora.io/en/conversational-ai/models/mllm/gemini
+        params = {
+            "model": query_params.get('mllm_model', constants.get("MLLM_MODEL", "gemini-2.5-flash-preview-native-audio-dialog")),
+            "voice": voice or "Aoede",
+            "instructions": prompt,
+        }
     else:
         params = {
             "model": query_params.get('mllm_model', constants.get("MLLM_MODEL", "gemini-live-2.5-flash-preview-native-audio-09-2025")),
@@ -223,7 +257,7 @@ def build_mllm_config(constants, query_params=None):
             }
         ],
         "params": params,
-        "output_modalities": ["audio", "text"] if vendor == "xai" else (["text", "audio"] if vendor == "openai" else ["audio"]),
+        "output_modalities": ["audio", "text"] if vendor in ("xai", "gemini") else (["text", "audio"] if vendor == "openai" else ["audio"]),
         "max_history": 20,
         "greeting_message": query_params.get('greeting', constants.get("DEFAULT_GREETING", "Hey There Sir")),
         "failure_message": query_params.get('failure_message', constants.get("DEFAULT_FAILURE_MESSAGE", "Something went wrong"))
@@ -234,9 +268,11 @@ def build_mllm_config(constants, query_params=None):
     if style:
         mllm_config["style"] = style
 
-    # xAI MLLM turn detection (under mllm.turn_detection; top-level is ignored when this is set).
-    # Defaults per https://docs.agora.io/en/conversational-ai/models/mllm/xai
-    if vendor == "xai":
+    # MLLM turn detection (xAI + Gemini both put this under mllm.turn_detection; the top-level
+    # turn_detection is ignored when this is set).
+    # Docs: https://docs.agora.io/en/conversational-ai/models/mllm/xai
+    #       https://docs.agora.io/en/conversational-ai/models/mllm/gemini
+    if vendor in ("xai", "gemini"):
         mode = (query_params.get('turn_detection_mode') or constants.get("MLLM_TURN_DETECTION_MODE") or "server_vad").lower()
         if mode in ("agora_vad", "server_vad"):
             def _qp(name, default):
@@ -253,14 +289,17 @@ def build_mllm_config(constants, query_params=None):
                     },
                 }
             else:
-                td = {
-                    "mode": "server_vad",
-                    "server_vad_config": {
-                        "threshold": float(_qp("turn_detection_threshold", 0.7)),
-                        "prefix_padding_ms": int(_qp("turn_detection_prefix_padding_ms", 333)),
-                        "silence_duration_ms": int(_qp("turn_detection_silence_duration_ms", 200)),
-                    },
+                cfg = {
+                    "threshold": float(_qp("turn_detection_threshold", 0.7)),
+                    "prefix_padding_ms": int(_qp("turn_detection_prefix_padding_ms", 333)),
+                    "silence_duration_ms": int(_qp("turn_detection_silence_duration_ms", 200)),
                 }
+                # Gemini's server_vad accepts sensitivity hints; xAI does not.
+                if vendor == "gemini":
+                    cfg["start_of_speech_sensitivity"] = _qp("turn_detection_start_of_speech_sensitivity", "START_SENSITIVITY_HIGH")
+                    cfg["end_of_speech_sensitivity"] = _qp("turn_detection_end_of_speech_sensitivity", "END_SENSITIVITY_HIGH")
+                    cfg.pop("threshold", None)
+                td = {"mode": "server_vad", "server_vad_config": cfg}
             mllm_config["turn_detection"] = td
 
     return mllm_config
@@ -398,6 +437,18 @@ def build_avatar_config(avatar_vendor, constants, channel, agent_video_token, qu
             "activity_idle_timeout": int(query_params.get('avatar_activity_idle_timeout', constants.get("AVATAR_ACTIVITY_IDLE_TIMEOUT", "120"))),
             "area": query_params.get('avatar_area', constants.get("AVATAR_AREA", "NORTH_AMERICA")),
         }
+        # Optional chroma-key fill — only included if explicitly set, so
+        # we don't accidentally force a green screen on profiles that
+        # don't care about transparency.
+        bg = query_params.get('avatar_background_color', constants.get("AVATAR_BACKGROUND_COLOR"))
+        if bg:
+            params["background_color"] = bg
+        # Optional aspect-ratio hint (e.g. "1x1") for the LemonSlice
+        # renderer. Conditional so profiles that don't set it keep the
+        # renderer's default.
+        aspect = query_params.get('avatar_aspect_ratio', constants.get("AVATAR_ASPECT_RATIO"))
+        if aspect:
+            params["aspect_ratio"] = aspect
         return {
             "vendor": "generic",
             "enable": True,
@@ -752,17 +803,10 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
             "silence_duration_ms": vad_silence_duration
         }
 
-    if enable_mllm:
-        turn_detection = {
-            "config": turn_detection_config
-        }
-        turn_detection_type = query_params.get('turn_detection_type') or constants.get("TURN_DETECTION_TYPE")
-        if turn_detection_type:
-            turn_detection["mode"] = turn_detection_type
-        elif mllm_vendor != "xai":
-            turn_detection["mode"] = "server_vad"
-        properties["turn_detection"] = turn_detection
-    else:
+    # Top-level turn_detection is only used for non-MLLM pipelines. When MLLM is
+    # enabled the engine ignores it (xAI/Gemini docs both say so), so emitting
+    # both blocks is noise that makes the curl dumps harder to read.
+    if not enable_mllm:
         properties["turn_detection"] = {
             "config": turn_detection_config
         }
@@ -973,6 +1017,12 @@ def hangup_agent(agent_id, constants):
     response_text = response.read().decode('utf-8')
 
     conn.close()
+
+    print(
+        f"[Hangup] agent={agent_id} → ConvoAI /leave returned {status_code} "
+        f"body={response_text[:120]!r}",
+        flush=True,
+    )
 
     return {
         "status_code": status_code,

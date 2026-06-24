@@ -19,8 +19,13 @@ import urllib.error
 import urllib.request
 from uuid import uuid4
 
-from flask import Flask, request, jsonify, session
+from flask import Flask, request, jsonify, session, abort
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.utils import secure_filename
+
+from photo.vision import analyse_image
+from photo.crop import crop_for_avatar, normalize_orientation
+from photo.voices import pick_voice, pick_gemini_voice
 from core.config import initialize_constants
 from core.tokens import build_token_with_rtm
 from core.agent import create_agent_payload, send_agent_to_channel, hangup_agent, speak_to_agent, build_auth_header
@@ -33,6 +38,7 @@ from core.consultant_dashboard import (
 )
 from core.meeting_mode import authorize_meeting_join, notify_meeting_end, notify_meeting_event, verify_join_bootstrap
 from core.utils import generate_random_channel
+from core import news_channel
 from x.profile_prompt import XApiError, build_profile_overrides_from_handle
 import copy
 import re
@@ -70,14 +76,24 @@ _max_duration_timers: dict[str, threading.Timer] = {}
 _max_duration_lock = threading.Lock()
 
 
-def _schedule_max_duration_hangup(agent_id: str, constants: dict) -> None:
-    """Auto-hangup an agent after MAX_CALL_DURATION_SECONDS. Cancellable on manual hangup."""
-    raw = str(constants.get("MAX_CALL_DURATION_SECONDS", "600")).strip()
+def _schedule_max_duration_hangup(agent_id: str, constants: dict, query_params: dict | None = None) -> None:
+    """Auto-hangup an agent after MAX_CALL_DURATION_SECONDS. Cancellable on manual hangup.
+
+    Override priority: query_params['max_call_duration_seconds'] > constants > '600'.
+    A value of 0 (or negative / unparseable) disables the timer entirely — useful
+    for event demos with `?max_call_duration_seconds=0` or the EVENTDEMO profile.
+    """
+    raw = (
+        (query_params or {}).get("max_call_duration_seconds")
+        or str(constants.get("MAX_CALL_DURATION_SECONDS", "600"))
+    )
+    raw = str(raw).strip()
     try:
         duration = int(raw)
     except ValueError:
         return
     if duration <= 0:
+        print(f"[MaxDuration] Disabled for agent {agent_id} (duration={duration})", flush=True)
         return
 
     constants_snapshot = dict(constants)
@@ -407,7 +423,7 @@ def start_agent():
             resp_body = json.loads(agent_response.get("response", "{}"))
             agent_id = resp_body.get("agent_id")
             if agent_id:
-                _schedule_max_duration_hangup(agent_id, constants)
+                _schedule_max_duration_hangup(agent_id, constants, query_params)
                 llm_base = _derive_llm_base_url(constants)
                 register_url = f"{llm_base}/register-agent"
                 # Extract custom LLM params (tokens, UIDs, API keys)
@@ -925,6 +941,380 @@ def speak():
         return jsonify({"error": result['response'], "status_code": result['status_code']}), result['status_code']
 
     return jsonify(result)
+
+
+# ---------------------------------------------------------------------------
+# /news demo — shared-channel viewer + RSS/HN reader bot
+# ---------------------------------------------------------------------------
+
+NEWS_DEFAULT_CHANNEL = os.environ.get("NEWS_DEFAULT_CHANNEL", "news-default")
+NEWS_DEFAULT_PROFILE = os.environ.get("NEWS_DEFAULT_PROFILE", "news")
+
+
+def _news_start_agent(channel: str, profile: str, constants: dict) -> str | None:
+    """Spin up a ConvoAI agent for the news channel and return its agent_id.
+
+    No user audio is ever published from the viewer page, so the agent's
+    MLLM never sees input — its sole job is to render the avatar and
+    accept /speak pushes. We still need a working LLM/avatar block, so
+    we re-use create_agent_payload() with empty query_params.
+
+    Adopts the existing agent if ConvoAI reports a TaskConflict — that
+    means the agent is still running from before (e.g. after a backend
+    restart that dropped our in-memory channel state). The error body
+    in that case carries the live agent_id, which we reuse here so
+    the viewer joins the still-running session instead of erroring out.
+    """
+    agent_video_token_data = build_token_with_rtm(channel, constants["AGENT_VIDEO_UID"], constants)
+    query_params: dict[str, str] = {}
+    payload = create_agent_payload(
+        channel=channel,
+        constants=constants,
+        query_params=query_params,
+        agent_video_token=agent_video_token_data["token"],
+    )
+    resp = send_agent_to_channel(channel, payload, constants)
+    raw = resp.get("response", "{}") or "{}"
+    try:
+        body = json.loads(raw)
+    except (ValueError, TypeError):
+        body = {}
+    if resp.get("success"):
+        return body.get("agent_id")
+    if (body.get("reason") == "TaskConflict") and body.get("agent_id"):
+        print(
+            f"[news] adopting existing agent={body['agent_id']} on channel={channel} "
+            f"(ConvoAI reported TaskConflict — leftover from prior session)",
+            flush=True,
+        )
+        return body["agent_id"]
+    raise RuntimeError(f"send_agent_to_channel failed: {raw}")
+
+
+def _resolve_news_profile(query_params):
+    profile = (query_params.get("profile") or NEWS_DEFAULT_PROFILE).lower()
+    return profile, initialize_constants(profile)
+
+
+def _news_channel_from(query_params):
+    return (query_params.get("channel") or NEWS_DEFAULT_CHANNEL).strip() or NEWS_DEFAULT_CHANNEL
+
+
+@app.route('/news/join', methods=['POST', 'GET'])
+def news_join():
+    """Register a viewer on a news channel. First joiner spins up the
+    avatar agent + reader thread. Returns Agora tokens for listen-only
+    subscribe — viewer must NOT publish a local mic track.
+    """
+    query_params = request.args.to_dict()
+    if request.method == 'POST':
+        body = request.get_json(silent=True) or {}
+        query_params.update({k: str(v) for k, v in body.items() if v is not None})
+    profile, constants = _resolve_news_profile(query_params)
+    channel = _news_channel_from(query_params)
+    try:
+        state, session_id, was_first = news_channel.join(
+            channel=channel,
+            profile=profile,
+            constants=constants,
+            start_agent_fn=_news_start_agent,
+            speak_fn=speak_to_agent,
+            hangup_fn=hangup_agent,
+        )
+    except Exception as e:
+        app.logger.exception("[news] join failed channel=%s profile=%s", channel, profile)
+        return jsonify({"error": str(e)}), 500
+
+    # Issue a viewer token. Each viewer gets a unique RTC UID derived
+    # from the session_id so multiple watchers can coexist on one
+    # channel without UID clashes.
+    viewer_uid = int(uuid4().int % 1_000_000) + 100_000
+    if constants.get("APP_CERTIFICATE"):
+        # rtm_uid must be a string; default would inherit the int and crash.
+        viewer_token = build_token_with_rtm(
+            channel, viewer_uid, constants, rtm_uid=str(viewer_uid),
+        ).get("token")
+    else:
+        viewer_token = constants["APP_ID"]
+    return jsonify({
+        "app_id": constants["APP_ID"],
+        "channel": channel,
+        "profile": profile,
+        "uid": viewer_uid,
+        "token": viewer_token,
+        "agent_uid": constants.get("AGENT_VIDEO_UID") or constants.get("AGENT_UID"),
+        "session_id": session_id,
+        "was_first": was_first,
+        "agent_id": state.agent_id,
+        # The viewer needs to know whose video to subscribe to.
+        "subscribe_to_uid": constants.get("AGENT_VIDEO_UID") or constants.get("AGENT_UID"),
+    })
+
+
+@app.route('/news/heartbeat', methods=['POST'])
+def news_heartbeat():
+    body = request.get_json(silent=True) or {}
+    channel = (body.get("channel") or NEWS_DEFAULT_CHANNEL).strip() or NEWS_DEFAULT_CHANNEL
+    session_id = (body.get("session_id") or "").strip()
+    if not session_id:
+        return jsonify({"error": "session_id required"}), 400
+    ok = news_channel.heartbeat(channel, session_id)
+    return jsonify({"ok": ok})
+
+
+@app.route('/news/leave', methods=['POST'])
+def news_leave():
+    # Accept JSON, form-encoded (sendBeacon), or raw query — beacons
+    # often arrive as text/plain with a JSON body in the data.
+    body: dict = {}
+    if request.is_json:
+        body = request.get_json(silent=True) or {}
+    elif request.form:
+        body = request.form.to_dict()
+    else:
+        raw = request.get_data(as_text=True) or ""
+        try:
+            body = json.loads(raw) if raw else {}
+        except ValueError:
+            body = {}
+    channel = (body.get("channel") or request.args.get("channel") or NEWS_DEFAULT_CHANNEL).strip() or NEWS_DEFAULT_CHANNEL
+    session_id = (body.get("session_id") or request.args.get("session_id") or "").strip()
+    if not session_id:
+        return jsonify({"error": "session_id required"}), 400
+    news_channel.leave(channel, session_id, hangup_agent)
+    return jsonify({"ok": True})
+
+
+@app.route('/news/status', methods=['GET'])
+def news_status():
+    """Operator dump — which channels are running, how many viewers,
+    what was last spoken. Handy for confirming the demo is alive."""
+    return jsonify(news_channel.snapshot())
+
+
+PHOTO_UPLOADS_DIR = os.environ.get("PHOTO_UPLOADS_DIR", "/home/ubuntu/web/uploads")
+PHOTO_PUBLIC_BASE = os.environ.get("PHOTO_PUBLIC_BASE", "https://convoai-demo.agora.io/photo-uploads")
+PHOTO_MAX_BYTES = int(os.environ.get("PHOTO_MAX_BYTES", str(15 * 1024 * 1024)))  # 15 MB
+PHOTO_ALLOWED_MIMES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
+PHOTO_DEFAULT_PROFILE = "PHOTO_GEMINI"
+PHOTO_PROFILE_RE = re.compile(r"[^A-Za-z0-9_]+")
+
+
+def _safe_profile(profile: str | None) -> str:
+    """Sanitise a profile name for safe filesystem use. Default if missing."""
+    candidate = PHOTO_PROFILE_RE.sub("", (profile or "")).upper()
+    return candidate or PHOTO_DEFAULT_PROFILE
+
+
+def _photo_dir(profile: str) -> str:
+    """Per-profile upload subdirectory."""
+    return os.path.join(PHOTO_UPLOADS_DIR, _safe_profile(profile))
+
+
+def _photo_meta_path(photo_id: str, profile: str) -> str:
+    return os.path.join(_photo_dir(profile), f"{photo_id}.json")
+
+
+def _photo_image_path(photo_id: str, profile: str) -> str:
+    return os.path.join(_photo_dir(profile), f"{photo_id}.jpg")
+
+
+def _photo_public_url(photo_id: str, profile: str) -> str:
+    return f"{PHOTO_PUBLIC_BASE.rstrip('/')}/{_safe_profile(profile)}/{photo_id}.jpg"
+
+
+def _photo_payload(photo_id: str, profile: str) -> dict | None:
+    try:
+        with open(_photo_meta_path(photo_id, profile)) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+
+
+_DEFAULT_PHOTO_META_PATH = os.path.join(PHOTO_UPLOADS_DIR, "photo_default.json")
+
+
+def _default_photo_meta() -> dict | None:
+    """Curated 'starter' photo shown when a profile's gallery is empty.
+    Lives at /home/ubuntu/web/uploads/photo_default.{jpg,json}."""
+    try:
+        with open(_DEFAULT_PHOTO_META_PATH) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+
+
+@app.route('/upload-photo', methods=['POST'])
+def upload_photo():
+    """Accept an image upload, run vision + crop, return metadata.
+
+    Multipart form field: `photo` (required).
+    Response: {id, image_url, sex, age_bucket, voice_id, uploaded_at}.
+    """
+    f = request.files.get("photo")
+    if f is None:
+        return jsonify({"error": "missing 'photo' file in multipart form"}), 400
+    mime = (f.mimetype or "").lower()
+    if mime not in PHOTO_ALLOWED_MIMES:
+        return jsonify({"error": f"unsupported mime: {mime}"}), 415
+    raw = f.read()
+    if not raw:
+        return jsonify({"error": "empty file"}), 400
+    if len(raw) > PHOTO_MAX_BYTES:
+        return jsonify({"error": f"file too large (> {PHOTO_MAX_BYTES} bytes)"}), 413
+
+    profile = _safe_profile(request.args.get("profile") or request.form.get("profile"))
+    profile_dir = _photo_dir(profile)
+    os.makedirs(profile_dir, exist_ok=True)
+
+    # Normalize EXIF orientation up-front so vision + crop see the same upright
+    # pixels — otherwise the bbox returned by GPT-4o is for a sideways image.
+    try:
+        raw = normalize_orientation(raw)
+    except Exception as exc:
+        app.logger.warning("orientation normalize failed (proceeding with raw): %s", exc)
+
+    try:
+        analysis = analyse_image(raw, mime_type=mime)
+    except Exception as exc:  # vision is best-effort, never block upload
+        app.logger.warning("vision failed: %s", exc)
+        analysis = {"sex": None, "age_bucket": None, "bbox": None}
+
+    try:
+        cropped = crop_for_avatar(raw, analysis.get("bbox"))
+    except Exception as exc:
+        app.logger.exception("crop failed: %s", exc)
+        return jsonify({"error": "image processing failed"}), 500
+
+    photo_id = uuid4().hex
+    image_path = _photo_image_path(photo_id, profile)
+    with open(image_path, "wb") as out:
+        out.write(cropped)
+
+    # Pick a vendor-appropriate voice for the resolved profile so the landing
+    # app's Talk button passes the right ID, regardless of whether the profile
+    # is in env or fell back. Default to Gemini's voice for unknown / MLLM
+    # profiles; ElevenLabs only when the profile actually uses cascading TTS.
+    voice_id_gemini = pick_gemini_voice(analysis.get("sex"))
+    voice_id_elevenlabs = pick_voice(analysis.get("sex"), analysis.get("age_bucket"))
+    profile_constants = initialize_constants(profile)
+    is_mllm = (profile_constants.get("ENABLE_MLLM") or "").lower() == "true"
+    mllm_vendor = (profile_constants.get("MLLM_VENDOR") or "").lower()
+    if is_mllm and mllm_vendor == "gemini":
+        primary_voice = voice_id_gemini
+    elif is_mllm and mllm_vendor == "xai":
+        primary_voice = profile_constants.get("MLLM_VOICE") or "eve"  # xAI doesn't have sex-mapped voices
+    else:
+        primary_voice = voice_id_elevenlabs
+
+    image_url = _photo_public_url(photo_id, profile)
+    payload = {
+        "id": photo_id,
+        "profile": profile,
+        "image_url": image_url,
+        "sex": analysis.get("sex"),
+        "age_bucket": analysis.get("age_bucket"),
+        "voice_id": primary_voice,
+        "voice_id_elevenlabs": voice_id_elevenlabs,
+        "voice_id_gemini": voice_id_gemini,
+        "uploaded_at": int(time.time()),
+    }
+    with open(_photo_meta_path(photo_id, profile), "w") as out:
+        json.dump(payload, out)
+
+    # Atomic latest swap — scoped to this profile.
+    latest_path = os.path.join(profile_dir, "latest.json")
+    tmp_latest = latest_path + ".tmp"
+    with open(tmp_latest, "w") as out:
+        json.dump(payload, out)
+    os.replace(tmp_latest, latest_path)
+    # Also keep a copy as latest.jpg under the profile dir.
+    latest_jpg = os.path.join(profile_dir, "latest.jpg")
+    tmp_latest_jpg = latest_jpg + ".tmp"
+    with open(tmp_latest_jpg, "wb") as out:
+        out.write(cropped)
+    os.replace(tmp_latest_jpg, latest_jpg)
+
+    return jsonify(payload)
+
+
+@app.route('/photo-latest', methods=['GET'])
+def photo_latest():
+    """Return metadata for the most-recent uploaded photo within ?profile=.
+    Falls back to the curated photo_default if the profile has no uploads yet."""
+    profile = _safe_profile(request.args.get("profile"))
+    latest_path = os.path.join(_photo_dir(profile), "latest.json")
+    try:
+        with open(latest_path) as f:
+            return jsonify(json.load(f))
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+    default = _default_photo_meta()
+    if default:
+        return jsonify({**default, "profile": profile})
+    return jsonify({"id": None, "image_url": None, "voice_id": None, "profile": profile}), 200
+
+
+@app.route('/photo/<photo_id>', methods=['GET'])
+def photo_get(photo_id: str):
+    """Return metadata for one specific upload within ?profile=."""
+    if not photo_id.isalnum() or len(photo_id) > 64:
+        abort(400)
+    profile = _safe_profile(request.args.get("profile"))
+    data = _photo_payload(photo_id, profile)
+    if data is None:
+        abort(404)
+    return jsonify(data)
+
+
+@app.route('/photo/<photo_id>', methods=['DELETE'])
+def photo_delete(photo_id: str):
+    """Remove one upload (image + sidecar) from ?profile= storage."""
+    if not photo_id.isalnum() or len(photo_id) > 64:
+        abort(400)
+    profile = _safe_profile(request.args.get("profile"))
+    img_path = _photo_image_path(photo_id, profile)
+    meta_path = _photo_meta_path(photo_id, profile)
+    if not os.path.exists(meta_path) and not os.path.exists(img_path):
+        abort(404)
+    for path in (img_path, meta_path):
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            pass
+    return ('', 204)
+
+
+@app.route('/photos', methods=['GET'])
+def photos_list():
+    """Return the N most recent uploads within ?profile=, newest first."""
+    try:
+        limit = max(1, min(50, int(request.args.get('limit', '12'))))
+    except ValueError:
+        limit = 12
+    profile = _safe_profile(request.args.get("profile"))
+    profile_dir = _photo_dir(profile)
+    items = []
+    try:
+        for name in os.listdir(profile_dir):
+            if not name.endswith('.json') or name == 'latest.json':
+                continue
+            path = os.path.join(profile_dir, name)
+            try:
+                with open(path) as f:
+                    items.append(json.load(f))
+            except (OSError, json.JSONDecodeError):
+                continue
+    except FileNotFoundError:
+        pass
+    items.sort(key=lambda m: m.get('uploaded_at') or 0, reverse=True)
+    # New profile (or just emptied) → seed with the curated default so the
+    # gallery isn't a blank slate on first visit.
+    if not items:
+        default = _default_photo_meta()
+        if default:
+            items = [{**default, "profile": profile}]
+    return jsonify(items[:limit])
 
 
 @app.route('/health', methods=['GET'])

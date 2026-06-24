@@ -35,9 +35,17 @@ def get_env_var(var_name, profile=None, default_value=None):
     return default_value
 
 
+PROFILE_FALLBACK = os.environ.get("PROFILE_FALLBACK", "PHOTO_GEMINI")
+
+
 def initialize_constants(profile=None):
     """
     Initialize all constants with profile support and sensible defaults.
+
+    If the requested profile has no APP_ID (i.e. there's no `{PROFILE}_APP_ID`
+    in `.env`), fall back to PROFILE_FALLBACK so ad-hoc profile names (e.g.
+    fresh photo-demo gallery names) inherit working agent config without the
+    operator having to add a matching env block.
 
     Args:
         profile: Optional profile suffix for environment variables
@@ -45,6 +53,10 @@ def initialize_constants(profile=None):
     Returns:
         Dictionary of constants
     """
+    if profile and not get_env_var('APP_ID', profile):
+        print(f"[Profile] '{profile}' has no APP_ID; using fallback profile '{PROFILE_FALLBACK}'", flush=True)
+        profile = PROFILE_FALLBACK
+
     constants = {
         # Store profile name for debugging/logging
         "PROFILE_NAME": profile if profile else "default",
@@ -94,6 +106,9 @@ def initialize_constants(profile=None):
         # ElevenLabs specific defaults
         "ELEVENLABS_MODEL": get_env_var('ELEVENLABS_MODEL', profile, "eleven_flash_v2_5"),
         "ELEVENLABS_STABILITY": get_env_var('ELEVENLABS_STABILITY', profile, "0.5"),
+        # Optional ElevenLabs speech rate (0.7 slow … 1.2 fast). Left
+        # unset by default so the model uses its own default.
+        "ELEVENLABS_SPEED": get_env_var('ELEVENLABS_SPEED', profile),
 
         # OpenAI TTS specific defaults
         "OPENAI_TTS_MODEL": get_env_var('OPENAI_TTS_MODEL', profile, "tts-1"),
@@ -159,6 +174,14 @@ def initialize_constants(profile=None):
         "AVATAR_VENDOR": get_env_var('AVATAR_VENDOR', profile),
         "AVATAR_API_KEY": get_env_var('AVATAR_API_KEY', profile),
         "AVATAR_ID": get_env_var('AVATAR_ID', profile),
+        # Background fill used by the generic (LemonSlice) renderer to
+        # composite the avatar against, e.g. "#006400" so the client
+        # can chroma-key it out for transparency.
+        "AVATAR_BACKGROUND_COLOR": get_env_var('AVATAR_BACKGROUND_COLOR', profile),
+        # Optional aspect ratio hint for the generic renderer (e.g.
+        # "1x1" for a square crop, "16x9" for landscape). When unset,
+        # the renderer uses its default.
+        "AVATAR_ASPECT_RATIO": get_env_var('AVATAR_ASPECT_RATIO', profile),
 
         # HeyGen specific settings (non-credential options)
         "HEYGEN_QUALITY": get_env_var('HEYGEN_QUALITY', profile, "high"),

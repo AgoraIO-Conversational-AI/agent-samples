@@ -537,6 +537,7 @@ class TestCreateAgentPayload:
         assert "tts" not in properties
         assert properties["mllm"]["vendor"] == "xai"
         assert properties["avatar"]["vendor"] == "generic"
-        assert properties["turn_detection"]["config"]["start_of_speech"]["mode"] == "semantic"
-        assert properties["turn_detection"]["config"]["end_of_speech"]["mode"] == "semantic"
-        assert "mode" not in properties["turn_detection"]
+        # Legacy top-level turn_detection is suppressed in MLLM mode; only
+        # mllm.turn_detection is emitted (and it's what the engine actually uses).
+        assert "turn_detection" not in properties
+        assert properties["mllm"]["turn_detection"]["mode"] == "server_vad"
