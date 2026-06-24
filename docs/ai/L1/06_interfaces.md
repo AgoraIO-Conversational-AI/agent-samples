@@ -11,6 +11,23 @@
 | `POST /speak` | push direct TTS text to a running agent |
 | `POST /join-meeting` | authorize and mint meeting credentials |
 | `POST /meeting-participant-event` | notify meeting participant state |
+| `POST /upload-photo` | accept a phone-camera JPEG, run face vision + voice pick + square crop, write to `/uploads/<profile>/<id>.jpg` plus a sidecar JSON. Used by the `/photo` demo. |
+| `GET /photos?profile=<P>&limit=N` | list recent uploads for a photo-demo profile (newest first); falls back to a curated seed if the profile dir is empty. |
+| `GET /photo/<id>?profile=<P>` | one photo's sidecar metadata. |
+| `DELETE /photo/<id>?profile=<P>` | remove an upload (image + sidecar). |
+| `GET /photo-latest?profile=<P>` | shortcut for the most recent upload. |
+| `POST /news/join` | viewer joins a shared-channel `/news` session. First joiner starts the agent + a background reader thread; subsequent joiners reuse. Returns Agora subscriber token (no publish privileges) + `agent_id` + `session_id`. Reads `?channel=` + `?profile=` (default `news-default` / `news`). |
+| `POST /news/heartbeat` | viewer keep-alive; server drops sessions with no heartbeat for 60 s. |
+| `POST /news/leave` | viewer leaves; last-leaver-out tears down the agent + reader. |
+| `GET /news/status` | operator dump: which channels are running, how many viewers, what was last spoken. |
+
+## Generic Avatar / TTS Knobs
+
+| Env (profile-prefixed) | Effect |
+| --- | --- |
+| `AVATAR_BACKGROUND_COLOR` | Hex fill the generic LemonSlice renderer composites the avatar against (e.g. `#006400`). Client can chroma-key it out for transparency. Only added to the wire payload when set. |
+| `AVATAR_ASPECT_RATIO` | Hint passed to LemonSlice (e.g. `1x1` square). Only added when set. |
+| `ELEVENLABS_SPEED` | Speech rate (0.7 slow … 1.2 fast). Only added when set; otherwise the model uses its default. |
 
 ## Common URL Parameters for `/start-agent`
 

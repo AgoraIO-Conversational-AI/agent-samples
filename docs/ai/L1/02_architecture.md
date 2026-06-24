@@ -20,6 +20,8 @@
 - standard AI session
 - human meeting mode with dashboard authorization
 - therapist/wellness profile with Thymia/Shen/custom-LLM integrations
+- **photo-avatar upload pipeline** — phone-camera JPEG → vision (sex/age) → voice pick → square crop → per-profile gallery → talk-to-your-photo via LemonSlice. See `simple-backend/photo/`.
+- **`/news` shared-channel viewer** — one LemonSlice avatar reads rolling news + X commentary to many viewers in the same Agora channel. Speech is pushed exclusively via Agora's `/speak` REST endpoint; viewers never publish a mic track. First viewer to `POST /news/join` spins the agent + a background reader thread; last viewer (or a 60 s no-heartbeat sweep) tears it down. Adopts a still-running agent on `TaskConflict` so a backend restart doesn't kill the channel for connected viewers. See `core/news_channel.py` + `core/news_feed.py`.
 
 ## Related Deep Dives
 

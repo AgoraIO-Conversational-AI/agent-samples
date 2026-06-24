@@ -11,7 +11,7 @@
 | Language | `Python + TypeScript/React + HTML/JS` |
 | Deploy Target | `Local dev, sample apps, optional cloud deployment for backend pieces` |
 | Owner | `Agora ConvoAI` |
-| Last Reviewed | `2026-04-29` |
+| Last Reviewed | `2026-06-24` |
 
 ## L1 — Summaries
 
