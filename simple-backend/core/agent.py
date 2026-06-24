@@ -73,9 +73,15 @@ def build_tts_config(tts_vendor, constants, query_params=None):
             "api_key": constants["TTS_KEY"],
             "model": query_params.get('tts_model', constants["OPENAI_TTS_MODEL"]),
             "voice": query_params.get('voice_id', constants["TTS_VOICE_ID"]),
-            "response_format": "pcm",
             "speed": float(query_params.get('voice_speed', constants["TTS_SPEED"]))
         }
+        # Include response_format unless explicitly disabled
+        if not constants.get("OPENAI_TTS_NO_RESPONSE_FORMAT"):
+            tts_config["params"]["response_format"] = "pcm"
+        # Optional: instructions for gpt-4o-mini-tts style models
+        tts_instructions = query_params.get('tts_instructions') or constants.get("OPENAI_TTS_INSTRUCTIONS")
+        if tts_instructions:
+            tts_config["params"]["instructions"] = tts_instructions
 
     elif tts_vendor == "cartesia":
         tts_config["params"] = {
@@ -152,11 +158,26 @@ def build_asr_config(asr_vendor, constants, query_params=None):
         asr_config["language"] = query_params.get('asr_language', constants["ASR_LANGUAGE"])
 
     elif asr_vendor == "deepgram":
+        model = query_params.get('deepgram_model', constants["DEEPGRAM_MODEL"])
         asr_config["params"] = {
             "key": constants["DEEPGRAM_KEY"],
-            "model": query_params.get('deepgram_model', constants["DEEPGRAM_MODEL"]),
-            "language": query_params.get('deepgram_language', constants["DEEPGRAM_LANGUAGE"])
+            "model": model,
         }
+        # Deepgram Flux models use v2 endpoint and don't take a language param
+        # (language is baked into the model name, e.g. flux-general-en)
+        if "flux" in model.lower():
+            asr_config["params"].update({
+                "url": "wss://api.deepgram.com/v2/listen",
+                "sample_rate": 16000,
+                "encoding": "linear16",
+                "eager_eot_threshold": 0.6,
+                "eot_threshold": 0.8,
+                "eot_timeout_ms": 700
+            })
+        else:
+            asr_config["params"]["language"] = query_params.get(
+                'deepgram_language', constants["DEEPGRAM_LANGUAGE"]
+            )
     else:
         # Default fallback - just set language
         asr_config["language"] = query_params.get('asr_language', constants["ASR_LANGUAGE"])
