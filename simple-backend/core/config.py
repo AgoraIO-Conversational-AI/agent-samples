@@ -130,6 +130,9 @@ def initialize_constants(profile=None):
         "DEEPGRAM_KEY": get_env_var('DEEPGRAM_KEY', profile),
         "DEEPGRAM_MODEL": get_env_var('DEEPGRAM_MODEL', profile, "nova-3"),
         "DEEPGRAM_LANGUAGE": get_env_var('DEEPGRAM_LANGUAGE', profile, "en"),
+        "DEEPGRAM_EAGER_EOT_THRESHOLD": get_env_var('DEEPGRAM_EAGER_EOT_THRESHOLD', profile, "0.6"),
+        "DEEPGRAM_EOT_THRESHOLD": get_env_var('DEEPGRAM_EOT_THRESHOLD', profile, "0.8"),
+        "DEEPGRAM_EOT_TIMEOUT_MS": get_env_var('DEEPGRAM_EOT_TIMEOUT_MS', profile, "700"),
 
         # VAD settings
         "VAD_SILENCE_DURATION_MS": get_env_var('VAD_SILENCE_DURATION_MS', profile, ""),
@@ -146,6 +149,11 @@ def initialize_constants(profile=None):
 
         # Audio scenario
         "ENABLE_AUDIO_CHORUS": get_env_var('ENABLE_AUDIO_CHORUS', profile, "false"),
+
+        # Latency optimization
+        "EAGER_LLM_RESPONSE": get_env_var('EAGER_LLM_RESPONSE', profile, "false"),
+        "EAGER_LLM_TRIGGER": get_env_var('EAGER_LLM_TRIGGER', profile, ""),
+        "EAGER_TTS_RESPONSE": get_env_var('EAGER_TTS_RESPONSE', profile, "false"),
 
         # Debug settings
         "ENABLE_CURL_DUMP": get_env_var('ENABLE_CURL_DUMP', profile, "false"),

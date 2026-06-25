@@ -170,9 +170,9 @@ def build_asr_config(asr_vendor, constants, query_params=None):
                 "url": "wss://api.deepgram.com/v2/listen",
                 "sample_rate": 16000,
                 "encoding": "linear16",
-                "eager_eot_threshold": 0.6,
-                "eot_threshold": 0.8,
-                "eot_timeout_ms": 700
+                "eager_eot_threshold": float(query_params.get('eager_eot_threshold', constants.get("DEEPGRAM_EAGER_EOT_THRESHOLD", "0.6"))),
+                "eot_threshold": float(query_params.get('eot_threshold', constants.get("DEEPGRAM_EOT_THRESHOLD", "0.8"))),
+                "eot_timeout_ms": int(query_params.get('eot_timeout_ms', constants.get("DEEPGRAM_EOT_TIMEOUT_MS", "700")))
             })
         else:
             asr_config["params"]["language"] = query_params.get(
@@ -849,6 +849,15 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
         }
     if enable_audio_chorus:
         parameters["audio_scenario"] = "chorus"
+    eager_llm = query_params.get('eager_llm_response', constants.get("EAGER_LLM_RESPONSE", "false")).lower() == "true"
+    if eager_llm:
+        parameters["eager_llm_response"] = True
+        eager_llm_trigger = query_params.get('eager_llm_trigger', constants.get("EAGER_LLM_TRIGGER", ""))
+        if eager_llm_trigger:
+            parameters["eager_llm_trigger"] = eager_llm_trigger
+    eager_tts = query_params.get('eager_tts_response', constants.get("EAGER_TTS_RESPONSE", "false")).lower() == "true"
+    if eager_tts:
+        parameters["eager_tts_response"] = True
     properties["parameters"] = parameters
 
     # Add avatar configuration if vendor is set
