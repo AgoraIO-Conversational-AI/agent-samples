@@ -1330,6 +1330,196 @@ def photos_list():
     return jsonify(items[:limit])
 
 
+# ── Voice clone (Gradium) ─────────────────────────────────────────────
+# Sidecars live at /uploads/<profile>/voices/<slug>.{json,wav}. Slug is
+# the clone datetime "YYYY-MM-DD-HHMMSS" — human-readable label + naturally
+# sortable filename. Symmetric with the /photos + /photo/<id> shape.
+#
+# POST /clone-voice   accepts multipart audio, calls the vendor's clone
+#                     REST endpoint, writes the sidecar, returns it.
+# GET  /voices        lists newest-first, same shape as /photos.
+# GET  /voice/<slug>  returns one sidecar.
+#
+# Vendor-agnostic on the wire so ElevenLabs / Cartesia support drops in
+# the same shape later.
+
+_VOICE_ALLOWED_MIMES = {
+    "audio/wav", "audio/wave", "audio/x-wav",
+    "audio/mpeg", "audio/mp3",
+    "audio/webm", "audio/ogg",
+}
+_VOICE_MAX_BYTES = 8 * 1024 * 1024  # 8MB — clone samples are seconds long
+
+
+def _voices_dir(profile: str) -> str:
+    return os.path.join(_photo_dir(profile), "voices")
+
+
+def _gradium_clone(audio_bytes: bytes, filename: str, name: str,
+                   api_key: str) -> tuple[str | None, str | None]:
+    """POST to Gradium /api/voices/. Returns (voice_id, note).
+
+    Gradium's create-voice API is multipart with `audio_file` + `name`.
+    Auth is `x-api-key: <key>` — probed against the live API since the
+    docs only give a Python SDK example. Bearer / api-key both 401.
+
+    Response shape: {"uid": "<voice_id>" | null, "error": ..., "was_updated": bool}
+
+    Notable quirk: the API returns an `error` field describing readiness
+    ("Please wait a bit till the voice is ready to be used.") even on
+    successful creation. Treat presence of `uid` as success — the `error`
+    string is a note we surface to the caller so the UX can warn the
+    user to wait a moment before starting the call.
+    """
+    import requests
+    try:
+        r = requests.post(
+            "https://api.gradium.ai/api/voices/",
+            headers={"x-api-key": api_key},
+            files={"audio_file": (filename, audio_bytes)},
+            data={"name": name},
+            timeout=90,
+        )
+    except requests.RequestException as exc:
+        return None, f"network: {exc}"
+    if r.status_code >= 400:
+        return None, f"HTTP {r.status_code}: {r.text[:400]}"
+    try:
+        payload = r.json()
+    except ValueError:
+        return None, f"non-JSON response: {r.text[:400]}"
+    voice_id = payload.get("uid")
+    if not voice_id:
+        return None, payload.get("error") or "no uid in response"
+    # Success — `error` here is an informational note ("wait a bit"),
+    # not a failure, so pass it through as a note for the UI.
+    return voice_id, payload.get("error")
+
+
+@app.route('/clone-voice', methods=['POST'])
+def clone_voice():
+    """Clone a voice via the profile's TTS vendor from an uploaded audio sample.
+
+    Query: profile=<P> (required), vendor=<gradium> (default gradium).
+    Multipart body: `audio` — WAV/MP3/webm/ogg blob, ≤ 8 MB.
+
+    Writes /uploads/<profile>/voices/<slug>.{wav,json} and returns the
+    sidecar JSON. Slug = UTC datetime YYYY-MM-DD-HHMMSS.
+    """
+    profile = _safe_profile(request.args.get("profile"))
+    vendor = (request.args.get("vendor") or "gradium").lower()
+    audio = request.files.get("audio")
+    if audio is None:
+        return jsonify({"error": "missing 'audio' file in multipart form"}), 400
+    mime = (audio.mimetype or "").lower()
+    if mime not in _VOICE_ALLOWED_MIMES:
+        return jsonify({"error": f"unsupported mime: {mime}"}), 415
+    raw = audio.read()
+    if not raw:
+        return jsonify({"error": "empty file"}), 400
+    if len(raw) > _VOICE_MAX_BYTES:
+        return jsonify({"error": f"file too large (> {_VOICE_MAX_BYTES} bytes)"}), 413
+
+    constants = initialize_constants(profile)
+    tts_key = constants.get("TTS_KEY")
+    if not tts_key:
+        return jsonify({"error": f"profile {profile} has no TTS_KEY"}), 400
+
+    # Pick an extension for both the vendor upload and the on-disk copy.
+    ext_by_mime = {
+        "audio/wav": ".wav", "audio/wave": ".wav", "audio/x-wav": ".wav",
+        "audio/mpeg": ".mp3", "audio/mp3": ".mp3",
+        "audio/webm": ".webm", "audio/ogg": ".ogg",
+    }
+    ext = ext_by_mime.get(mime, ".wav")
+
+    # Datetime slug (UTC) — collision on same-second retry gets a "-2" suffix.
+    from datetime import datetime, timezone
+    voices_dir = _voices_dir(profile)
+    os.makedirs(voices_dir, exist_ok=True)
+    now = datetime.now(timezone.utc)
+    base_slug = now.strftime("%Y-%m-%d-%H%M%S")
+    slug = base_slug
+    n = 2
+    while os.path.exists(os.path.join(voices_dir, f"{slug}.json")):
+        slug = f"{base_slug}-{n}"
+        n += 1
+
+    # Vendor-specific clone call. `note` is a non-failure message from
+    # the vendor (e.g. Gradium's "wait a bit till the voice is ready").
+    display_name = f"{profile} {slug}"
+    if vendor == "gradium":
+        voice_id, note = _gradium_clone(raw, f"{slug}{ext}", display_name, tts_key)
+    else:
+        return jsonify({"error": f"unsupported vendor '{vendor}'"}), 400
+    if not voice_id:
+        app.logger.warning("clone failed for %s: %s", profile, note)
+        return jsonify({"error": f"{vendor} clone failed: {note}"}), 502
+
+    # Persist the sample WAV + sidecar
+    sample_path = os.path.join(voices_dir, f"{slug}{ext}")
+    with open(sample_path, "wb") as out:
+        out.write(raw)
+    sidecar = {
+        "id": slug,
+        "voice_id": voice_id,
+        "vendor": vendor,
+        "created_at": int(now.timestamp()),
+        "created_at_iso": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "sample_bytes": len(raw),
+        "sample_mime": mime,
+        "sample_url": f"/photo-uploads/{profile}/voices/{slug}{ext}",
+    }
+    if note:
+        sidecar["note"] = note
+    with open(os.path.join(voices_dir, f"{slug}.json"), "w") as out:
+        json.dump(sidecar, out)
+    return jsonify(sidecar)
+
+
+@app.route('/voices', methods=['GET'])
+def voices_list():
+    """List the N most recent voice clones for ?profile=, newest first."""
+    try:
+        limit = max(1, min(50, int(request.args.get('limit', '12'))))
+    except ValueError:
+        limit = 12
+    profile = _safe_profile(request.args.get("profile"))
+    voices_dir = _voices_dir(profile)
+    items = []
+    try:
+        for name in os.listdir(voices_dir):
+            if not name.endswith('.json'):
+                continue
+            path = os.path.join(voices_dir, name)
+            try:
+                with open(path) as f:
+                    items.append(json.load(f))
+            except (OSError, json.JSONDecodeError):
+                continue
+    except FileNotFoundError:
+        pass
+    items.sort(key=lambda m: m.get('created_at') or 0, reverse=True)
+    return jsonify(items[:limit])
+
+
+@app.route('/voice/<slug>', methods=['GET'])
+def voice_get(slug):
+    """Return one voice sidecar by slug."""
+    profile = _safe_profile(request.args.get("profile"))
+    # Guard against ../ etc.
+    if "/" in slug or "\\" in slug or slug.startswith("."):
+        return jsonify({"error": "bad slug"}), 400
+    path = os.path.join(_voices_dir(profile), f"{slug}.json")
+    try:
+        with open(path) as f:
+            return jsonify(json.load(f))
+    except FileNotFoundError:
+        return jsonify({"error": "not found"}), 404
+    except json.JSONDecodeError:
+        return jsonify({"error": "sidecar corrupt"}), 500
+
+
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint"""
