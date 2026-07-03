@@ -1520,6 +1520,41 @@ def voice_get(slug):
         return jsonify({"error": "sidecar corrupt"}), 500
 
 
+@app.route('/voice/<slug>', methods=['DELETE'])
+def voice_delete(slug):
+    """Remove one clone (sidecar + sample) from ?profile= storage.
+
+    Only the on-disk records are dropped. The cloned voice is NOT deleted
+    from Gradium — their voice registry is billed on retention, but their
+    delete API isn't part of this integration yet.
+    """
+    if "/" in slug or "\\" in slug or slug.startswith("."):
+        abort(400)
+    profile = _safe_profile(request.args.get("profile"))
+    voices_dir = _voices_dir(profile)
+    meta_path = os.path.join(voices_dir, f"{slug}.json")
+    if not os.path.exists(meta_path):
+        abort(404)
+    # Sidecar tells us which sample extension to nuke — we support .wav /
+    # .mp3 / .webm / .ogg. Fall back to a glob if the sidecar is unreadable.
+    sample_paths = []
+    try:
+        with open(meta_path) as f:
+            sidecar = json.load(f)
+        url = sidecar.get("sample_url") or ""
+        ext = os.path.splitext(url)[1] or ".wav"
+        sample_paths.append(os.path.join(voices_dir, f"{slug}{ext}"))
+    except (OSError, json.JSONDecodeError):
+        for ext in (".wav", ".mp3", ".webm", ".ogg"):
+            sample_paths.append(os.path.join(voices_dir, f"{slug}{ext}"))
+    for path in (*sample_paths, meta_path):
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            pass
+    return ('', 204)
+
+
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint"""
