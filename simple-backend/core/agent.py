@@ -95,23 +95,12 @@ def build_tts_config(tts_vendor, constants, query_params=None):
         }
 
     elif tts_vendor == "gradium":
-        # Ride ConvoAI's Cartesia TTS schema (x-api-key auth matches
-        # Gradium) but point at the Gradium WebSocket endpoint with the
-        # Gradium key + voice id.
-        tts_config["vendor"] = "cartesia"
+        # Minimal payload — Gradium is its own vendor in ConvoAI's schema;
+        # only api_key, voice_id and base_url are meaningful.
         tts_config["params"] = {
             "api_key": constants["TTS_KEY"],
-            "model_id": "sonic-2",
+            "voice_id": query_params.get('voice_id', constants["TTS_VOICE_ID"]),
             "base_url": "wss://api.gradium.ai/api/speech/tts",
-            "voice": {
-                "mode": "id",
-                "id": query_params.get('voice_id', constants["TTS_VOICE_ID"]),
-            },
-            "output_format": {
-                "container": "raw",
-                "sample_rate": int(query_params.get('sample_rate', constants.get("TTS_SAMPLE_RATE", "16000"))),
-            },
-            "language": query_params.get('tts_language', "en"),
         }
 
     elif tts_vendor == "rime":
@@ -773,7 +762,11 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
     if enable_sal:
         advanced_features["enable_sal"] = True
     if enable_mllm:
-        advanced_features["enable_mllm"] = True
+        # advanced_features.enable_mllm is documented as deprecated; the
+        # current field is mllm.enable on the MLLM block itself (set in
+        # build_mllm_config). We still set enable_tools=false here to
+        # match the prior behavior of suppressing tool injection while
+        # MLLM is active.
         advanced_features["enable_tools"] = False
     elif mcp_servers:
         advanced_features["enable_tools"] = True
