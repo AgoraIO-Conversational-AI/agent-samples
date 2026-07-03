@@ -1285,19 +1285,14 @@ def photo_delete(photo_id: str):
     return ('', 204)
 
 
-_ALWAYS_SEED_DEFAULT_PROFILES = {"GRADIUMDEMO"}
-
-
 @app.route('/photos', methods=['GET'])
 def photos_list():
     """Return the N most recent uploads within ?profile=, newest first.
 
-    Two default-seed policies:
-    - Every profile: if the profile has NO uploads yet, prepend the
-      curated default so a new gallery isn't blank on first visit.
-    - Profiles in _ALWAYS_SEED_DEFAULT_PROFILES: also append the default
-      even when there are uploads, so it stays available as a
-      one-click "try me" option alongside user photos.
+    The curated default (/uploads/photo_default.jpg) is always appended
+    as a fallback tile so visitors have a one-click "try me" option
+    without having to upload their own photo first. /photos only serves
+    photo-avatar profiles by design, so this policy affects only them.
     """
     try:
         limit = max(1, min(50, int(request.args.get('limit', '12'))))
@@ -1320,19 +1315,18 @@ def photos_list():
         pass
     items.sort(key=lambda m: m.get('uploaded_at') or 0, reverse=True)
 
-    if not items or profile in _ALWAYS_SEED_DEFAULT_PROFILES:
-        default = _default_photo_meta()
-        if default:
-            seed = {**default, "profile": profile}
-            # Skip the seed if a real upload already carries the same
-            # id (shouldn't happen — the curated default lives at
-            # /uploads/photo_default.{jpg,json}, not inside any profile
-            # dir — but this keeps the dedupe honest if someone renames).
-            if not any(m.get("id") == seed.get("id") for m in items):
-                if items:
-                    items.append(seed)  # available as a fallback tile
-                else:
-                    items = [seed]      # new-profile seed
+    default = _default_photo_meta()
+    if default:
+        seed = {**default, "profile": profile}
+        # Skip the seed if a real upload already carries the same id
+        # (shouldn't happen — the curated default lives at
+        # /uploads/photo_default.{jpg,json}, not inside any profile
+        # dir — but this keeps the dedupe honest if someone renames).
+        if not any(m.get("id") == seed.get("id") for m in items):
+            # Reserve a slot for the default so it survives the
+            # limit cut even when real uploads fill the grid.
+            items = items[: max(0, limit - 1)] + [seed]
+            return jsonify(items)
     return jsonify(items[:limit])
 
 
