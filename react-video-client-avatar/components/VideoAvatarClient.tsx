@@ -462,8 +462,9 @@ export function VideoAvatarClient() {
         params.append("profile", DEFAULT_PROFILE);
       }
 
-      // Add agent settings
-      params.append("enable_aivad", enableAivad.toString());
+      // Add agent settings — enable_aivad intentionally omitted so the
+      // profile's ENABLE_AIVAD env decides the end-of-speech mode
+      // (otherwise the URL param always overrides per-profile config).
       params.append("asr_language", language);
 
       // Add prompt and greeting if provided

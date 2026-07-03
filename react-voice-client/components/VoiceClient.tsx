@@ -228,9 +228,12 @@ export function VoiceClient() {
   const handleStart = async () => {
     setIsLoading(true);
     try {
-      // Build query params with agent settings
+      // Build query params with agent settings.
+      // enable_aivad intentionally omitted — the profile's `ENABLE_AIVAD`
+      // env decides the end-of-speech mode now. The toggle in the UI is
+      // kept for backwards compatibility but no longer forces an
+      // override on every call.
       const params = new URLSearchParams({
-        enable_aivad: enableAivad.toString(),
         asr_language: language,
       });
 
