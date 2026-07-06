@@ -361,7 +361,10 @@ def start_agent():
     # Check if we have APP_CERTIFICATE for token generation
     has_certificate = bool(constants["APP_CERTIFICATE"] and constants["APP_CERTIFICATE"].strip())
 
-    user_rtm_uid = str(constants["USER_UID"])
+    # RTM UID includes channel for uniqueness, like agent does — otherwise
+    # concurrent sessions on the same App ID collide on a single "101"
+    # RTM identity and DMs cross-wire between rooms.
+    user_rtm_uid = f"{constants['USER_UID']}-{channel}"
     if has_certificate:
         user_token_data = build_token_with_rtm(channel, constants["USER_UID"], constants, rtm_uid=user_rtm_uid)
         agent_video_token_data = build_token_with_rtm(channel, constants["AGENT_VIDEO_UID"], constants)
@@ -382,7 +385,7 @@ def start_agent():
             "agent": {
                 "uid": constants["AGENT_UID"]
             },
-            "agent_rtm_uid": str(constants["AGENT_UID"]),
+            "agent_rtm_uid": f"{constants['AGENT_UID']}-{channel}",
             "user_rtm_uid": user_rtm_uid,
             "enable_string_uid": False,
             "token_generation_method": "v007 tokens with RTC+RTM services" if has_certificate else "APP_ID only (no APP_CERTIFICATE)",
@@ -492,7 +495,7 @@ def start_agent():
         "agent": {
             "uid": constants["AGENT_UID"]
         },
-        "agent_rtm_uid": str(constants["AGENT_UID"]),
+        "agent_rtm_uid": f"{constants['AGENT_UID']}-{channel}",
         "user_rtm_uid": user_rtm_uid,
         "enable_string_uid": False,
         "agent_response": agent_response,

@@ -487,8 +487,10 @@ def _create_pipeline_payload(channel, pipeline_id, constants, query_params=None,
     """
     query_params = query_params or {}
 
-    # Generate agent token
-    agent_rtm_uid = str(constants["AGENT_UID"])
+    # Generate agent token. RTM UID is scoped per channel so concurrent
+    # sessions on the same App ID don't collide on a single "100" RTM
+    # identity (which would cross-wire DMs between rooms).
+    agent_rtm_uid = f"{constants['AGENT_UID']}-{channel}"
     if constants.get("APP_CERTIFICATE"):
         agent_token_info = build_token_with_rtm(
             channel, constants["AGENT_UID"], constants, rtm_uid=agent_rtm_uid
@@ -740,8 +742,11 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
     # Get avatar settings early to determine remote_rtc_uids and token
     avatar_vendor = constants.get("AVATAR_VENDOR")
 
-    # Generate agent token with RTC UID for channel join and RTM UID for messaging
-    agent_rtm_uid = str(constants["AGENT_UID"])
+    # Generate agent token with RTC UID for channel join and RTM UID for
+    # messaging. Suffix the RTM UID with the channel so concurrent sessions
+    # don't share a single "100" RTM identity (see comment in
+    # create_agent_payload above — same rationale).
+    agent_rtm_uid = f"{constants['AGENT_UID']}-{channel}"
     if constants.get("APP_CERTIFICATE"):
         agent_token_info = build_token_with_rtm(
             channel, constants["AGENT_UID"], constants, rtm_uid=agent_rtm_uid
@@ -776,7 +781,7 @@ def create_agent_payload(channel, constants, query_params=None, agent_video_toke
         ("channel", channel),
         ("token", agent_channel_token),
         ("agent_rtc_uid", constants["AGENT_UID"]),
-        ("agent_rtm_uid", str(constants["AGENT_UID"])),
+        ("agent_rtm_uid", agent_rtm_uid),
         ("remote_rtc_uids", remote_rtc_uids),
         ("advanced_features", advanced_features),
         ("enable_string_uid", False),
