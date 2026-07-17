@@ -1260,10 +1260,21 @@ def photo_latest():
 
 @app.route('/photo/<photo_id>', methods=['GET'])
 def photo_get(photo_id: str):
-    """Return metadata for one specific upload within ?profile=."""
+    """Return metadata for one specific upload within ?profile=.
+
+    Special-case: photo_id == 'default' resolves to the curated seed at
+    /uploads/photo_default.{jpg,json}. /photos always surfaces the seed
+    as a "default" tile so users have a one-click "try me"; without
+    this fallback, clicking that tile 404's on the singular endpoint.
+    """
     if not photo_id.isalnum() or len(photo_id) > 64:
         abort(400)
     profile = _safe_profile(request.args.get("profile"))
+    if photo_id == "default":
+        seed = _default_photo_meta()
+        if seed is None:
+            abort(404)
+        return jsonify({**seed, "profile": profile})
     data = _photo_payload(photo_id, profile)
     if data is None:
         abort(404)
